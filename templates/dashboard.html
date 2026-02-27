@@ -68,16 +68,30 @@
   {% endfor %}
 </div>
 
-<div class="grid gap-4" style="grid-template-columns:1fr 1fr">
+<div class="grid gap-4 mb-4" style="grid-template-columns:1fr 1fr">
   <!-- Shopping list table -->
-  <div class="card p-4">
+  <div class="card p-4" style="overflow:auto">
     <h2 class="font-bold text-indigo-300 mb-3">🛒 Shopping List</h2>
     <table>
       <thead><tr><th>Type</th><th>Item</th><th class="text-right">Qty</th><th class="text-right">Min €</th><th class="text-right">Max €</th></tr></thead>
       <tbody>
         {% for r in result.shopping_list %}
         <tr>
-          <td><span class="text-xs px-2 rounded" style="background:#2d2d44">{{ r.type }}</span></td>
+          <td>
+            {% if r.type == 'spirit' %}
+              <span class="type-badge type-spirit">{{ r.type }}</span>
+            {% elif r.type == 'beer' %}
+              <span class="type-badge type-beer">{{ r.type }}</span>
+            {% elif r.type == 'wine' %}
+              <span class="type-badge type-wine">{{ r.type }}</span>
+            {% elif r.type == 'mixer' %}
+              <span class="type-badge type-mixer">{{ r.type }}</span>
+            {% elif r.type == 'snack' %}
+              <span class="type-badge type-snack">{{ r.type }}</span>
+            {% else %}
+              <span class="type-badge type-extra">{{ r.type }}</span>
+            {% endif %}
+          </td>
           <td>{{ r.name }}</td>
           <td class="text-right">{{ r.quantity }} {{ r.unit }}</td>
           <td class="text-right text-green-400">{{ "%.2f"|format(r.cost_min) }}</td>
@@ -95,10 +109,12 @@
     </table>
   </div>
 
-  <!-- Doughnut chart -->
-  <div class="card p-4">
+  <!-- Doughnut chart — fixed height container -->
+  <div class="card p-4" style="display:flex;flex-direction:column;">
     <h2 class="font-bold text-indigo-300 mb-3">📊 Cost Breakdown</h2>
-    <canvas id="chartDoughnut" height="260"></canvas>
+    <div style="position:relative;flex:1;min-height:0;height:280px;">
+      <canvas id="chartDoughnut" style="position:absolute;inset:0;width:100%!important;height:100%!important;"></canvas>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -131,21 +147,37 @@ const byType = {};
 {% endfor %}
 byType["Fixed costs"] = {{ result.fixed_costs }};
 
+// Use the same differentiated palette as type badges
+const TYPE_COLORS = {
+  spirit:       "#f97316",   // amber-orange
+  beer:         "#facc15",   // yellow
+  wine:         "#c084fc",   // purple
+  mixer:        "#22d3ee",   // cyan
+  snack:        "#86efac",   // light green
+  extra:        "#94a3b8",   // slate
+  "Fixed costs":"#ef4444",   // red
+};
+
+const labels = Object.keys(byType);
+const bgColors = labels.map(l => TYPE_COLORS[l] || "#6366f1");
+
 new Chart(document.getElementById("chartDoughnut"), {
   type: "doughnut",
   data: {
-    labels:   Object.keys(byType),
+    labels,
     datasets: [{
       data: Object.values(byType),
       borderWidth: 2,
       borderColor: "#0f0f1a",
-      backgroundColor: ["#6366f1","#22c55e","#f59e0b","#ef4444","#06b6d4","#a855f7","#ec4899","#14b8a6","#f97316"]
+      backgroundColor: bgColors,
     }]
   },
   options: {
-    plugins: { legend: { labels: { color:"#e2e8f0", font:{size:12} } } },
+    plugins: {
+      legend: { labels: { color:"#e2e8f0", font:{size:12} } }
+    },
     responsive: true,
-    maintainAspectRatio: false
+    maintainAspectRatio: false,
   }
 });
 {% endif %}

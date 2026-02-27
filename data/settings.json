@@ -25,9 +25,6 @@
       "macro_pct": 0.2,
       "spirits": {
         "Beer 66cl": {
-          "drinks": {
-            "Beer": 1
-          },
           "pct": 1
         }
       }
@@ -56,8 +53,7 @@
         },
         "Rum 70cl": {
           "drinks": {
-            "Cuba Libre": 1,
-            "Gin Tonic": 0
+            "Cuba Libre": 1
           },
           "pct": 0.1
         },
@@ -74,17 +70,11 @@
     "Wine": {
       "macro_pct": 0.2,
       "spirits": {
-        "Aperol 70cl": {
-          "drinks": {
-            "Spritz": 1
-          },
-          "pct": 0.3
-        },
         "Red Wine 75cl": {
-          "drinks": {
-            "Red Wine Glass": 1
-          },
           "pct": 0.7
+        },
+        "White Wine 75cl": {
+          "pct": 0.3
         }
       }
     }

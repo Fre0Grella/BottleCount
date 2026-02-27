@@ -36,8 +36,8 @@ def catalog_page():
 @app.route("/api/settings", methods=["POST"])
 def api_settings():
     s = get_settings()
-    for key in ["guests","ticket_price","venue_cost","equipment_cost",
-                "alcohol_ml_per_person","buffer"]:
+    for key in ["guests", "ticket_price", "venue_cost", "equipment_cost",
+                "alcohol_ml_per_person", "buffer"]:
         if key in request.json:
             s[key] = request.json[key]
     save_settings(s)
@@ -49,9 +49,12 @@ def api_settings():
 def api_menu():
     s = get_settings()
     s["menu"] = request.json["menu"]
-    errors = validate_menu(s["menu"])
-    if errors:
-        return jsonify({"ok": False, "errors": errors}), 400
+    # structural=True  -> skip validation (adding/removing spirits or drinks)
+    # structural=False -> validate sums (explicit Save Menu button only)
+    if not request.json.get("structural", False):
+        errors = validate_menu(s["menu"])
+        if errors:
+            return jsonify({"ok": False, "errors": errors}), 400
     save_settings(s)
     return jsonify({"ok": True})
 
@@ -84,6 +87,22 @@ def add_ingredient():
         "price_min": float(data.get("price_min", 0)),
         "price_max": float(data.get("price_max", 0)),
     }
+    save_catalog(catalog)
+    return jsonify({"ok": True})
+
+@app.route("/api/catalog/ingredient/price", methods=["POST"])
+def update_ingredient_price():
+    catalog = get_catalog()
+    data    = request.json
+    name    = data.get("name", "").strip()
+    if not name or name not in catalog["ingredients"]:
+        return jsonify({"ok": False, "error": "Ingredient not found"}), 404
+    price_min = float(data.get("price_min", 0))
+    price_max = float(data.get("price_max", 0))
+    if price_min > price_max:
+        return jsonify({"ok": False, "error": "Min price cannot exceed max price"}), 400
+    catalog["ingredients"][name]["price_min"] = price_min
+    catalog["ingredients"][name]["price_max"] = price_max
     save_catalog(catalog)
     return jsonify({"ok": True})
 
@@ -127,19 +146,19 @@ def export_txt():
     r = calculate(s, c)
     lines = [
         "=" * 62,
-        f"  PARTY BUDGET — {s['guests']} GUESTS",
+        f"  PARTY BUDGET - {s['guests']} GUESTS",
         "=" * 62,
-        f"  Ticket price : €{s['ticket_price']}",
-        f"  Venue cost   : €{s['venue_cost']}",
-        f"  Equipment    : €{s['equipment_cost']}",
-        f"  Revenue      : €{r['revenue']}",
-        f"  Profit       : €{r['profit_min']} – €{r['profit_max']}",
+        f"  Ticket price : E{s['ticket_price']}",
+        f"  Venue cost   : E{s['venue_cost']}",
+        f"  Equipment    : E{s['equipment_cost']}",
+        f"  Revenue      : E{r['revenue']}",
+        f"  Profit       : E{r['profit_min']} - E{r['profit_max']}",
         f"  Break-even   : {r['break_even']} guests",
         "",
         "=" * 62,
         "  SHOPPING LIST",
         "=" * 62,
-        f"  {'Type':<8} {'Item':<26} {'Qty':>5} {'Unit':<6} {'Min €':>7} {'Max €':>7}",
+        f"  {'Type':<8} {'Item':<26} {'Qty':>5} {'Unit':<6} {'Min E':>7} {'Max E':>7}",
         "  " + "-" * 60,
     ]
     for item in r["shopping_list"]:
@@ -149,14 +168,15 @@ def export_txt():
         )
     lines += [
         "  " + "-" * 60,
-        f"  TOTAL SPEND  : €{r['total_min']} – €{r['total_max']}",
-        f"  TOTAL (incl. fixed costs): €{r['total_min']+r['fixed_costs']} – €{r['total_max']+r['fixed_costs']}",
+        f"  TOTAL SPEND  : E{r['total_min']} - E{r['total_max']}",
+        f"  TOTAL (incl. fixed): E{r['total_min'] + r['fixed_costs']} - E{r['total_max'] + r['fixed_costs']}",
         f"\n  Generated on {datetime.now().strftime('%d/%m/%Y %H:%M')}",
     ]
     buf = io.BytesIO("\n".join(lines).encode("utf-8"))
     buf.seek(0)
     filename = f"shopping_list_{datetime.now().strftime('%Y%m%d')}.txt"
     return send_file(buf, as_attachment=True, download_name=filename, mimetype="text/plain")
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

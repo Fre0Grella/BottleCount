@@ -2,6 +2,11 @@
 core.py — Pure calculation logic. No UI, no DB dependencies.
 Input:  settings (dict) + catalog (dict)
 Output: shopping list with quantities and costs
+
+Category types:
+  "Spirits" → 3-level: category → spirit → cocktail drinks
+  "Beer"    → 2-level: category → ingredient (served as-is, no cocktail needed)
+  "Wine"    → 2-level: category → ingredient (served as-is, no cocktail needed)
 """
 import math
 
@@ -11,6 +16,10 @@ ALCOHOL_LEVELS = {
     75:  "🎉 Party",
     100: "🔥 Hardcore"
 }
+
+# Categories that are served as-is, without a cocktail recipe layer
+SIMPLE_CATEGORIES = {"Beer", "Wine"}
+
 
 def calculate(settings, catalog):
     n             = settings["guests"]
@@ -22,45 +31,63 @@ def calculate(settings, catalog):
 
     total_alcohol = n * alcohol_ml  # ml of pure alcohol total
 
-    # volume_total[ingredient_name] = ml (or kg for ice/extras)
-    volume_total = {}
+    volume_total = {}  # ingredient_name → total ml (or kg)
 
     for category, cat_data in menu.items():
-        macro_pct    = cat_data["macro_pct"]
-        cat_alcohol  = total_alcohol * macro_pct
+        macro_pct   = cat_data["macro_pct"]
+        cat_alcohol = total_alcohol * macro_pct
 
-        for spirit_name, spirit_data in cat_data["spirits"].items():
-            spirit_pct    = spirit_data["pct"]
-            spirit_alcohol = cat_alcohol * spirit_pct
+        if category in SIMPLE_CATEGORIES:
+            # ── Simple category: each spirit IS the drink ──────────────
+            for ing_name, spirit_data in cat_data["spirits"].items():
+                spirit_pct     = spirit_data["pct"]
+                spirit_alcohol = cat_alcohol * spirit_pct
 
-            ing = ingredients.get(spirit_name)
-            if not ing:
-                continue
-            abv = ing.get("abv", 0)
-
-            for drink_name, drink_pct in spirit_data["drinks"].items():
-                drink_alcohol = spirit_alcohol * drink_pct
-
-                ck = cocktails.get(drink_name)
-                if not ck:
+                ing = ingredients.get(ing_name)
+                if not ing:
+                    continue
+                abv = ing.get("abv", 0)
+                if abv <= 0:
                     continue
 
-                main_spirit  = ck["main_spirit"]
-                recipe       = ck["recipe"]
+                # volume of this ingredient needed = pure_alcohol / ABV
+                vol_ml = spirit_alcohol / abv
+                volume_total[ing_name] = volume_total.get(ing_name, 0) + vol_ml
 
-                spirit_recipe = recipe.get(main_spirit, {})
-                ml_per_serve  = spirit_recipe.get("quantity", 0)
-                spirit_abv    = ingredients.get(main_spirit, {}).get("abv", abv)
+        else:
+            # ── Spirits category: 3-level with cocktail recipes ────────
+            for spirit_name, spirit_data in cat_data["spirits"].items():
+                spirit_pct    = spirit_data["pct"]
+                spirit_alcohol = cat_alcohol * spirit_pct
 
-                alcohol_per_serve = ml_per_serve * spirit_abv
-                if alcohol_per_serve <= 0:
+                ing = ingredients.get(spirit_name)
+                if not ing:
                     continue
+                abv = ing.get("abv", 0)
 
-                servings = drink_alcohol / alcohol_per_serve
+                for drink_name, drink_pct in spirit_data.get("drinks", {}).items():
+                    drink_alcohol = spirit_alcohol * drink_pct
 
-                for ing_name, ing_recipe in recipe.items():
-                    qty = ing_recipe["quantity"] * servings
-                    volume_total[ing_name] = volume_total.get(ing_name, 0) + qty
+                    ck = cocktails.get(drink_name)
+                    if not ck:
+                        continue
+
+                    main_spirit   = ck["main_spirit"]
+                    recipe        = ck["recipe"]
+
+                    spirit_recipe     = recipe.get(main_spirit, {})
+                    ml_per_serve      = spirit_recipe.get("quantity", 0)
+                    spirit_abv        = ingredients.get(main_spirit, {}).get("abv", abv)
+
+                    alcohol_per_serve = ml_per_serve * spirit_abv
+                    if alcohol_per_serve <= 0:
+                        continue
+
+                    servings = drink_alcohol / alcohol_per_serve
+
+                    for ing_name, ing_recipe in recipe.items():
+                        qty = ing_recipe["quantity"] * servings
+                        volume_total[ing_name] = volume_total.get(ing_name, 0) + qty
 
     # Fixed per-person items (snacks, cups, etc.)
     extras = settings.get("extras", {})
@@ -81,8 +108,8 @@ def calculate(settings, catalog):
         unit      = ing.get("unit", "pcs")
 
         if bottle_ml and bottle_ml > 0:
-            quantity      = math.ceil((vol_total * buffer) / bottle_ml)
-            display_unit  = "btl." if bottle_ml >= 250 else "can"
+            quantity     = math.ceil((vol_total * buffer) / bottle_ml)
+            display_unit = "btl." if bottle_ml >= 250 else "can"
         else:
             quantity     = math.ceil(vol_total * buffer)
             display_unit = unit
@@ -91,12 +118,12 @@ def calculate(settings, catalog):
         cost_max = round(quantity * ing["price_max"], 2)
 
         shopping_list.append({
-            "name":      ing_name,
-            "type":      item_type,
-            "quantity":  quantity,
-            "unit":      display_unit,
-            "cost_min":  cost_min,
-            "cost_max":  cost_max,
+            "name":     ing_name,
+            "type":     item_type,
+            "quantity": quantity,
+            "unit":     display_unit,
+            "cost_min": cost_min,
+            "cost_max": cost_max,
         })
 
     shopping_list.sort(key=lambda x: (x["type"], x["name"]))
@@ -108,9 +135,9 @@ def calculate(settings, catalog):
     profit_min  = revenue - total_max - fixed_costs
     profit_max  = revenue - total_min - fixed_costs
 
-    avg_var_cost  = (total_min + total_max) / 2 / n if n > 0 else 0
-    margin        = settings["ticket_price"] - avg_var_cost
-    break_even    = math.ceil(fixed_costs / margin) if margin > 0 else None
+    avg_var_cost = (total_min + total_max) / 2 / n if n > 0 else 0
+    margin       = settings["ticket_price"] - avg_var_cost
+    break_even   = math.ceil(fixed_costs / margin) if margin > 0 else None
 
     return {
         "shopping_list": shopping_list,
@@ -126,7 +153,9 @@ def calculate(settings, catalog):
 
 def validate_menu(menu):
     """
-    Returns a list of validation errors for the 3-level percentage tree.
+    Returns a list of validation errors for the percentage tree.
+    Beer/Wine: validate macro + spirit sums only (no drinks level).
+    Spirits:   validate all three levels.
     Empty list = all good.
     """
     errors = []
@@ -140,9 +169,13 @@ def validate_menu(menu):
         if abs(spirits_sum - 1.0) > 0.01:
             errors.append(f"[{cat}] Spirits sum = {spirits_sum*100:.1f}% (must be 100%)")
 
-        for spirit, spirit_data in spirits.items():
-            drinks_sum = sum(spirit_data["drinks"].values())
-            if abs(drinks_sum - 1.0) > 0.01:
-                errors.append(f"[{cat} → {spirit}] Drinks sum = {drinks_sum*100:.1f}% (must be 100%)")
+        if cat not in SIMPLE_CATEGORIES:
+            # Only Spirits categories need drink-level validation
+            for spirit, spirit_data in spirits.items():
+                drinks_sum = sum(spirit_data.get("drinks", {}).values())
+                if abs(drinks_sum - 1.0) > 0.01:
+                    errors.append(
+                        f"[{cat} → {spirit}] Drinks sum = {drinks_sum*100:.1f}% (must be 100%)"
+                    )
 
     return errors

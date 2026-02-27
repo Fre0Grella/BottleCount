@@ -11,6 +11,13 @@
 </div>
 {% endif %}
 
+<!-- Catalog data for JS -->
+<script>
+const CATALOG_COCKTAILS    = {{ catalog.cocktails | tojson }};
+const CATALOG_INGREDIENTS  = {{ catalog.ingredients | tojson }};
+const SIMPLE_CATEGORIES    = ["Beer", "Wine"];
+</script>
+
 <!-- LEVEL 1: macro categories -->
 <div class="card p-4 mb-4">
   <h2 class="font-bold text-indigo-300 mb-3">Level 1 — Category split</h2>
@@ -33,21 +40,67 @@
   </div>
 </div>
 
-<!-- LEVELS 2 + 3: spirits and drinks per category -->
+<!-- Per-category config -->
 {% for category, cat_data in settings.menu.items() %}
 <div class="card p-4 mb-4">
-  <h2 class="font-bold text-indigo-300 mb-3">
-    {{ category }}
-    <span class="text-sm text-slate-400 font-normal ml-2">
+  <h2 class="font-bold mb-3 flex items-center gap-2">
+    {% if category == 'Spirits' %}
+      <span class="type-badge type-spirit">{{ category }}</span>
+    {% elif category == 'Beer' %}
+      <span class="type-badge type-beer">{{ category }}</span>
+    {% elif category == 'Wine' %}
+      <span class="type-badge type-wine">{{ category }}</span>
+    {% else %}
+      <span class="text-indigo-300">{{ category }}</span>
+    {% endif %}
+    <span class="text-sm text-slate-400 font-normal">
       ({{ (cat_data.macro_pct * 100)|round(0)|int }}% of total alcohol)
     </span>
   </h2>
 
+  {% if category in ['Beer', 'Wine'] %}
+  <!-- ── SIMPLE CATEGORY: just ingredient + % ──────────────── -->
+  <p class="text-xs text-slate-500 mb-3">Served as-is — set the share of each variety.</p>
+  <div class="space-y-2">
+    {% for ing_name, spirit_data in cat_data.spirits.items() %}
+    <div class="p-3 rounded-lg flex items-center gap-3 flex-wrap"
+         style="background:#252538;border:1px solid #3d3d5c">
+      <strong class="text-indigo-200" style="min-width:160px">{{ ing_name }}</strong>
+      <input type="number"
+             id="pct_spirit_{{ category }}_{{ ing_name|replace(' ','_') }}"
+             value="{{ (spirit_data.pct * 100)|round(1) }}"
+             style="width:65px" min="0" max="100" step="1"
+             oninput="checkSum('spirits_{{ category }}')">
+      <span class="text-slate-400">% of {{ category }}</span>
+      <button class="btn-danger text-xs ml-auto"
+        onclick="removeSpirit('{{ category }}','{{ ing_name }}')">✖ Remove</button>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="text-sm mt-3">
+    Total: <span id="sum_spirits_{{ category }}" class="font-bold">
+      {{ (cat_data.spirits.values()|map(attribute='pct')|sum * 100)|round(1) }}%
+    </span>
+  </div>
+
+  <!-- Add ingredient to simple category -->
+  <div class="mt-3 flex gap-2 flex-wrap items-center">
+    <select id="sel_spirit_{{ category }}" style="width:220px">
+      {% for ing_name, ing in catalog.ingredients.items() %}
+        {% if (category == 'Beer' and ing.type == 'beer') or (category == 'Wine' and ing.type == 'wine') %}
+          <option value="{{ ing_name }}">{{ ing_name }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary text-xs" onclick="addSpirit('{{ category }}')">+ Add</button>
+  </div>
+
+  {% else %}
+  <!-- ── SPIRITS CATEGORY: 3-level with cocktail drinks ──────── -->
   <div class="space-y-4">
     {% for spirit_name, spirit_data in cat_data.spirits.items() %}
     <div class="p-3 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
-
-      <!-- Level 2: spirit percentage -->
       <div class="flex items-center gap-3 mb-2 flex-wrap">
         <strong class="text-indigo-200">{{ spirit_name }}</strong>
         <div class="flex items-center gap-1">
@@ -62,7 +115,7 @@
           onclick="removeSpirit('{{ category }}','{{ spirit_name }}')">✖ Remove</button>
       </div>
 
-      <!-- Level 3: drink percentages -->
+      <!-- Drink percentages -->
       <div class="ml-4 space-y-1">
         {% for drink_name, drink_pct in spirit_data.drinks.items() %}
         <div class="flex items-center gap-2">
@@ -85,11 +138,11 @@
         </div>
       </div>
 
-      <!-- Add drink to this spirit -->
+      <!-- Add drink — only cocktails whose main_spirit matches -->
       <div class="ml-4 mt-2 flex gap-2 flex-wrap items-center">
-        <select id="sel_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}" style="width:190px">
+        <select id="sel_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}" style="width:200px">
           {% for ck_name, ck in catalog.cocktails.items() %}
-            {% if ck.category == category %}
+            {% if ck.main_spirit == spirit_name %}
             <option value="{{ ck_name }}">{{ ck_name }}</option>
             {% endif %}
           {% endfor %}
@@ -97,11 +150,11 @@
         <button class="btn btn-primary text-xs"
           onclick="addDrink('{{ category }}','{{ spirit_name }}')">+ Add drink</button>
       </div>
+      <p class="ml-4 text-xs text-slate-500 mt-1">Only cocktails based on <em>{{ spirit_name }}</em>.</p>
     </div>
     {% endfor %}
   </div>
 
-  <!-- Spirit sum for this category -->
   <div class="text-sm mt-3">
     Spirits total for {{ category }}:
     <span id="sum_spirits_{{ category }}" class="font-bold">
@@ -109,18 +162,18 @@
     </span>
   </div>
 
-  <!-- Add spirit to this category -->
+  <!-- Add spirit to Spirits category -->
   <div class="mt-3 flex gap-2 flex-wrap items-center">
-    <select id="sel_spirit_{{ category }}" style="width:190px">
+    <select id="sel_spirit_{{ category }}" style="width:220px">
       {% for ing_name, ing in catalog.ingredients.items() %}
-        {% if ing.type in ['spirit','beer','wine'] %}
-        <option value="{{ ing_name }}">{{ ing_name }}</option>
+        {% if ing.type == 'spirit' %}
+          <option value="{{ ing_name }}">{{ ing_name }}</option>
         {% endif %}
       {% endfor %}
     </select>
-    <button class="btn btn-primary text-xs"
-      onclick="addSpirit('{{ category }}')">+ Add spirit</button>
+    <button class="btn btn-primary text-xs" onclick="addSpirit('{{ category }}')">+ Add spirit</button>
   </div>
+  {% endif %}
 </div>
 {% endfor %}
 {% endblock %}
@@ -133,49 +186,59 @@ function checkSum(scope) {
   if (scope === 'macro') {
     let s = 0;
     Object.keys(menu).forEach(cat => {
-      s += parseFloat(document.getElementById('macro_' + cat)?.value || 0);
+      const el = document.getElementById('macro_' + cat);
+      if (el) s += parseFloat(el.value || 0);
     });
     const el = document.getElementById('sum_macro');
-    el.textContent = s.toFixed(1) + '%';
-    el.className = 'font-bold ' + (Math.abs(s - 100) < 0.5 ? 'ok' : 'err');
+    if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
 
   } else if (scope.startsWith('spirits_')) {
     const cat = scope.replace('spirits_', '');
     let s = 0;
     Object.keys(menu[cat]?.spirits || {}).forEach(sp => {
-      s += parseFloat(document.getElementById('pct_spirit_' + cat + '_' + sp.replace(/ /g,'_'))?.value || 0);
+      const el = document.getElementById('pct_spirit_' + cat + '_' + sp.replace(/ /g,'_'));
+      if (el) s += parseFloat(el.value || 0);
     });
     const el = document.getElementById('sum_spirits_' + cat);
     if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
 
   } else if (scope.startsWith('drinks_')) {
-    const rest   = scope.replace('drinks_', '');
-    const cat    = Object.keys(menu).find(c => rest.startsWith(c));
-    const sp_key = rest.replace(cat + '_', '');
+    const rest    = scope.replace('drinks_', '');
+    const cat     = Object.keys(menu).find(c => rest.startsWith(c));
+    if (!cat) return;
+    const sp_key  = rest.replace(cat + '_', '');
     const sp_name = Object.keys(menu[cat]?.spirits || {}).find(s => s.replace(/ /g,'_') === sp_key);
     if (!sp_name) return;
     let s = 0;
     Object.keys(menu[cat].spirits[sp_name].drinks || {}).forEach(dk => {
       const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_');
-      s += parseFloat(document.getElementById(id)?.value || 0);
+      const el = document.getElementById(id);
+      if (el) s += parseFloat(el.value || 0);
     });
-    const el = document.getElementById('sum_drinks_' + cat + '_' + sp_key);
-    if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
+    const sumEl = document.getElementById('sum_drinks_' + cat + '_' + sp_key);
+    if (sumEl) { sumEl.textContent = s.toFixed(1) + '%'; sumEl.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
   }
 }
 
 function readMenu() {
   const m = JSON.parse(JSON.stringify(menu));
   Object.keys(m).forEach(cat => {
-    m[cat].macro_pct = parseFloat(document.getElementById('macro_' + cat)?.value || 0) / 100;
+    const macroEl = document.getElementById('macro_' + cat);
+    if (macroEl) m[cat].macro_pct = parseFloat(macroEl.value || 0) / 100;
+
     Object.keys(m[cat].spirits).forEach(sp => {
-      const sp_key = sp.replace(/ /g,'_');
-      m[cat].spirits[sp].pct = parseFloat(document.getElementById('pct_spirit_' + cat + '_' + sp_key)?.value || 0) / 100;
-      Object.keys(m[cat].spirits[sp].drinks).forEach(dk => {
-        const dk_key = dk.replace(/ /g,'_');
-        const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk_key;
-        m[cat].spirits[sp].drinks[dk] = parseFloat(document.getElementById(id)?.value || 0) / 100;
-      });
+      const sp_key   = sp.replace(/ /g,'_');
+      const spiritEl = document.getElementById('pct_spirit_' + cat + '_' + sp_key);
+      if (spiritEl) m[cat].spirits[sp].pct = parseFloat(spiritEl.value || 0) / 100;
+
+      // Only read drink inputs for Spirits (non-simple) categories
+      if (!SIMPLE_CATEGORIES.includes(cat)) {
+        Object.keys(m[cat].spirits[sp].drinks || {}).forEach(dk => {
+          const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_');
+          const el = document.getElementById(id);
+          if (el) m[cat].spirits[sp].drinks[dk] = parseFloat(el.value || 0) / 100;
+        });
+      }
     });
   });
   return m;
@@ -189,38 +252,64 @@ async function saveMenu() {
 }
 
 async function addDrink(cat, spirit) {
-  const sel = document.getElementById('sel_drink_' + cat + '_' + spirit.replace(/ /g,'_'));
-  const dk  = sel.value;
-  if (!dk || menu[cat].spirits[spirit].drinks[dk] !== undefined) return;
+  const selId = 'sel_drink_' + cat + '_' + spirit.replace(/ /g,'_');
+  const sel   = document.getElementById(selId);
+  if (!sel || !sel.value) { alert('No compatible cocktails found for ' + spirit); return; }
+  const dk = sel.value;
+
+  const ck = CATALOG_COCKTAILS[dk];
+  if (!ck) { alert('Cocktail not found in catalog'); return; }
+  if (ck.main_spirit !== spirit) {
+    alert(`"${dk}" is based on "${ck.main_spirit}", not "${spirit}".`);
+    return;
+  }
+  if (menu[cat].spirits[spirit].drinks[dk] !== undefined) {
+    alert(dk + ' is already in the list'); return;
+  }
+
   const m = readMenu();
   m[cat].spirits[spirit].drinks[dk] = 0;
-  await apiPost('/api/menu', {menu: m});
-  location.reload();
+  const r = await apiPost('/api/menu', {menu: m, structural: true});
+  if (r.ok) location.reload();
+  else alert('❌ ' + (r.errors || [r.error || 'Unknown error']).join('\n'));
 }
 
 async function removeDrink(cat, spirit, drink) {
   const m = readMenu();
   delete m[cat].spirits[spirit].drinks[drink];
-  await apiPost('/api/menu', {menu: m});
-  location.reload();
+  const r = await apiPost('/api/menu', {menu: m, structural: true});
+  if (r.ok) location.reload();
+  else alert('❌ Save failed');
 }
 
 async function addSpirit(cat) {
   const sel = document.getElementById('sel_spirit_' + cat);
-  const sp  = sel.value;
-  if (!sp || menu[cat].spirits[sp]) return;
+  if (!sel || !sel.value) { alert('No ingredient selected'); return; }
+  const sp = sel.value;
+  if (menu[cat]?.spirits?.[sp] !== undefined) { alert(sp + ' is already here'); return; }
+
   const m = readMenu();
-  m[cat].spirits[sp] = {pct: 0, drinks: {}};
-  await apiPost('/api/menu', {menu: m});
-  location.reload();
+  if (!m[cat]) { alert('Category not found: ' + cat); return; }
+
+  if (SIMPLE_CATEGORIES.includes(cat)) {
+    // Beer/Wine: no drinks sublevel
+    m[cat].spirits[sp] = { pct: 0 };
+  } else {
+    m[cat].spirits[sp] = { pct: 0, drinks: {} };
+  }
+
+  const r = await apiPost('/api/menu', {menu: m, structural: true});
+  if (r.ok) location.reload();
+  else alert('❌ ' + (r.errors || [r.error || 'Unknown error']).join('\n'));
 }
 
 async function removeSpirit(cat, spirit) {
   if (!confirm('Remove ' + spirit + ' from ' + cat + '?')) return;
   const m = readMenu();
   delete m[cat].spirits[spirit];
-  await apiPost('/api/menu', {menu: m});
-  location.reload();
+  const r = await apiPost('/api/menu', {menu: m, structural: true});
+  if (r.ok) location.reload();
+  else alert('❌ Save failed');
 }
 </script>
 {% endblock %}

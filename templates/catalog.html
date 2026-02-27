@@ -9,7 +9,7 @@
     <button class="btn btn-primary text-sm" onclick="toggle('form_ing')">+ Add ingredient</button>
   </div>
 
-  <div id="form_ing" style="display:none" class="p-3 mb-4 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
+  <div id="form_ing" style="display:none;background:#252538;border:1px solid #3d3d5c;border-radius:8px;padding:12px;margin-bottom:16px;">
     <div class="grid gap-3 mb-3" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
       <div><label class="text-xs text-slate-400">Name</label><input type="text" id="ing_name" placeholder="e.g. Rum 70cl"></div>
       <div><label class="text-xs text-slate-400">Type</label>
@@ -29,17 +29,56 @@
   </div>
 
   <table>
-    <thead><tr><th>Name</th><th>Type</th><th>ABV</th><th>Volume</th><th>Min €</th><th>Max €</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th>Name</th><th>Type</th><th>ABV</th><th>Volume</th>
+        <th>Min € <span class="text-indigo-400 text-xs font-normal">(editable)</span></th>
+        <th>Max € <span class="text-indigo-400 text-xs font-normal">(editable)</span></th>
+        <th>Save</th><th>Del</th>
+      </tr>
+    </thead>
     <tbody>
       {% for name, ing in catalog.ingredients.items()|sort %}
-      <tr>
+      <tr id="row_{{ loop.index }}">
         <td class="font-medium">{{ name }}</td>
-        <td><span class="text-xs px-2 rounded" style="background:#2d2d44">{{ ing.type }}</span></td>
+        <td>
+          {% if ing.type == 'spirit' %}
+            <span class="type-badge type-spirit">{{ ing.type }}</span>
+          {% elif ing.type == 'beer' %}
+            <span class="type-badge type-beer">{{ ing.type }}</span>
+          {% elif ing.type == 'wine' %}
+            <span class="type-badge type-wine">{{ ing.type }}</span>
+          {% elif ing.type == 'mixer' %}
+            <span class="type-badge type-mixer">{{ ing.type }}</span>
+          {% elif ing.type == 'snack' %}
+            <span class="type-badge type-snack">{{ ing.type }}</span>
+          {% else %}
+            <span class="type-badge type-extra">{{ ing.type }}</span>
+          {% endif %}
+        </td>
         <td>{% if ing.abv %}{{ "%.0f"|format(ing.abv*100) }}%{% else %}—{% endif %}</td>
         <td>{% if ing.volume_ml %}{{ ing.volume_ml }} ml{% else %}{{ ing.get('unit','pcs') }}{% endif %}</td>
-        <td class="text-green-400">{{ ing.price_min }}</td>
-        <td class="text-red-400">{{ ing.price_max }}</td>
-        <td><button class="btn-danger text-xs" onclick="deleteIngredient('{{ name }}')">✖</button></td>
+        <td>
+          <input type="number" step="0.01" min="0"
+                 id="pmin_{{ loop.index }}"
+                 value="{{ ing.price_min }}"
+                 data-ing="{{ name }}"
+                 style="width:75px;color:#4ade80;">
+        </td>
+        <td>
+          <input type="number" step="0.01" min="0"
+                 id="pmax_{{ loop.index }}"
+                 value="{{ ing.price_max }}"
+                 data-ing="{{ name }}"
+                 style="width:75px;color:#f87171;">
+        </td>
+        <td>
+          <button class="btn btn-success text-xs" style="padding:3px 9px;"
+                  onclick="savePrice('{{ name }}', {{ loop.index }})">💾</button>
+        </td>
+        <td>
+          <button class="btn-danger text-xs" onclick="deleteIngredient('{{ name }}')">✖</button>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -53,16 +92,16 @@
     <button class="btn btn-primary text-sm" onclick="toggle('form_ck')">+ Add cocktail</button>
   </div>
 
-  <div id="form_ck" style="display:none" class="p-3 mb-4 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
+  <div id="form_ck" style="display:none;background:#252538;border:1px solid #3d3d5c;border-radius:8px;padding:12px;margin-bottom:16px;">
     <div class="grid gap-3 mb-3" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
       <div><label class="text-xs text-slate-400">Cocktail name</label><input type="text" id="ck_name" placeholder="e.g. Vodka Tonic"></div>
       <div><label class="text-xs text-slate-400">Category</label>
-        <select id="ck_cat"><option>Spirits</option><option>Wine</option><option>Beer</option></select>
+        <select id="ck_cat"><option>Spirits</option></select>
       </div>
       <div><label class="text-xs text-slate-400">Main spirit</label>
         <select id="ck_spirit">
           {% for name, ing in catalog.ingredients.items() %}
-            {% if ing.type in ['spirit','beer','wine'] %}
+            {% if ing.type == 'spirit' %}
             <option value="{{ name }}">{{ name }}</option>
             {% endif %}
           {% endfor %}
@@ -92,7 +131,17 @@
       {% for name, ck in catalog.cocktails.items()|sort %}
       <tr>
         <td class="font-medium">{{ name }}</td>
-        <td><span class="text-xs px-2 rounded" style="background:#2d2d44">{{ ck.category }}</span></td>
+        <td>
+          {% if ck.category == 'Spirits' %}
+            <span class="type-badge type-spirit">{{ ck.category }}</span>
+          {% elif ck.category == 'Beer' %}
+            <span class="type-badge type-beer">{{ ck.category }}</span>
+          {% elif ck.category == 'Wine' %}
+            <span class="type-badge type-wine">{{ ck.category }}</span>
+          {% else %}
+            <span class="type-badge type-extra">{{ ck.category }}</span>
+          {% endif %}
+        </td>
         <td class="text-indigo-300">{{ ck.main_spirit }}</td>
         <td class="text-xs text-slate-400">
           {% for ing, det in ck.recipe.items() %}
@@ -127,6 +176,21 @@ function addRecipeRow() {
        <span class="text-indigo-300">${qty} ${unit}</span>
        <button class="btn-danger text-xs" onclick="delete recipe['${ing}'];this.parentElement.remove()">✖</button>
      </div>`;
+}
+
+async function savePrice(name, idx) {
+  const pmin = parseFloat(document.getElementById('pmin_' + idx).value);
+  const pmax = parseFloat(document.getElementById('pmax_' + idx).value);
+  if (pmin > pmax) { alert('Min price cannot exceed max price'); return; }
+  const r = await apiPost('/api/catalog/ingredient/price', { name, price_min: pmin, price_max: pmax });
+  if (r.ok) {
+    // Flash feedback
+    const btn = document.querySelector(`#row_${idx} .btn-success`);
+    btn.textContent = '✅';
+    setTimeout(() => btn.textContent = '💾', 1200);
+  } else {
+    alert('❌ ' + (r.error || 'Failed to save'));
+  }
 }
 
 async function addIngredient() {

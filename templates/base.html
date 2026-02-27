@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎉 Party Planner</title>
+  <title>🎉 BottleCount</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
@@ -32,11 +32,34 @@
     td { padding:7px 8px; border-bottom:1px solid #2d2d44; font-size:.9rem; }
     tr:hover td { background:#1a1a2e; }
     input[type=range] { accent-color:#6366f1; }
+
+    /* ── Type badge palette ──────────────────────────────── */
+    .type-badge {
+      display:inline-block;
+      font-size:.72rem;
+      font-weight:700;
+      padding:2px 8px;
+      border-radius:20px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+    /* 🍹 Spirits — warm amber/orange */
+    .type-spirit  { background:#7c2d12; color:#fb923c; border:1px solid #c2410c; }
+    /* 🍺 Beer — golden yellow */
+    .type-beer    { background:#713f12; color:#fde047; border:1px solid #a16207; }
+    /* 🍷 Wine — deep rose/purple */
+    .type-wine    { background:#4a044e; color:#e879f9; border:1px solid #a21caf; }
+    /* 🧃 Mixer — cyan/teal */
+    .type-mixer   { background:#0c4a6e; color:#38bdf8; border:1px solid #0369a1; }
+    /* 🍿 Snack — soft green */
+    .type-snack   { background:#14532d; color:#86efac; border:1px solid #16a34a; }
+    /* 🎉 Extra — neutral slate */
+    .type-extra   { background:#1e293b; color:#94a3b8; border:1px solid #475569; }
   </style>
 </head>
 <body class="min-h-screen">
   <nav style="background:#1e1e2e;border-bottom:1px solid #2d2d44" class="px-4 py-3 flex items-center gap-2 flex-wrap">
-    <span class="text-xl font-bold mr-4">🎉 Party Planner</span>
+    <span class="text-xl font-bold mr-4">🎉 BottleCount</span>
     <a href="/"        class="nav-link {% if request.path=='/' %}active{% endif %}">📊 Dashboard</a>
     <a href="/menu"    class="nav-link {% if request.path=='/menu' %}active{% endif %}">🍹 Drink Menu</a>
     <a href="/catalog" class="nav-link {% if request.path=='/catalog' %}active{% endif %}">📚 Catalog</a>

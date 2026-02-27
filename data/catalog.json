@@ -151,63 +151,9 @@
       "unit": "pcs",
       "price_min": 0.05,
       "price_max": 0.07
-    },
-    "Ichnusa 50ml": {
-      "type": "beer",
-      "abv": 6.05,
-      "volume_ml": 500,
-      "unit": "ml",
-      "price_min": 0.0,
-      "price_max": 0.0
     }
   },
   "cocktails": {
-    "Beer": {
-      "main_spirit": "Beer 66cl",
-      "category": "Beer",
-      "recipe": {
-        "Beer 66cl": {
-          "quantity": 660,
-          "unit": "ml"
-        }
-      }
-    },
-    "Red Wine Glass": {
-      "main_spirit": "Red Wine 75cl",
-      "category": "Wine",
-      "recipe": {
-        "Red Wine 75cl": {
-          "quantity": 150,
-          "unit": "ml"
-        },
-        "Ice kg": {
-          "quantity": 0.05,
-          "unit": "kg"
-        }
-      }
-    },
-    "Spritz": {
-      "main_spirit": "Aperol 70cl",
-      "category": "Wine",
-      "recipe": {
-        "Aperol 70cl": {
-          "quantity": 60,
-          "unit": "ml"
-        },
-        "White Wine 75cl": {
-          "quantity": 90,
-          "unit": "ml"
-        },
-        "Sparkling Water 1L": {
-          "quantity": 30,
-          "unit": "ml"
-        },
-        "Ice kg": {
-          "quantity": 0.08,
-          "unit": "kg"
-        }
-      }
-    },
     "Gin Tonic": {
       "main_spirit": "Gin 70cl",
       "category": "Spirits",
