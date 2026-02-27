@@ -222,24 +222,6 @@
         }
       }
     },
-    "Vodka Orange": {
-      "main_spirit": "Vodka 70cl",
-      "category": "Spirits",
-      "recipe": {
-        "Vodka 70cl": {
-          "quantity": 50,
-          "unit": "ml"
-        },
-        "Orange Juice 1L": {
-          "quantity": 150,
-          "unit": "ml"
-        },
-        "Ice kg": {
-          "quantity": 0.1,
-          "unit": "kg"
-        }
-      }
-    },
     "Cuba Libre": {
       "main_spirit": "Rum 70cl",
       "category": "Spirits",
@@ -285,6 +267,24 @@
         "Limoncello 70cl": {
           "quantity": 40,
           "unit": "ml"
+        }
+      }
+    },
+    "Screwdriver": {
+      "main_spirit": "Vodka 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Vodka 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Orange Juice 1L": {
+          "quantity": 100,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.1,
+          "unit": "kg"
         }
       }
     }

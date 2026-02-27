@@ -1,181 +1,186 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="mb-4 flex items-center justify-between flex-wrap gap-3">
-  <h1 class="text-xl font-bold">🍹 Drink Menu — Configure percentages</h1>
-  <button class="btn btn-success" onclick="saveMenu()">💾 Save Menu</button>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap;">
+  <h1 style="font-size:1.1rem;font-weight:800;">🍹 Drink Menu</h1>
+  <button class="btn btn-success btn-sm" onclick="saveMenu()">💾 Save Menu</button>
 </div>
 
 {% if errors %}
-<div class="card p-3 mb-4" style="border-color:#ef4444">
-  {% for e in errors %}<p class="text-red-400 text-sm">⚠️ {{ e }}</p>{% endfor %}
+<div class="card mb-3" style="padding:12px;border-color:#ef4444;">
+  {% for e in errors %}<p style="color:#f87171;font-size:.875rem;margin-bottom:2px;">⚠️ {{ e }}</p>{% endfor %}
 </div>
 {% endif %}
 
-<!-- Catalog data for JS -->
 <script>
-const CATALOG_COCKTAILS    = {{ catalog.cocktails | tojson }};
-const CATALOG_INGREDIENTS  = {{ catalog.ingredients | tojson }};
-const SIMPLE_CATEGORIES    = ["Beer", "Wine"];
+const CATALOG_COCKTAILS   = {{ catalog.cocktails | tojson }};
+const CATALOG_INGREDIENTS = {{ catalog.ingredients | tojson }};
+const SIMPLE_CATEGORIES   = ["Beer", "Wine"];
 </script>
 
-<!-- LEVEL 1: macro categories -->
-<div class="card p-4 mb-4">
-  <h2 class="font-bold text-indigo-300 mb-3">Level 1 — Category split</h2>
-  <div class="flex flex-wrap gap-6 items-end">
+<!-- ── Level 1: macro split ── -->
+<div class="card mb-3" style="padding:14px;">
+  <div class="section-label" style="margin-bottom:10px;">Category Split (must = 100%)</div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
     {% for cat, data in settings.menu.items() %}
-    <div>
-      <label class="text-xs text-slate-400 block mb-1">{{ cat }}</label>
-      <div class="flex items-center gap-1">
-        <input type="number" id="macro_{{ cat }}" value="{{ (data.macro_pct * 100)|round(1) }}"
-               style="width:70px" min="0" max="100" step="1" oninput="checkSum('macro')">
-        <span class="text-slate-400">%</span>
+    <div style="flex:1;min-width:80px;">
+      <label class="section-label" style="margin-bottom:4px;display:block;">{{ cat }}</label>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" id="macro_{{ cat }}"
+               value="{{ (data.macro_pct * 100)|round(1) }}"
+               min="0" max="100" step="1"
+               oninput="checkSum('macro')"
+               style="width:100%;">
+        <span style="color:#94a3b8;white-space:nowrap;font-size:.85rem;">%</span>
       </div>
     </div>
     {% endfor %}
-    <div class="ml-auto text-sm">
-      Total: <span id="sum_macro" class="font-bold">
-        {{ (settings.menu.values()|map(attribute='macro_pct')|sum * 100)|round(1) }}%
-      </span>
-    </div>
+  </div>
+  <div style="margin-top:10px;font-size:.85rem;">
+    Total: <span id="sum_macro" class="font-bold ok">
+      {{ (settings.menu.values()|map(attribute='macro_pct')|sum * 100)|round(1) }}%
+    </span>
   </div>
 </div>
 
-<!-- Per-category config -->
+<!-- ── Per-category config ── -->
 {% for category, cat_data in settings.menu.items() %}
-<div class="card p-4 mb-4">
-  <h2 class="font-bold mb-3 flex items-center gap-2">
-    {% if category == 'Spirits' %}
-      <span class="type-badge type-spirit">{{ category }}</span>
-    {% elif category == 'Beer' %}
-      <span class="type-badge type-beer">{{ category }}</span>
-    {% elif category == 'Wine' %}
-      <span class="type-badge type-wine">{{ category }}</span>
-    {% else %}
-      <span class="text-indigo-300">{{ category }}</span>
-    {% endif %}
-    <span class="text-sm text-slate-400 font-normal">
-      ({{ (cat_data.macro_pct * 100)|round(0)|int }}% of total alcohol)
+<div class="card mb-3">
+  <button class="collapsible-btn open" onclick="toggleSection(this)">
+    <span style="display:flex;align-items:center;gap:8px;">
+      {% if category == 'Spirits' %}<span class="type-badge type-spirit">{{ category }}</span>
+      {% elif category == 'Beer' %}<span class="type-badge type-beer">{{ category }}</span>
+      {% elif category == 'Wine' %}<span class="type-badge type-wine">{{ category }}</span>
+      {% else %}<span>{{ category }}</span>{% endif %}
+      <span style="font-size:.8rem;color:#94a3b8;font-weight:400;">
+        {{ (cat_data.macro_pct * 100)|round(0)|int }}% of total
+      </span>
     </span>
-  </h2>
+    <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
 
-  {% if category in ['Beer', 'Wine'] %}
-  <!-- ── SIMPLE CATEGORY: just ingredient + % ──────────────── -->
-  <p class="text-xs text-slate-500 mb-3">Served as-is — set the share of each variety.</p>
-  <div class="space-y-2">
+  <div class="collapsible-body" style="padding:0 14px 14px;">
+
+    {% if category in ['Beer', 'Wine'] %}
+    <!-- ── Simple: just % per variety ── -->
+    <p style="font-size:.75rem;color:#64748b;margin-bottom:10px;">Served as-is — set the share of each variety (must = 100%)</p>
+
     {% for ing_name, spirit_data in cat_data.spirits.items() %}
-    <div class="p-3 rounded-lg flex items-center gap-3 flex-wrap"
-         style="background:#252538;border:1px solid #3d3d5c">
-      <strong class="text-indigo-200" style="min-width:160px">{{ ing_name }}</strong>
-      <input type="number"
-             id="pct_spirit_{{ category }}_{{ ing_name|replace(' ','_') }}"
-             value="{{ (spirit_data.pct * 100)|round(1) }}"
-             style="width:65px" min="0" max="100" step="1"
-             oninput="checkSum('spirits_{{ category }}')">
-      <span class="text-slate-400">% of {{ category }}</span>
-      <button class="btn-danger text-xs ml-auto"
-        onclick="removeSpirit('{{ category }}','{{ ing_name }}')">✖ Remove</button>
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <span style="font-weight:600;font-size:.9rem;flex:1;min-width:120px;">{{ ing_name }}</span>
+        <button class="btn-danger btn-sm" onclick="removeSpirit('{{ category }}','{{ ing_name }}')">✖ Remove</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <input type="number"
+               id="pct_spirit_{{ category }}_{{ ing_name|replace(' ','_') }}"
+               value="{{ (spirit_data.pct * 100)|round(1) }}"
+               min="0" max="100" step="1"
+               oninput="checkSum('spirits_{{ category }}')"
+               style="max-width:80px;">
+        <span style="color:#94a3b8;font-size:.85rem;">% of {{ category }}</span>
+      </div>
     </div>
     {% endfor %}
-  </div>
 
-  <div class="text-sm mt-3">
-    Total: <span id="sum_spirits_{{ category }}" class="font-bold">
-      {{ (cat_data.spirits.values()|map(attribute='pct')|sum * 100)|round(1) }}%
-    </span>
-  </div>
+    <div style="font-size:.85rem;margin-bottom:12px;">
+      Total: <span id="sum_spirits_{{ category }}" class="font-bold ok">
+        {{ (cat_data.spirits.values()|map(attribute='pct')|sum * 100)|round(1) }}%
+      </span>
+    </div>
 
-  <!-- Add ingredient to simple category -->
-  <div class="mt-3 flex gap-2 flex-wrap items-center">
-    <select id="sel_spirit_{{ category }}" style="width:220px">
-      {% for ing_name, ing in catalog.ingredients.items() %}
-        {% if (category == 'Beer' and ing.type == 'beer') or (category == 'Wine' and ing.type == 'wine') %}
-          <option value="{{ ing_name }}">{{ ing_name }}</option>
-        {% endif %}
-      {% endfor %}
-    </select>
-    <button class="btn btn-primary text-xs" onclick="addSpirit('{{ category }}')">+ Add</button>
-  </div>
+    <!-- Add ingredient -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="sel_spirit_{{ category }}" style="flex:1;min-width:0;">
+        {% for ing_name, ing in catalog.ingredients.items() %}
+          {% if (category == 'Beer' and ing.type == 'beer') or (category == 'Wine' and ing.type == 'wine') %}
+            <option value="{{ ing_name }}">{{ ing_name }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="addSpirit('{{ category }}')">+ Add</button>
+    </div>
 
-  {% else %}
-  <!-- ── SPIRITS CATEGORY: 3-level with cocktail drinks ──────── -->
-  <div class="space-y-4">
+    {% else %}
+    <!-- ── Spirits: 3-level ── -->
     {% for spirit_name, spirit_data in cat_data.spirits.items() %}
-    <div class="p-3 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
-      <div class="flex items-center gap-3 mb-2 flex-wrap">
-        <strong class="text-indigo-200">{{ spirit_name }}</strong>
-        <div class="flex items-center gap-1">
-          <input type="number"
-                 id="pct_spirit_{{ category }}_{{ spirit_name|replace(' ','_') }}"
-                 value="{{ (spirit_data.pct * 100)|round(1) }}"
-                 style="width:65px" min="0" max="100" step="1"
-                 oninput="checkSum('spirits_{{ category }}')">
-          <span class="text-slate-400">% of {{ category }}</span>
-        </div>
-        <button class="btn-danger text-xs ml-auto"
-          onclick="removeSpirit('{{ category }}','{{ spirit_name }}')">✖ Remove</button>
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:10px;">
+
+      <!-- Spirit header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <span style="font-weight:700;font-size:.95rem;">{{ spirit_name }}</span>
+        <button class="btn-danger btn-sm" onclick="removeSpirit('{{ category }}','{{ spirit_name }}')">✖</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <input type="number"
+               id="pct_spirit_{{ category }}_{{ spirit_name|replace(' ','_') }}"
+               value="{{ (spirit_data.pct * 100)|round(1) }}"
+               min="0" max="100" step="1"
+               oninput="checkSum('spirits_{{ category }}')"
+               style="max-width:80px;">
+        <span style="color:#94a3b8;font-size:.85rem;">% of Spirits</span>
       </div>
 
-      <!-- Drink percentages -->
-      <div class="ml-4 space-y-1">
+      <!-- Drinks -->
+      <div style="border-top:1px solid var(--border);padding-top:10px;">
+        <div class="section-label" style="margin-bottom:6px;">Cocktails (must = 100%)</div>
         {% for drink_name, drink_pct in spirit_data.drinks.items() %}
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-slate-300" style="min-width:170px">{{ drink_name }}</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+          <span style="flex:1;font-size:.85rem;min-width:100px;color:#cbd5e1;">{{ drink_name }}</span>
           <input type="number"
                  id="pct_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}_{{ drink_name|replace(' ','_') }}"
                  value="{{ (drink_pct * 100)|round(1) }}"
-                 style="width:65px" min="0" max="100" step="1"
-                 oninput="checkSum('drinks_{{ category }}_{{ spirit_name|replace(' ','_') }}')">
-          <span class="text-slate-400">%</span>
-          <button class="btn-danger text-xs"
-            onclick="removeDrink('{{ category }}','{{ spirit_name }}','{{ drink_name }}')">✖</button>
+                 min="0" max="100" step="1"
+                 oninput="checkSum('drinks_{{ category }}_{{ spirit_name|replace(' ','_') }}')"
+                 style="max-width:72px;">
+          <span style="color:#94a3b8;font-size:.85rem;">%</span>
+          <button class="btn-danger btn-sm" onclick="removeDrink('{{ category }}','{{ spirit_name }}','{{ drink_name }}')">✖</button>
         </div>
         {% endfor %}
-        <div class="text-xs mt-1">
-          Drinks total:
-          <span id="sum_drinks_{{ category }}_{{ spirit_name|replace(' ','_') }}" class="font-bold">
+        <div style="font-size:.8rem;margin-bottom:8px;">
+          Total: <span id="sum_drinks_{{ category }}_{{ spirit_name|replace(' ','_') }}" class="font-bold ok">
             {{ (spirit_data.drinks.values()|sum * 100)|round(1) }}%
           </span>
         </div>
-      </div>
 
-      <!-- Add drink — only cocktails whose main_spirit matches -->
-      <div class="ml-4 mt-2 flex gap-2 flex-wrap items-center">
-        <select id="sel_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}" style="width:200px">
-          {% for ck_name, ck in catalog.cocktails.items() %}
-            {% if ck.main_spirit == spirit_name %}
-            <option value="{{ ck_name }}">{{ ck_name }}</option>
-            {% endif %}
-          {% endfor %}
-        </select>
-        <button class="btn btn-primary text-xs"
-          onclick="addDrink('{{ category }}','{{ spirit_name }}')">+ Add drink</button>
+        <!-- Add drink -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="sel_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}" style="flex:1;min-width:0;">
+            {% for ck_name, ck in catalog.cocktails.items() %}
+              {% if ck.main_spirit == spirit_name %}
+              <option value="{{ ck_name }}">{{ ck_name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="addDrink('{{ category }}','{{ spirit_name }}')">+ Add drink</button>
+        </div>
       </div>
-      <p class="ml-4 text-xs text-slate-500 mt-1">Only cocktails based on <em>{{ spirit_name }}</em>.</p>
     </div>
     {% endfor %}
-  </div>
 
-  <div class="text-sm mt-3">
-    Spirits total for {{ category }}:
-    <span id="sum_spirits_{{ category }}" class="font-bold">
-      {{ (cat_data.spirits.values()|map(attribute='pct')|sum * 100)|round(1) }}%
-    </span>
-  </div>
+    <div style="font-size:.85rem;margin-bottom:12px;">
+      Spirits total: <span id="sum_spirits_{{ category }}" class="font-bold ok">
+        {{ (cat_data.spirits.values()|map(attribute='pct')|sum * 100)|round(1) }}%
+      </span>
+    </div>
 
-  <!-- Add spirit to Spirits category -->
-  <div class="mt-3 flex gap-2 flex-wrap items-center">
-    <select id="sel_spirit_{{ category }}" style="width:220px">
-      {% for ing_name, ing in catalog.ingredients.items() %}
-        {% if ing.type == 'spirit' %}
-          <option value="{{ ing_name }}">{{ ing_name }}</option>
-        {% endif %}
-      {% endfor %}
-    </select>
-    <button class="btn btn-primary text-xs" onclick="addSpirit('{{ category }}')">+ Add spirit</button>
+    <!-- Add spirit -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="sel_spirit_{{ category }}" style="flex:1;min-width:0;">
+        {% for ing_name, ing in catalog.ingredients.items() %}
+          {% if ing.type == 'spirit' %}
+            <option value="{{ ing_name }}">{{ ing_name }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="addSpirit('{{ category }}')">+ Add spirit</button>
+    </div>
+    {% endif %}
+
   </div>
-  {% endif %}
 </div>
 {% endfor %}
+
 {% endblock %}
 
 {% block scripts %}
@@ -191,7 +196,6 @@ function checkSum(scope) {
     });
     const el = document.getElementById('sum_macro');
     if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
-
   } else if (scope.startsWith('spirits_')) {
     const cat = scope.replace('spirits_', '');
     let s = 0;
@@ -201,7 +205,6 @@ function checkSum(scope) {
     });
     const el = document.getElementById('sum_spirits_' + cat);
     if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
-
   } else if (scope.startsWith('drinks_')) {
     const rest    = scope.replace('drinks_', '');
     const cat     = Object.keys(menu).find(c => rest.startsWith(c));
@@ -211,8 +214,7 @@ function checkSum(scope) {
     if (!sp_name) return;
     let s = 0;
     Object.keys(menu[cat].spirits[sp_name].drinks || {}).forEach(dk => {
-      const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_');
-      const el = document.getElementById(id);
+      const el = document.getElementById('pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_'));
       if (el) s += parseFloat(el.value || 0);
     });
     const sumEl = document.getElementById('sum_drinks_' + cat + '_' + sp_key);
@@ -225,17 +227,13 @@ function readMenu() {
   Object.keys(m).forEach(cat => {
     const macroEl = document.getElementById('macro_' + cat);
     if (macroEl) m[cat].macro_pct = parseFloat(macroEl.value || 0) / 100;
-
     Object.keys(m[cat].spirits).forEach(sp => {
       const sp_key   = sp.replace(/ /g,'_');
       const spiritEl = document.getElementById('pct_spirit_' + cat + '_' + sp_key);
       if (spiritEl) m[cat].spirits[sp].pct = parseFloat(spiritEl.value || 0) / 100;
-
-      // Only read drink inputs for Spirits (non-simple) categories
       if (!SIMPLE_CATEGORIES.includes(cat)) {
         Object.keys(m[cat].spirits[sp].drinks || {}).forEach(dk => {
-          const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_');
-          const el = document.getElementById(id);
+          const el = document.getElementById('pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_'));
           if (el) m[cat].spirits[sp].drinks[dk] = parseFloat(el.value || 0) / 100;
         });
       }
@@ -252,26 +250,18 @@ async function saveMenu() {
 }
 
 async function addDrink(cat, spirit) {
-  const selId = 'sel_drink_' + cat + '_' + spirit.replace(/ /g,'_');
-  const sel   = document.getElementById(selId);
-  if (!sel || !sel.value) { alert('No compatible cocktails found for ' + spirit); return; }
+  const sel = document.getElementById('sel_drink_' + cat + '_' + spirit.replace(/ /g,'_'));
+  if (!sel || !sel.value) { alert('No compatible cocktails for ' + spirit); return; }
   const dk = sel.value;
-
   const ck = CATALOG_COCKTAILS[dk];
-  if (!ck) { alert('Cocktail not found in catalog'); return; }
-  if (ck.main_spirit !== spirit) {
-    alert(`"${dk}" is based on "${ck.main_spirit}", not "${spirit}".`);
-    return;
-  }
-  if (menu[cat].spirits[spirit].drinks[dk] !== undefined) {
-    alert(dk + ' is already in the list'); return;
-  }
-
+  if (!ck) { alert('Cocktail not found'); return; }
+  if (ck.main_spirit !== spirit) { alert(`"${dk}" is based on "${ck.main_spirit}", not "${spirit}".`); return; }
+  if (menu[cat].spirits[spirit].drinks[dk] !== undefined) { alert(dk + ' already added'); return; }
   const m = readMenu();
   m[cat].spirits[spirit].drinks[dk] = 0;
   const r = await apiPost('/api/menu', {menu: m, structural: true});
   if (r.ok) location.reload();
-  else alert('❌ ' + (r.errors || [r.error || 'Unknown error']).join('\n'));
+  else alert('❌ ' + (r.errors || [r.error || 'Error']).join('\n'));
 }
 
 async function removeDrink(cat, spirit, drink) {
@@ -286,21 +276,13 @@ async function addSpirit(cat) {
   const sel = document.getElementById('sel_spirit_' + cat);
   if (!sel || !sel.value) { alert('No ingredient selected'); return; }
   const sp = sel.value;
-  if (menu[cat]?.spirits?.[sp] !== undefined) { alert(sp + ' is already here'); return; }
-
+  if (menu[cat]?.spirits?.[sp] !== undefined) { alert(sp + ' already here'); return; }
   const m = readMenu();
-  if (!m[cat]) { alert('Category not found: ' + cat); return; }
-
-  if (SIMPLE_CATEGORIES.includes(cat)) {
-    // Beer/Wine: no drinks sublevel
-    m[cat].spirits[sp] = { pct: 0 };
-  } else {
-    m[cat].spirits[sp] = { pct: 0, drinks: {} };
-  }
-
+  if (!m[cat]) { alert('Category not found'); return; }
+  m[cat].spirits[sp] = SIMPLE_CATEGORIES.includes(cat) ? {pct:0} : {pct:0, drinks:{}};
   const r = await apiPost('/api/menu', {menu: m, structural: true});
   if (r.ok) location.reload();
-  else alert('❌ ' + (r.errors || [r.error || 'Unknown error']).join('\n'));
+  else alert('❌ ' + (r.errors || [r.error || 'Error']).join('\n'));
 }
 
 async function removeSpirit(cat, spirit) {

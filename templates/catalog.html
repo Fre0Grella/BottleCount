@@ -1,166 +1,186 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-xl font-bold mb-4">📚 Catalog — Ingredients & Cocktails</h1>
 
-<!-- INGREDIENTS -->
-<div class="card p-4 mb-6">
-  <div class="flex justify-between items-center mb-3">
-    <h2 class="font-bold text-indigo-300">🧴 Ingredients</h2>
-    <button class="btn btn-primary text-sm" onclick="toggle('form_ing')">+ Add ingredient</button>
-  </div>
+<h1 style="font-size:1.1rem;font-weight:800;margin-bottom:12px;">📚 Catalog</h1>
 
-  <div id="form_ing" style="display:none;background:#252538;border:1px solid #3d3d5c;border-radius:8px;padding:12px;margin-bottom:16px;">
-    <div class="grid gap-3 mb-3" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
-      <div><label class="text-xs text-slate-400">Name</label><input type="text" id="ing_name" placeholder="e.g. Rum 70cl"></div>
-      <div><label class="text-xs text-slate-400">Type</label>
-        <select id="ing_type">
-          <option value="spirit">Spirit</option><option value="beer">Beer</option>
-          <option value="wine">Wine</option><option value="mixer">Mixer</option>
-          <option value="snack">Snack</option><option value="extra">Extra</option>
-        </select>
+<!-- ══ INGREDIENTS ══ -->
+<div class="card mb-3">
+  <button class="collapsible-btn open" onclick="toggleSection(this)">
+    🧴 Ingredients
+    <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <div class="collapsible-body" style="padding:0 12px 14px;">
+
+    <!-- Add form (collapsed by default) -->
+    <button class="btn btn-primary btn-sm" style="margin-bottom:12px;width:100%;" onclick="toggleAddForm('form_ing')">
+      + Add ingredient
+    </button>
+    <div id="form_ing" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div style="grid-column:1/-1;">
+          <label class="section-label" style="display:block;margin-bottom:3px;">Name</label>
+          <input type="text" id="ing_name" placeholder="e.g. Rum 70cl">
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Type</label>
+          <select id="ing_type">
+            <option value="spirit">Spirit</option>
+            <option value="beer">Beer</option>
+            <option value="wine">Wine</option>
+            <option value="mixer">Mixer</option>
+            <option value="snack">Snack</option>
+            <option value="extra">Extra</option>
+          </select>
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">ABV (0.40)</label>
+          <input type="number" id="ing_abv" value="0" step="0.01" min="0" max="1">
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Volume ml</label>
+          <input type="number" id="ing_vol" value="700">
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Unit</label>
+          <input type="text" id="ing_unit" value="ml">
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Min price €</label>
+          <input type="number" id="ing_pmin" value="0" step="0.01">
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Max price €</label>
+          <input type="number" id="ing_pmax" value="0" step="0.01">
+        </div>
       </div>
-      <div><label class="text-xs text-slate-400">ABV (e.g. 0.40)</label><input type="number" id="ing_abv" value="0" step="0.01" min="0" max="1"></div>
-      <div><label class="text-xs text-slate-400">Volume ml (0 if kg/pcs)</label><input type="number" id="ing_vol" value="700"></div>
-      <div><label class="text-xs text-slate-400">Unit (ml/kg/pcs)</label><input type="text" id="ing_unit" value="ml" style="width:70px"></div>
-      <div><label class="text-xs text-slate-400">Min price €</label><input type="number" id="ing_pmin" value="0" step="0.01"></div>
-      <div><label class="text-xs text-slate-400">Max price €</label><input type="number" id="ing_pmax" value="0" step="0.01"></div>
+      <button class="btn btn-success" style="width:100%;" onclick="addIngredient()">✅ Add ingredient</button>
     </div>
-    <button class="btn btn-success" onclick="addIngredient()">✅ Add</button>
-  </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th><th>Type</th><th>ABV</th><th>Volume</th>
-        <th>Min € <span class="text-indigo-400 text-xs font-normal">(editable)</span></th>
-        <th>Max € <span class="text-indigo-400 text-xs font-normal">(editable)</span></th>
-        <th>Save</th><th>Del</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for name, ing in catalog.ingredients.items()|sort %}
-      <tr id="row_{{ loop.index }}">
-        <td class="font-medium">{{ name }}</td>
-        <td>
-          {% if ing.type == 'spirit' %}
-            <span class="type-badge type-spirit">{{ ing.type }}</span>
-          {% elif ing.type == 'beer' %}
-            <span class="type-badge type-beer">{{ ing.type }}</span>
-          {% elif ing.type == 'wine' %}
-            <span class="type-badge type-wine">{{ ing.type }}</span>
-          {% elif ing.type == 'mixer' %}
-            <span class="type-badge type-mixer">{{ ing.type }}</span>
-          {% elif ing.type == 'snack' %}
-            <span class="type-badge type-snack">{{ ing.type }}</span>
-          {% else %}
-            <span class="type-badge type-extra">{{ ing.type }}</span>
-          {% endif %}
-        </td>
-        <td>{% if ing.abv %}{{ "%.0f"|format(ing.abv*100) }}%{% else %}—{% endif %}</td>
-        <td>{% if ing.volume_ml %}{{ ing.volume_ml }} ml{% else %}{{ ing.get('unit','pcs') }}{% endif %}</td>
-        <td>
+    <!-- Ingredient list as stacked cards -->
+    {% for name, ing in catalog.ingredients.items()|sort %}
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:8px;" id="ing_card_{{ loop.index }}">
+      <!-- Top row: name + badge + delete -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ name }}</div>
+          <div style="margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            {% if ing.type == 'spirit' %}<span class="type-badge type-spirit">{{ ing.type }}</span>
+            {% elif ing.type == 'beer' %}<span class="type-badge type-beer">{{ ing.type }}</span>
+            {% elif ing.type == 'wine' %}<span class="type-badge type-wine">{{ ing.type }}</span>
+            {% elif ing.type == 'mixer' %}<span class="type-badge type-mixer">{{ ing.type }}</span>
+            {% elif ing.type == 'snack' %}<span class="type-badge type-snack">{{ ing.type }}</span>
+            {% else %}<span class="type-badge type-extra">{{ ing.type }}</span>
+            {% endif %}
+            {% if ing.abv %}<span style="font-size:.75rem;color:#94a3b8;">{{ "%.0f"|format(ing.abv*100) }}% ABV</span>{% endif %}
+            {% if ing.volume_ml %}<span style="font-size:.75rem;color:#94a3b8;">{{ ing.volume_ml }}ml</span>{% endif %}
+          </div>
+        </div>
+        <button class="btn-danger btn-sm" onclick="deleteIngredient('{{ name }}')">✖</button>
+      </div>
+      <!-- Price row: inline editable -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:120px;">
+          <span style="font-size:.75rem;color:#4ade80;white-space:nowrap;">Min €</span>
           <input type="number" step="0.01" min="0"
                  id="pmin_{{ loop.index }}"
                  value="{{ ing.price_min }}"
-                 data-ing="{{ name }}"
-                 style="width:75px;color:#4ade80;">
-        </td>
-        <td>
+                 style="flex:1;color:#4ade80;min-width:60px;">
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:120px;">
+          <span style="font-size:.75rem;color:#f87171;white-space:nowrap;">Max €</span>
           <input type="number" step="0.01" min="0"
                  id="pmax_{{ loop.index }}"
                  value="{{ ing.price_max }}"
-                 data-ing="{{ name }}"
-                 style="width:75px;color:#f87171;">
-        </td>
-        <td>
-          <button class="btn btn-success text-xs" style="padding:3px 9px;"
-                  onclick="savePrice('{{ name }}', {{ loop.index }})">💾</button>
-        </td>
-        <td>
-          <button class="btn-danger text-xs" onclick="deleteIngredient('{{ name }}')">✖</button>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<!-- COCKTAILS -->
-<div class="card p-4">
-  <div class="flex justify-between items-center mb-3">
-    <h2 class="font-bold text-indigo-300">🍸 Cocktails</h2>
-    <button class="btn btn-primary text-sm" onclick="toggle('form_ck')">+ Add cocktail</button>
-  </div>
-
-  <div id="form_ck" style="display:none;background:#252538;border:1px solid #3d3d5c;border-radius:8px;padding:12px;margin-bottom:16px;">
-    <div class="grid gap-3 mb-3" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
-      <div><label class="text-xs text-slate-400">Cocktail name</label><input type="text" id="ck_name" placeholder="e.g. Vodka Tonic"></div>
-      <div><label class="text-xs text-slate-400">Category</label>
-        <select id="ck_cat"><option>Spirits</option></select>
-      </div>
-      <div><label class="text-xs text-slate-400">Main spirit</label>
-        <select id="ck_spirit">
-          {% for name, ing in catalog.ingredients.items() %}
-            {% if ing.type == 'spirit' %}
-            <option value="{{ name }}">{{ name }}</option>
-            {% endif %}
-          {% endfor %}
-        </select>
+                 style="flex:1;color:#f87171;min-width:60px;">
+        </div>
+        <button class="btn btn-success btn-sm" id="save_btn_{{ loop.index }}"
+                onclick="savePrice('{{ name }}', {{ loop.index }})">💾</button>
       </div>
     </div>
-    <div class="mb-3">
-      <label class="text-xs text-slate-400 block mb-2">Recipe (add ingredients one by one):</label>
-      <div id="recipe_rows" class="space-y-2 mb-2"></div>
-      <div class="flex gap-2 flex-wrap items-center">
-        <select id="sel_ing_ck" style="width:200px">
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ══ COCKTAILS ══ -->
+<div class="card mb-3">
+  <button class="collapsible-btn open" onclick="toggleSection(this)">
+    🍸 Cocktails
+    <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <div class="collapsible-body" style="padding:0 12px 14px;">
+
+    <button class="btn btn-primary btn-sm" style="margin-bottom:12px;width:100%;" onclick="toggleAddForm('form_ck')">
+      + Add cocktail
+    </button>
+    <div id="form_ck" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div style="grid-column:1/-1;">
+          <label class="section-label" style="display:block;margin-bottom:3px;">Name</label>
+          <input type="text" id="ck_name" placeholder="e.g. Vodka Tonic">
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Category</label>
+          <select id="ck_cat"><option>Spirits</option></select>
+        </div>
+        <div>
+          <label class="section-label" style="display:block;margin-bottom:3px;">Main spirit</label>
+          <select id="ck_spirit">
+            {% for name, ing in catalog.ingredients.items() %}
+              {% if ing.type == 'spirit' %}
+              <option value="{{ name }}">{{ name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <!-- Recipe builder -->
+      <div class="section-label" style="margin-bottom:6px;">Recipe</div>
+      <div id="recipe_rows" style="margin-bottom:8px;"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <select id="sel_ing_ck" style="flex:1;min-width:0;">
           {% for name in catalog.ingredients.keys() %}
           <option value="{{ name }}">{{ name }}</option>
           {% endfor %}
         </select>
-        <input type="number" id="ing_ck_qty" value="50" style="width:80px" placeholder="qty">
-        <select id="ing_ck_unit" style="width:70px"><option>ml</option><option>kg</option><option>pcs</option></select>
-        <button class="btn btn-primary text-xs" onclick="addRecipeRow()">+ Add</button>
+        <input type="number" id="ing_ck_qty" value="50" style="width:64px;">
+        <select id="ing_ck_unit" style="width:64px;"><option>ml</option><option>kg</option><option>pcs</option></select>
+        <button class="btn btn-primary btn-sm" onclick="addRecipeRow()">+ Add</button>
+      </div>
+      <button class="btn btn-success" style="width:100%;" onclick="addCocktail()">✅ Create cocktail</button>
+    </div>
+
+    <!-- Cocktail list -->
+    {% for name, ck in catalog.cocktails.items()|sort %}
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:.95rem;">{{ name }}</div>
+          <div style="margin-top:3px;">
+            <span class="type-badge type-spirit">{{ ck.category }}</span>
+            <span style="font-size:.75rem;color:#94a3b8;margin-left:6px;">base: {{ ck.main_spirit }}</span>
+          </div>
+        </div>
+        <button class="btn-danger btn-sm" onclick="deleteCocktail('{{ name }}')">✖</button>
+      </div>
+      <div style="font-size:.75rem;color:#64748b;line-height:1.6;">
+        {% for ing, det in ck.recipe.items() %}
+          <span style="display:inline-block;background:#1e293b;border-radius:4px;padding:1px 6px;margin:1px;">
+            {{ ing }}: {{ det.quantity }}{{ det.unit }}
+          </span>
+        {% endfor %}
       </div>
     </div>
-    <button class="btn btn-success" onclick="addCocktail()">✅ Create cocktail</button>
+    {% endfor %}
   </div>
-
-  <table>
-    <thead><tr><th>Name</th><th>Category</th><th>Main spirit</th><th>Recipe</th><th></th></tr></thead>
-    <tbody>
-      {% for name, ck in catalog.cocktails.items()|sort %}
-      <tr>
-        <td class="font-medium">{{ name }}</td>
-        <td>
-          {% if ck.category == 'Spirits' %}
-            <span class="type-badge type-spirit">{{ ck.category }}</span>
-          {% elif ck.category == 'Beer' %}
-            <span class="type-badge type-beer">{{ ck.category }}</span>
-          {% elif ck.category == 'Wine' %}
-            <span class="type-badge type-wine">{{ ck.category }}</span>
-          {% else %}
-            <span class="type-badge type-extra">{{ ck.category }}</span>
-          {% endif %}
-        </td>
-        <td class="text-indigo-300">{{ ck.main_spirit }}</td>
-        <td class="text-xs text-slate-400">
-          {% for ing, det in ck.recipe.items() %}
-            {{ ing }}: {{ det.quantity }}{{ det.unit }}{% if not loop.last %},{% endif %}
-          {% endfor %}
-        </td>
-        <td><button class="btn-danger text-xs" onclick="deleteCocktail('{{ name }}')">✖</button></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 let recipe = {};
 
-function toggle(id) {
+function toggleAddForm(id) {
   const el = document.getElementById(id);
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
@@ -170,27 +190,22 @@ function addRecipeRow() {
   const qty  = parseFloat(document.getElementById('ing_ck_qty').value);
   const unit = document.getElementById('ing_ck_unit').value;
   recipe[ing] = {quantity: qty, unit: unit};
-  document.getElementById('recipe_rows').innerHTML +=
-    `<div class="flex items-center gap-2 text-sm">
-       <span style="min-width:180px">${ing}</span>
-       <span class="text-indigo-300">${qty} ${unit}</span>
-       <button class="btn-danger text-xs" onclick="delete recipe['${ing}'];this.parentElement.remove()">✖</button>
-     </div>`;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.85rem;background:#1e293b;border-radius:6px;padding:5px 8px;';
+  row.innerHTML = `<span style="flex:1;">${ing}</span><span style="color:#6366f1;">${qty} ${unit}</span><button class="btn-danger btn-sm" onclick="delete recipe['${ing}'];this.parentElement.remove()">✖</button>`;
+  document.getElementById('recipe_rows').appendChild(row);
 }
 
 async function savePrice(name, idx) {
   const pmin = parseFloat(document.getElementById('pmin_' + idx).value);
   const pmax = parseFloat(document.getElementById('pmax_' + idx).value);
-  if (pmin > pmax) { alert('Min price cannot exceed max price'); return; }
-  const r = await apiPost('/api/catalog/ingredient/price', { name, price_min: pmin, price_max: pmax });
+  if (pmin > pmax) { alert('Min cannot exceed max'); return; }
+  const r = await apiPost('/api/catalog/ingredient/price', {name, price_min: pmin, price_max: pmax});
   if (r.ok) {
-    // Flash feedback
-    const btn = document.querySelector(`#row_${idx} .btn-success`);
+    const btn = document.getElementById('save_btn_' + idx);
     btn.textContent = '✅';
-    setTimeout(() => btn.textContent = '💾', 1200);
-  } else {
-    alert('❌ ' + (r.error || 'Failed to save'));
-  }
+    setTimeout(() => btn.textContent = '💾', 1400);
+  } else { alert('❌ ' + (r.error || 'Save failed')); }
 }
 
 async function addIngredient() {
@@ -210,17 +225,18 @@ async function addIngredient() {
 
 async function deleteIngredient(name) {
   if (!confirm('Delete ' + name + '?')) return;
-  await apiDelete('/api/catalog/ingredient/' + encodeURIComponent(name));
-  location.reload();
+  const r = await apiDelete('/api/catalog/ingredient/' + encodeURIComponent(name));
+  if (r.ok) location.reload();
+  else alert('❌ ' + (r.error || 'Delete failed'));
 }
 
 async function addCocktail() {
-  if (Object.keys(recipe).length === 0) { alert('Add at least one ingredient to the recipe'); return; }
+  if (Object.keys(recipe).length === 0) { alert('Add at least one ingredient'); return; }
   const r = await apiPost('/api/catalog/cocktail', {
-    name:         document.getElementById('ck_name').value,
-    category:     document.getElementById('ck_cat').value,
-    main_spirit:  document.getElementById('ck_spirit').value,
-    recipe:       recipe,
+    name:        document.getElementById('ck_name').value,
+    category:    document.getElementById('ck_cat').value,
+    main_spirit: document.getElementById('ck_spirit').value,
+    recipe,
   });
   if (r.ok) location.reload();
   else alert('❌ ' + r.error);
@@ -228,8 +244,9 @@ async function addCocktail() {
 
 async function deleteCocktail(name) {
   if (!confirm('Delete ' + name + '?')) return;
-  await apiDelete('/api/catalog/cocktail/' + encodeURIComponent(name));
-  location.reload();
+  const r = await apiDelete('/api/catalog/cocktail/' + encodeURIComponent(name));
+  if (r.ok) location.reload();
+  else alert('❌ ' + (r.error || 'Delete failed'));
 }
 </script>
 {% endblock %}

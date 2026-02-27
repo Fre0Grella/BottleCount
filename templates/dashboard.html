@@ -1,118 +1,133 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Global parameters -->
-<div class="card p-4 mb-4">
-  <div class="flex flex-wrap gap-4 items-end">
+<!-- ── Settings card ── -->
+<div class="card mb-3" style="padding:16px">
+  <div class="section-label">Party Settings</div>
+
+  <!-- 2-col grid for the 4 number inputs -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
     <div>
-      <label class="text-xs text-slate-400 block mb-1">Guests</label>
-      <input type="number" id="guests" value="{{ settings.guests }}" style="width:90px">
-    </div>
-    <div>
-      <label class="text-xs text-slate-400 block mb-1">Ticket €</label>
-      <input type="number" id="ticket_price" value="{{ settings.ticket_price }}" style="width:80px">
-    </div>
-    <div>
-      <label class="text-xs text-slate-400 block mb-1">Venue €</label>
-      <input type="number" id="venue_cost" value="{{ settings.venue_cost }}" style="width:90px">
+      <label class="section-label" style="margin-bottom:4px;display:block;">Guests</label>
+      <input type="number" id="guests" value="{{ settings.guests }}" min="1">
     </div>
     <div>
-      <label class="text-xs text-slate-400 block mb-1">Equipment €</label>
-      <input type="number" id="equipment_cost" value="{{ settings.equipment_cost }}" style="width:90px">
+      <label class="section-label" style="margin-bottom:4px;display:block;">Ticket €</label>
+      <input type="number" id="ticket_price" value="{{ settings.ticket_price }}" min="0" step="0.5">
     </div>
-    <div style="flex:1;min-width:240px">
-      <label class="text-xs text-slate-400 block mb-1">
-        Alcohol per person: <strong id="alcohol_label">
-          {{ settings.alcohol_ml_per_person }} ml —
-          {% for ml, name in levels.items() %}{% if ml == settings.alcohol_ml_per_person %}{{ name }}{% endif %}{% endfor %}
-        </strong>
-      </label>
-      <div class="flex items-center gap-2">
-        <span class="text-xs">25</span>
-        <input type="range" id="alcohol_slider" min="25" max="100" step="25"
-               value="{{ settings.alcohol_ml_per_person }}" style="flex:1">
-        <span class="text-xs">100</span>
-      </div>
-      <div class="flex justify-between text-xs mt-1 px-1" style="color:#6366f1">
-        {% for ml, name in levels.items() %}<span>{{ name }}</span>{% endfor %}
-      </div>
+    <div>
+      <label class="section-label" style="margin-bottom:4px;display:block;">Venue €</label>
+      <input type="number" id="venue_cost" value="{{ settings.venue_cost }}" min="0">
     </div>
-    <button class="btn btn-primary" onclick="saveAndReload()">🔄 Recalculate</button>
-    <a href="/api/export" class="btn btn-orange" style="text-decoration:none">💾 Export TXT</a>
+    <div>
+      <label class="section-label" style="margin-bottom:4px;display:block;">Equipment €</label>
+      <input type="number" id="equipment_cost" value="{{ settings.equipment_cost }}" min="0">
+    </div>
+  </div>
+
+  <!-- Alcohol slider — full width -->
+  <label class="section-label" style="margin-bottom:6px;display:block;">
+    Alcohol / person:
+    <strong id="alcohol_label" style="color:#e2e8f0;">
+      {{ settings.alcohol_ml_per_person }} ml —
+      {% for ml, name in levels.items() %}{% if ml == settings.alcohol_ml_per_person %}{{ name }}{% endif %}{% endfor %}
+    </strong>
+  </label>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+    <span style="font-size:.75rem;color:#94a3b8;white-space:nowrap;">25 ml</span>
+    <input type="range" id="alcohol_slider" min="25" max="100" step="25"
+           value="{{ settings.alcohol_ml_per_person }}">
+    <span style="font-size:.75rem;color:#94a3b8;white-space:nowrap;">100 ml</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:.7rem;color:#6366f1;padding:0 2px;margin-bottom:14px;">
+    {% for ml, name in levels.items() %}<span>{{ name }}</span>{% endfor %}
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn btn-primary" style="flex:1;" onclick="saveAndReload()">🔄 Recalculate</button>
+    <a href="/api/export" class="btn btn-orange" style="flex:1;text-align:center;">💾 Export</a>
   </div>
 </div>
 
 {% if errors %}
-<div class="card p-4 mb-4" style="border-color:#ef4444">
-  <p class="font-bold text-red-400 mb-2">⚠️ Drink menu errors — fix these before calculating:</p>
-  {% for e in errors %}<p class="text-red-300 text-sm">• {{ e }}</p>{% endfor %}
-  <a href="/menu" class="btn btn-primary inline-block mt-3" style="text-decoration:none">Go to Drink Menu →</a>
+<div class="card mb-3" style="padding:14px;border-color:#ef4444;">
+  <p style="font-weight:700;color:#f87171;margin-bottom:8px;">⚠️ Menu errors</p>
+  {% for e in errors %}<p style="color:#fca5a5;font-size:.875rem;margin-bottom:2px;">• {{ e }}</p>{% endfor %}
+  <a href="/menu" class="btn btn-primary btn-sm" style="text-decoration:none;margin-top:10px;display:inline-flex;">
+    Fix Drink Menu →
+  </a>
 </div>
 {% endif %}
 
 {% if result %}
-<!-- KPI cards -->
-<div class="grid gap-3 mb-4" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+<!-- ── KPI cards ── -->
+<div class="grid-kpi mb-3">
   {% set kpis = [
-    ("💰 Revenue",    "€ " ~ result.revenue,                                    "#4ade80"),
-    ("💸 Spend",      "€ " ~ result.total_min ~ " – " ~ result.total_max,       "#f87171"),
-    ("🏠 Fixed costs","€ " ~ result.fixed_costs,                                "#fbbf24"),
-    ("📈 Profit",     "€ " ~ result.profit_min ~ " – " ~ result.profit_max,     "#34d399"),
-    ("⚖️ Break-even",  result.break_even ~ " guests",                            "#818cf8"),
+    ("💰 Revenue",    "€ " ~ result.revenue,                              "#4ade80"),
+    ("💸 Spend",      "€" ~ result.total_min ~ "–" ~ result.total_max,   "#f87171"),
+    ("🏠 Fixed",      "€ " ~ result.fixed_costs,                         "#fbbf24"),
+    ("📈 Profit",     "€" ~ result.profit_min ~ "–" ~ result.profit_max, "#34d399"),
+    ("⚖️ Break-even", result.break_even ~ " guests",                      "#818cf8"),
   ] %}
   {% for label, val, color in kpis %}
-  <div class="card p-3">
-    <div class="text-xs text-slate-400">{{ label }}</div>
-    <div class="text-lg font-bold mt-1" style="color:{{ color }}">{{ val }}</div>
+  <div class="card" style="padding:12px;">
+    <div style="font-size:.7rem;color:#94a3b8;margin-bottom:4px;">{{ label }}</div>
+    <div style="font-size:.95rem;font-weight:800;color:{{ color }};line-height:1.2;">{{ val }}</div>
   </div>
   {% endfor %}
 </div>
 
-<div class="grid gap-4 mb-4" style="grid-template-columns:1fr 1fr">
-  <!-- Shopping list table -->
-  <div class="card p-4" style="overflow:auto">
-    <h2 class="font-bold text-indigo-300 mb-3">🛒 Shopping List</h2>
-    <table>
-      <thead><tr><th>Type</th><th>Item</th><th class="text-right">Qty</th><th class="text-right">Min €</th><th class="text-right">Max €</th></tr></thead>
-      <tbody>
-        {% for r in result.shopping_list %}
-        <tr>
-          <td>
-            {% if r.type == 'spirit' %}
-              <span class="type-badge type-spirit">{{ r.type }}</span>
-            {% elif r.type == 'beer' %}
-              <span class="type-badge type-beer">{{ r.type }}</span>
-            {% elif r.type == 'wine' %}
-              <span class="type-badge type-wine">{{ r.type }}</span>
-            {% elif r.type == 'mixer' %}
-              <span class="type-badge type-mixer">{{ r.type }}</span>
-            {% elif r.type == 'snack' %}
-              <span class="type-badge type-snack">{{ r.type }}</span>
-            {% else %}
-              <span class="type-badge type-extra">{{ r.type }}</span>
-            {% endif %}
-          </td>
-          <td>{{ r.name }}</td>
-          <td class="text-right">{{ r.quantity }} {{ r.unit }}</td>
-          <td class="text-right text-green-400">{{ "%.2f"|format(r.cost_min) }}</td>
-          <td class="text-right text-red-400">{{ "%.2f"|format(r.cost_max) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot>
-        <tr style="border-top:2px solid #4d4d6e">
-          <td colspan="3" class="font-bold pt-2">TOTAL</td>
-          <td class="text-right font-bold text-green-400 pt-2">{{ "%.2f"|format(result.total_min) }}</td>
-          <td class="text-right font-bold text-red-400 pt-2">{{ "%.2f"|format(result.total_max) }}</td>
-        </tr>
-      </tfoot>
-    </table>
+<!-- ── Shopping list (full width, stacked rows) ── -->
+<div class="card mb-3">
+  <button class="collapsible-btn open" onclick="toggleSection(this)">
+    🛒 Shopping List
+    <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <div class="collapsible-body" style="padding:0 0 4px 0;">
+    <!-- Header row -->
+    <div style="display:flex;gap:8px;padding:6px 12px;background:#252538;font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #2d2d44;">
+      <span style="flex:1;">Item</span>
+      <span style="width:52px;text-align:right;">Qty</span>
+      <span style="width:52px;text-align:right;color:#4ade80;">Min€</span>
+      <span style="width:52px;text-align:right;color:#f87171;">Max€</span>
+    </div>
+    {% for r in result.shopping_list %}
+    <div class="mob-row">
+      <div class="mob-name">
+        <div class="mob-name-text">{{ r.name }}</div>
+        <div style="margin-top:2px;">
+          {% if r.type == 'spirit' %}<span class="type-badge type-spirit">{{ r.type }}</span>
+          {% elif r.type == 'beer' %}<span class="type-badge type-beer">{{ r.type }}</span>
+          {% elif r.type == 'wine' %}<span class="type-badge type-wine">{{ r.type }}</span>
+          {% elif r.type == 'mixer' %}<span class="type-badge type-mixer">{{ r.type }}</span>
+          {% elif r.type == 'snack' %}<span class="type-badge type-snack">{{ r.type }}</span>
+          {% else %}<span class="type-badge type-extra">{{ r.type }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <span style="width:52px;text-align:right;font-size:.8rem;white-space:nowrap;">{{ r.quantity }} {{ r.unit }}</span>
+      <span style="width:52px;text-align:right;color:#4ade80;font-size:.8rem;">{{ "%.2f"|format(r.cost_min) }}</span>
+      <span style="width:52px;text-align:right;color:#f87171;font-size:.8rem;">{{ "%.2f"|format(r.cost_max) }}</span>
+    </div>
+    {% endfor %}
+    <!-- Total row -->
+    <div style="display:flex;gap:8px;padding:10px 12px;border-top:2px solid #4d4d6e;font-weight:800;">
+      <span style="flex:1;">TOTAL</span>
+      <span style="width:52px;"></span>
+      <span style="width:52px;text-align:right;color:#4ade80;">{{ "%.2f"|format(result.total_min) }}</span>
+      <span style="width:52px;text-align:right;color:#f87171;">{{ "%.2f"|format(result.total_max) }}</span>
+    </div>
   </div>
+</div>
 
-  <!-- Doughnut chart — fixed height container -->
-  <div class="card p-4" style="display:flex;flex-direction:column;">
-    <h2 class="font-bold text-indigo-300 mb-3">📊 Cost Breakdown</h2>
-    <div style="position:relative;flex:1;min-height:0;height:280px;">
+<!-- ── Doughnut chart ── -->
+<div class="card mb-3">
+  <button class="collapsible-btn open" onclick="toggleSection(this)">
+    📊 Cost Breakdown
+    <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <div class="collapsible-body" style="padding:0 16px 16px;">
+    <div style="position:relative;height:260px;">
       <canvas id="chartDoughnut" style="position:absolute;inset:0;width:100%!important;height:100%!important;"></canvas>
     </div>
   </div>
@@ -131,11 +146,11 @@ document.getElementById("alcohol_slider").addEventListener("input", function(){
 
 async function saveAndReload(){
   await apiPost("/api/settings", {
-    guests:               parseInt(document.getElementById("guests").value),
-    ticket_price:         parseFloat(document.getElementById("ticket_price").value),
-    venue_cost:           parseFloat(document.getElementById("venue_cost").value),
-    equipment_cost:       parseFloat(document.getElementById("equipment_cost").value),
-    alcohol_ml_per_person:parseInt(document.getElementById("alcohol_slider").value),
+    guests:                parseInt(document.getElementById("guests").value),
+    ticket_price:          parseFloat(document.getElementById("ticket_price").value),
+    venue_cost:            parseFloat(document.getElementById("venue_cost").value),
+    equipment_cost:        parseFloat(document.getElementById("equipment_cost").value),
+    alcohol_ml_per_person: parseInt(document.getElementById("alcohol_slider").value),
   });
   location.reload();
 }
@@ -147,35 +162,18 @@ const byType = {};
 {% endfor %}
 byType["Fixed costs"] = {{ result.fixed_costs }};
 
-// Use the same differentiated palette as type badges
 const TYPE_COLORS = {
-  spirit:       "#f97316",   // amber-orange
-  beer:         "#facc15",   // yellow
-  wine:         "#c084fc",   // purple
-  mixer:        "#22d3ee",   // cyan
-  snack:        "#86efac",   // light green
-  extra:        "#94a3b8",   // slate
-  "Fixed costs":"#ef4444",   // red
+  spirit: "#f97316", beer: "#facc15", wine: "#c084fc",
+  mixer: "#22d3ee", snack: "#86efac", extra: "#94a3b8", "Fixed costs": "#ef4444"
 };
-
-const labels = Object.keys(byType);
-const bgColors = labels.map(l => TYPE_COLORS[l] || "#6366f1");
+const labels    = Object.keys(byType);
+const bgColors  = labels.map(l => TYPE_COLORS[l] || "#6366f1");
 
 new Chart(document.getElementById("chartDoughnut"), {
   type: "doughnut",
-  data: {
-    labels,
-    datasets: [{
-      data: Object.values(byType),
-      borderWidth: 2,
-      borderColor: "#0f0f1a",
-      backgroundColor: bgColors,
-    }]
-  },
+  data: { labels, datasets: [{ data: Object.values(byType), borderWidth: 2, borderColor: "#0f0f1a", backgroundColor: bgColors }] },
   options: {
-    plugins: {
-      legend: { labels: { color:"#e2e8f0", font:{size:12} } }
-    },
+    plugins: { legend: { labels: { color:"#e2e8f0", font:{size:11}, boxWidth:12 } } },
     responsive: true,
     maintainAspectRatio: false,
   }

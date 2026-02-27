@@ -2,69 +2,267 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎉 BottleCount</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>BottleCount</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍾</text></svg>">
   <style>
-    body { background:#0f0f1a; color:#e2e8f0; font-family:system-ui,sans-serif; }
-    .card { background:#1e1e2e; border:1px solid #2d2d44; border-radius:12px; }
-    .ok   { color:#4ade80; font-weight:700; }
-    .err  { color:#f87171; font-weight:700; }
-    input[type=number], input[type=text], select {
-      background:#2a2a3e; border:1px solid #3d3d5c; border-radius:6px;
-      padding:4px 8px; color:#e2e8f0; width:100%;
+    :root {
+      --bg:       #0f0f1a;
+      --surface:  #1a1a2e;
+      --surface2: #252538;
+      --border:   #2d2d44;
+      --border2:  #3d3d5c;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --indigo:   #6366f1;
     }
-    input:focus, select:focus { outline:2px solid #6366f1; }
-    .btn         { border-radius:8px; padding:8px 18px; font-weight:600; cursor:pointer; transition:.15s; }
-    .btn-primary { background:#6366f1; color:#fff; }
-    .btn-primary:hover { background:#4f46e5; }
-    .btn-success { background:#22c55e; color:#fff; }
-    .btn-success:hover { background:#16a34a; }
-    .btn-orange  { background:#f97316; color:#fff; }
-    .btn-orange:hover  { background:#ea580c; }
-    .btn-danger  { background:#ef4444; color:#fff; border-radius:6px; padding:3px 9px; cursor:pointer; }
-    .nav-link { padding:8px 18px; border-radius:8px; font-weight:600; color:#94a3b8; transition:.15s; }
-    .nav-link:hover, .nav-link.active { background:#2d2d44; color:#e2e8f0; }
-    table { width:100%; border-collapse:collapse; }
-    th { background:#2d2d44; padding:8px; text-align:left; font-size:.8rem;
-         color:#94a3b8; text-transform:uppercase; letter-spacing:.05em; }
-    td { padding:7px 8px; border-bottom:1px solid #2d2d44; font-size:.9rem; }
-    tr:hover td { background:#1a1a2e; }
-    input[type=range] { accent-color:#6366f1; }
 
-    /* ── Type badge palette ──────────────────────────────── */
-    .type-badge {
-      display:inline-block;
-      font-size:.72rem;
-      font-weight:700;
-      padding:2px 8px;
-      border-radius:20px;
-      letter-spacing:.04em;
-      text-transform:uppercase;
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100dvh;
+      font-size: 15px;
     }
-    /* 🍹 Spirits — warm amber/orange */
-    .type-spirit  { background:#7c2d12; color:#fb923c; border:1px solid #c2410c; }
-    /* 🍺 Beer — golden yellow */
-    .type-beer    { background:#713f12; color:#fde047; border:1px solid #a16207; }
-    /* 🍷 Wine — deep rose/purple */
-    .type-wine    { background:#4a044e; color:#e879f9; border:1px solid #a21caf; }
-    /* 🧃 Mixer — cyan/teal */
-    .type-mixer   { background:#0c4a6e; color:#38bdf8; border:1px solid #0369a1; }
-    /* 🍿 Snack — soft green */
-    .type-snack   { background:#14532d; color:#86efac; border:1px solid #16a34a; }
-    /* 🎉 Extra — neutral slate */
-    .type-extra   { background:#1e293b; color:#94a3b8; border:1px solid #475569; }
+
+    /* ── Nav ── */
+    .nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 12px;
+      height: 52px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav-brand { font-size: 1.1rem; font-weight: 800; white-space: nowrap; margin-right: 8px; flex-shrink: 0; }
+    .nav-link {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-size: 0.85rem;
+      transition: background .15s, color .15s;
+      text-decoration: none;
+    }
+    .nav-link:hover, .nav-link.active {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    /* ── Form controls — large touch targets ── */
+    input[type=number],
+    input[type=text],
+    select {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      width: 100%;
+      font-size: 15px;
+      min-height: 40px;
+    }
+    input[type=number]:focus,
+    input[type=text]:focus,
+    select:focus { outline: 2px solid var(--indigo); outline-offset: 1px; }
+    input[type=range] { accent-color: var(--indigo); width: 100%; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: filter .15s, transform .1s;
+      border: none;
+      white-space: nowrap;
+      min-height: 42px;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--indigo); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.15); }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { filter: brightness(1.1); }
+    .btn-orange  { background: #f97316; color: #fff; text-decoration: none; }
+    .btn-orange:hover  { filter: brightness(1.1); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; min-height: 34px; border-radius: 8px; }
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: none;
+      min-height: 34px;
+    }
+    .btn-danger:active { transform: scale(.97); }
+
+    /* ── Status indicators ── */
+    .ok  { color: #4ade80; font-weight: 700; }
+    .err { color: #f87171; font-weight: 700; }
+
+    /* ── Mobile-friendly table replacement: stacked rows ── */
+    .mob-table { width: 100%; }
+    .mob-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+    }
+    .mob-row:last-child { border-bottom: none; }
+    .mob-row:hover { background: rgba(255,255,255,.03); }
+    .mob-name { flex: 1; min-width: 0; }
+    .mob-name-text { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mob-name-sub  { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+    .mob-right { text-align: right; white-space: nowrap; font-size: 0.8rem; }
+    .mob-right .price-min { color: #4ade80; }
+    .mob-right .price-max { color: #f87171; }
+
+    /* For desktop: show as real table */
+    @media (min-width: 640px) {
+      table.real-table { width: 100%; border-collapse: collapse; }
+      table.real-table th {
+        background: var(--surface2);
+        padding: 8px 10px;
+        text-align: left;
+        font-size: .75rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .05em;
+      }
+      table.real-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        font-size: .875rem;
+      }
+      table.real-table tr:hover td { background: rgba(255,255,255,.02); }
+    }
+
+    /* ── Type badges ── */
+    .type-badge {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .type-spirit { background:#7c2d12; color:#fb923c; border:1px solid #c2410c; }
+    .type-beer   { background:#713f12; color:#fde047; border:1px solid #a16207; }
+    .type-wine   { background:#4a044e; color:#e879f9; border:1px solid #a21caf; }
+    .type-mixer  { background:#0c4a6e; color:#38bdf8; border:1px solid #0369a1; }
+    .type-snack  { background:#14532d; color:#86efac; border:1px solid #16a34a; }
+    .type-extra  { background:#1e293b; color:#94a3b8; border:1px solid #475569; }
+
+    /* ── Collapsible sections ── */
+    .collapsible-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-weight: 700;
+      text-align: left;
+    }
+    .collapsible-btn .chevron {
+      transition: transform .2s;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .collapsible-btn.open .chevron { transform: rotate(180deg); }
+    .collapsible-body { overflow: hidden; }
+    .collapsible-body.closed { display: none; }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0 4px;
+      margin-bottom: 6px;
+    }
+
+    /* ── Grid helpers ── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media (min-width: 640px) {
+      .grid-2 { grid-template-columns: 1fr 1fr; }
+    }
+    .grid-kpi {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 480px) {
+      .grid-kpi { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 720px) {
+      .grid-kpi { grid-template-columns: repeat(5, 1fr); }
+    }
   </style>
 </head>
-<body class="min-h-screen">
-  <nav style="background:#1e1e2e;border-bottom:1px solid #2d2d44" class="px-4 py-3 flex items-center gap-2 flex-wrap">
-    <span class="text-xl font-bold mr-4">🎉 BottleCount</span>
-    <a href="/"        class="nav-link {% if request.path=='/' %}active{% endif %}">📊 Dashboard</a>
-    <a href="/menu"    class="nav-link {% if request.path=='/menu' %}active{% endif %}">🍹 Drink Menu</a>
-    <a href="/catalog" class="nav-link {% if request.path=='/catalog' %}active{% endif %}">📚 Catalog</a>
-  </nav>
-  <main class="p-4 max-w-7xl mx-auto">
+<body>
+  <nav style="background:#1e1e2e;border-bottom:1px solid #2d2d44" class="px-4 py-3 flex items-center justify-between sm:justify-start sm:gap-2">
+
+  <!-- Logo -->
+  <span class="text-xl font-bold sm:mr-4">
+    🍾 BottleCount
+  </span>
+
+  <!-- Links -->
+  <div class="flex items-center gap-4 sm:gap-2">
+    <a href="/"        class="nav-link {% if request.path=='/' %}active{% endif %}">📊 <span class="hidden sm:inline">Dashboard</span></a>
+    <a href="/menu"    class="nav-link {% if request.path=='/menu' %}active{% endif %}">🍹 <span class="hidden sm:inline">Drink Menu</span></a>
+    <a href="/catalog" class="nav-link {% if request.path=='/catalog' %}active{% endif %}">📚 <span class="hidden sm:inline">Catalog</span></a>
+  </div>
+
+</nav>
+
+
+  <main style="padding: 12px; max-width: 900px; margin: 0 auto;">
     {% block content %}{% endblock %}
   </main>
   <script>
@@ -75,6 +273,11 @@
     async function apiDelete(url) {
       const r = await fetch(url, {method:'DELETE'});
       return r.json();
+    }
+    function toggleSection(btnEl) {
+      btnEl.classList.toggle('open');
+      const body = btnEl.nextElementSibling;
+      body.classList.toggle('closed');
     }
   </script>
   {% block scripts %}{% endblock %}
