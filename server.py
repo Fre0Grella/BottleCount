@@ -76,8 +76,8 @@ def api_login_required(f):
 @app.route("/")
 def dashboard():
     user_id  = session.get("user_id")
-    settings = get_settings()
-    catalog  = get_catalog()
+    settings = get_settings(user_id)
+    catalog  = get_catalog(user_id)
     errors   = validate_menu(settings["menu"])
     result   = calculate(settings, catalog) if not errors else None
     return render_template("dashboard.html",
@@ -87,8 +87,8 @@ def dashboard():
 @app.route("/menu")
 def menu():
     user_id  = session.get("user_id")
-    settings = get_settings()
-    catalog  = get_catalog()
+    settings = get_settings(user_id)
+    catalog  = get_catalog(user_id)
     errors   = validate_menu(settings["menu"])
     return render_template("menu.html",
         settings=settings, catalog=catalog, errors=errors)
@@ -96,7 +96,7 @@ def menu():
 @app.route("/catalog")
 def catalog_page():
     user_id  = session.get("user_id")
-    catalog = get_catalog()
+    catalog = get_catalog(user_id)
     return render_template("catalog.html", catalog=catalog)
 
 # ── API: global settings ──────────────────────────────────────
