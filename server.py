@@ -1,7 +1,9 @@
 import os, io
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, request
-from store import get_catalog, save_catalog, get_settings, save_settings
+from store import (get_catalog, get_settings, save_settings,
+                   add_ingredient, delete_ingredient, update_ingredient_price,
+                   add_cocktail, delete_cocktail)
 from core import calculate, validate_menu, ALCOHOL_LEVELS
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
@@ -73,6 +75,7 @@ def api_login_required(f):
 
 @app.route("/")
 def dashboard():
+    user_id  = session.get("user_id")
     settings = get_settings()
     catalog  = get_catalog()
     errors   = validate_menu(settings["menu"])
@@ -83,6 +86,7 @@ def dashboard():
 
 @app.route("/menu")
 def menu():
+    user_id  = session.get("user_id")
     settings = get_settings()
     catalog  = get_catalog()
     errors   = validate_menu(settings["menu"])
@@ -91,6 +95,7 @@ def menu():
 
 @app.route("/catalog")
 def catalog_page():
+    user_id  = session.get("user_id")
     catalog = get_catalog()
     return render_template("catalog.html", catalog=catalog)
 
@@ -99,12 +104,13 @@ def catalog_page():
 @app.route("/api/settings", methods=["POST"])
 @api_login_required
 def api_settings():
-    s = get_settings()
+    user_id = session["user_id"]
+    s = get_settings(user_id)
     for key in ["guests", "ticket_price", "venue_cost", "equipment_cost",
                 "alcohol_ml_per_person", "buffer"]:
         if key in request.json:
             s[key] = request.json[key]
-    save_settings(s)
+    save_settings(user_id, s)
     return jsonify({"ok": True})
 
 # ── API: save 3-level menu ────────────────────────────────────
@@ -112,7 +118,8 @@ def api_settings():
 @app.route("/api/menu", methods=["POST"])
 @api_login_required
 def api_menu():
-    s = get_settings()
+    user_id = session["user_id"]
+    s = get_settings(user_id)
     s["menu"] = request.json["menu"]
     # structural=True  -> skip validation (adding/removing spirits or drinks)
     # structural=False -> validate sums (explicit Save Menu button only)
@@ -120,15 +127,16 @@ def api_menu():
         errors = validate_menu(s["menu"])
         if errors:
             return jsonify({"ok": False, "errors": errors}), 400
-    save_settings(s)
+    save_settings(user_id, s)
     return jsonify({"ok": True})
 
 # ── API: recalculate (AJAX) ───────────────────────────────────
 
 @app.route("/api/calculate", methods=["POST"])
 def api_calculate():
-    s = get_settings()
-    c = get_catalog()
+    user_id = session.get("user_id")
+    s = get_settings(user_id)
+    c = get_catalog(user_id)
     errors = validate_menu(s["menu"])
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
@@ -138,81 +146,80 @@ def api_calculate():
 
 @app.route("/api/catalog/ingredient", methods=["POST"])
 @api_login_required
-def add_ingredient():
-    catalog = get_catalog()
+def add_ingredient_route():
+    user_id = session["user_id"]
     data    = request.json
     name    = data.get("name", "").strip()
+    catalog = get_catalog(user_id)
     if not name or name in catalog["ingredients"]:
         return jsonify({"ok": False, "error": "Name missing or already exists"}), 400
     vol = data.get("volume_ml")
-    catalog["ingredients"][name] = {
+    add_ingredient(user_id, name, {
         "type":      data.get("type", "extra"),
         "abv":       float(data.get("abv", 0)),
         "volume_ml": int(vol) if vol else None,
         "unit":      data.get("unit", "pcs"),
         "price_min": float(data.get("price_min", 0)),
         "price_max": float(data.get("price_max", 0)),
-    }
-    save_catalog(catalog)
+    })
     return jsonify({"ok": True})
 
 @app.route("/api/catalog/ingredient/price", methods=["POST"])
 @api_login_required
-def update_ingredient_price():
-    catalog = get_catalog()
-    data    = request.json
-    name    = data.get("name", "").strip()
+def update_ingredient_price_route():
+    user_id   = session["user_id"]
+    data      = request.json
+    name      = data.get("name", "").strip()
+    catalog   = get_catalog(user_id)
     if not name or name not in catalog["ingredients"]:
         return jsonify({"ok": False, "error": "Ingredient not found"}), 404
     price_min = float(data.get("price_min", 0))
     price_max = float(data.get("price_max", 0))
     if price_min > price_max:
         return jsonify({"ok": False, "error": "Min price cannot exceed max price"}), 400
-    catalog["ingredients"][name]["price_min"] = price_min
-    catalog["ingredients"][name]["price_max"] = price_max
-    save_catalog(catalog)
+    update_ingredient_price(user_id, name, price_min, price_max)
     return jsonify({"ok": True})
 
 @app.route("/api/catalog/ingredient/<name>", methods=["DELETE"])
 @api_login_required
-def delete_ingredient(name):
-    catalog = get_catalog()
-    catalog["ingredients"].pop(name, None)
-    save_catalog(catalog)
+def delete_ingredient_route(name):
+    user_id = session["user_id"]
+    delete_ingredient(user_id, name)
     return jsonify({"ok": True})
+
 
 # ── API: cocktails CRUD ───────────────────────────────────────
 
 @app.route("/api/catalog/cocktail", methods=["POST"])
 @api_login_required
-def add_cocktail():
-    catalog = get_catalog()
+def add_cocktail_route():
+    user_id = session["user_id"]
     data    = request.json
     name    = data.get("name", "").strip()
+    catalog = get_catalog(user_id)
     if not name or name in catalog["cocktails"]:
         return jsonify({"ok": False, "error": "Name missing or already exists"}), 400
-    catalog["cocktails"][name] = {
+    add_cocktail(user_id, name, {
         "main_spirit": data["main_spirit"],
         "category":    data["category"],
         "recipe":      data["recipe"],
-    }
-    save_catalog(catalog)
+    })
     return jsonify({"ok": True})
 
 @app.route("/api/catalog/cocktail/<name>", methods=["DELETE"])
 @api_login_required
-def delete_cocktail(name):
-    catalog = get_catalog()
-    catalog["cocktails"].pop(name, None)
-    save_catalog(catalog)
+def delete_cocktail_route(name):
+    user_id = session["user_id"]
+    delete_cocktail(user_id, name)
     return jsonify({"ok": True})
 
 # ── API: export shopping list as TXT ─────────────────────────
 
 @app.route("/api/export")
 def export_txt():
-    s = get_settings()
-    c = get_catalog()
+    user_id = session.get("user_id")
+    s = get_settings(user_id)
+    c = get_catalog(user_id)
     r = calculate(s, c)
     lines = [
         "=" * 62,
