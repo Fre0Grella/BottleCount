@@ -1,6 +1,6 @@
 # 🍹 BottleCount
 
-> Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, profit margin, and break-even point in seconds.
+Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, profit margin, and break-even point in seconds.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-black?logo=flask)](https://flask.palletsprojects.com)
@@ -128,8 +128,9 @@ Open [http://localhost:5000](http://localhost:5000).
 The core formula for bottle count of any spirit is:
 
 $$
-\text{bottles} = \left\lceil \frac{N \times \text{alcohol\_target} \times \text{buffer} \times \text{macro\%} \times \text{spirit\%}}{\text{ABV} \times \text{vol\_bottle}} \right\rceil
+\text{bottles} = \left\lceil \frac{N \times \text{alcohol target} \times \text{buffer} \times \text{macro\%} \times \text{spirit\%}}{\text{ABV} \times \text{vol bottle}} \right\rceil
 $$
+
 
 Where:
 - `N` = number of guests
