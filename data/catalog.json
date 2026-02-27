@@ -1,0 +1,346 @@
+{
+  "ingredients": {
+    "Beer 66cl": {
+      "type": "beer",
+      "abv": 0.05,
+      "volume_ml": 660,
+      "price_min": 1.29,
+      "price_max": 1.59
+    },
+    "White Wine 75cl": {
+      "type": "wine",
+      "abv": 0.115,
+      "volume_ml": 750,
+      "price_min": 2.49,
+      "price_max": 3.49
+    },
+    "Red Wine 75cl": {
+      "type": "wine",
+      "abv": 0.135,
+      "volume_ml": 750,
+      "price_min": 2.49,
+      "price_max": 3.99
+    },
+    "Gin 70cl": {
+      "type": "spirit",
+      "abv": 0.4,
+      "volume_ml": 700,
+      "price_min": 9.0,
+      "price_max": 13.0
+    },
+    "Vodka 70cl": {
+      "type": "spirit",
+      "abv": 0.4,
+      "volume_ml": 700,
+      "price_min": 8.0,
+      "price_max": 12.0
+    },
+    "Rum 70cl": {
+      "type": "spirit",
+      "abv": 0.4,
+      "volume_ml": 700,
+      "price_min": 8.0,
+      "price_max": 12.0
+    },
+    "Tequila 70cl": {
+      "type": "spirit",
+      "abv": 0.38,
+      "volume_ml": 700,
+      "price_min": 10.0,
+      "price_max": 14.0
+    },
+    "Amaro 70cl": {
+      "type": "spirit",
+      "abv": 0.28,
+      "volume_ml": 700,
+      "price_min": 8.0,
+      "price_max": 11.0
+    },
+    "Limoncello 70cl": {
+      "type": "spirit",
+      "abv": 0.3,
+      "volume_ml": 700,
+      "price_min": 5.0,
+      "price_max": 8.0
+    },
+    "Aperol 70cl": {
+      "type": "spirit",
+      "abv": 0.11,
+      "volume_ml": 700,
+      "price_min": 7.0,
+      "price_max": 10.0
+    },
+    "Tonic Water 1L": {
+      "type": "mixer",
+      "abv": 0,
+      "volume_ml": 1000,
+      "price_min": 0.49,
+      "price_max": 0.79
+    },
+    "Cola 1L": {
+      "type": "mixer",
+      "abv": 0,
+      "volume_ml": 1000,
+      "price_min": 0.49,
+      "price_max": 0.69
+    },
+    "Orange Juice 1L": {
+      "type": "mixer",
+      "abv": 0,
+      "volume_ml": 1000,
+      "price_min": 0.79,
+      "price_max": 1.19
+    },
+    "Lemonade 1L": {
+      "type": "mixer",
+      "abv": 0,
+      "volume_ml": 1000,
+      "price_min": 0.49,
+      "price_max": 0.79
+    },
+    "Energy Drink 25cl": {
+      "type": "mixer",
+      "abv": 0,
+      "volume_ml": 250,
+      "price_min": 0.39,
+      "price_max": 0.69
+    },
+    "Sparkling Water 1L": {
+      "type": "mixer",
+      "abv": 0,
+      "volume_ml": 1000,
+      "price_min": 0.29,
+      "price_max": 0.49
+    },
+    "Ice kg": {
+      "type": "extra",
+      "abv": 0,
+      "volume_ml": null,
+      "unit": "kg",
+      "price_min": 0.9,
+      "price_max": 1.0
+    },
+    "Crackers 400g": {
+      "type": "snack",
+      "abv": 0,
+      "volume_ml": null,
+      "unit": "pcs",
+      "price_min": 1.39,
+      "price_max": 1.39
+    },
+    "Chips 150g": {
+      "type": "snack",
+      "abv": 0,
+      "volume_ml": null,
+      "unit": "pcs",
+      "price_min": 1.5,
+      "price_max": 1.5
+    },
+    "Flatbread": {
+      "type": "snack",
+      "abv": 0,
+      "volume_ml": null,
+      "unit": "pcs",
+      "price_min": 2.0,
+      "price_max": 2.0
+    },
+    "Disposable Cups": {
+      "type": "extra",
+      "abv": 0,
+      "volume_ml": null,
+      "unit": "pcs",
+      "price_min": 0.05,
+      "price_max": 0.07
+    },
+    "Ichnusa 50ml": {
+      "type": "beer",
+      "abv": 6.05,
+      "volume_ml": 500,
+      "unit": "ml",
+      "price_min": 0.0,
+      "price_max": 0.0
+    }
+  },
+  "cocktails": {
+    "Beer": {
+      "main_spirit": "Beer 66cl",
+      "category": "Beer",
+      "recipe": {
+        "Beer 66cl": {
+          "quantity": 660,
+          "unit": "ml"
+        }
+      }
+    },
+    "Red Wine Glass": {
+      "main_spirit": "Red Wine 75cl",
+      "category": "Wine",
+      "recipe": {
+        "Red Wine 75cl": {
+          "quantity": 150,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.05,
+          "unit": "kg"
+        }
+      }
+    },
+    "Spritz": {
+      "main_spirit": "Aperol 70cl",
+      "category": "Wine",
+      "recipe": {
+        "Aperol 70cl": {
+          "quantity": 60,
+          "unit": "ml"
+        },
+        "White Wine 75cl": {
+          "quantity": 90,
+          "unit": "ml"
+        },
+        "Sparkling Water 1L": {
+          "quantity": 30,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.08,
+          "unit": "kg"
+        }
+      }
+    },
+    "Gin Tonic": {
+      "main_spirit": "Gin 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Gin 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Tonic Water 1L": {
+          "quantity": 150,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.1,
+          "unit": "kg"
+        }
+      }
+    },
+    "Gin Lemon": {
+      "main_spirit": "Gin 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Gin 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Lemonade 1L": {
+          "quantity": 150,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.1,
+          "unit": "kg"
+        }
+      }
+    },
+    "Vodka Redbull": {
+      "main_spirit": "Vodka 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Vodka 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Energy Drink 25cl": {
+          "quantity": 250,
+          "unit": "ml"
+        }
+      }
+    },
+    "Vodka Lemon": {
+      "main_spirit": "Vodka 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Vodka 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Lemonade 1L": {
+          "quantity": 150,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.1,
+          "unit": "kg"
+        }
+      }
+    },
+    "Vodka Orange": {
+      "main_spirit": "Vodka 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Vodka 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Orange Juice 1L": {
+          "quantity": 150,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.1,
+          "unit": "kg"
+        }
+      }
+    },
+    "Cuba Libre": {
+      "main_spirit": "Rum 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Rum 70cl": {
+          "quantity": 50,
+          "unit": "ml"
+        },
+        "Cola 1L": {
+          "quantity": 150,
+          "unit": "ml"
+        },
+        "Ice kg": {
+          "quantity": 0.1,
+          "unit": "kg"
+        }
+      }
+    },
+    "Tequila Shot": {
+      "main_spirit": "Tequila 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Tequila 70cl": {
+          "quantity": 40,
+          "unit": "ml"
+        }
+      }
+    },
+    "Amaro Shot": {
+      "main_spirit": "Amaro 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Amaro 70cl": {
+          "quantity": 40,
+          "unit": "ml"
+        }
+      }
+    },
+    "Limoncello Shot": {
+      "main_spirit": "Limoncello 70cl",
+      "category": "Spirits",
+      "recipe": {
+        "Limoncello 70cl": {
+          "quantity": 40,
+          "unit": "ml"
+        }
+      }
+    }
+  }
+}

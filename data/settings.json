@@ -1,0 +1,92 @@
+{
+  "guests": 200,
+  "ticket_price": 15,
+  "venue_cost": 500,
+  "equipment_cost": 500,
+  "alcohol_ml_per_person": 75,
+  "buffer": 1.1,
+  "extras": {
+    "Crackers 400g": {
+      "qty_per_person": 0.04
+    },
+    "Chips 150g": {
+      "qty_per_person": 0.055
+    },
+    "Flatbread": {
+      "qty_per_person": 0.05,
+      "min_qty": 10
+    },
+    "Disposable Cups": {
+      "qty_per_person": 3.0
+    }
+  },
+  "menu": {
+    "Beer": {
+      "macro_pct": 0.2,
+      "spirits": {
+        "Beer 66cl": {
+          "drinks": {
+            "Beer": 1
+          },
+          "pct": 1
+        }
+      }
+    },
+    "Spirits": {
+      "macro_pct": 0.6,
+      "spirits": {
+        "Amaro 70cl": {
+          "drinks": {
+            "Amaro Shot": 1
+          },
+          "pct": 0.08
+        },
+        "Gin 70cl": {
+          "drinks": {
+            "Gin Lemon": 0.5,
+            "Gin Tonic": 0.5
+          },
+          "pct": 0.4
+        },
+        "Limoncello 70cl": {
+          "drinks": {
+            "Limoncello Shot": 1
+          },
+          "pct": 0.07
+        },
+        "Rum 70cl": {
+          "drinks": {
+            "Cuba Libre": 1,
+            "Gin Tonic": 0
+          },
+          "pct": 0.1
+        },
+        "Vodka 70cl": {
+          "drinks": {
+            "Vodka Lemon": 0.4,
+            "Vodka Orange": 0.3,
+            "Vodka Redbull": 0.3
+          },
+          "pct": 0.35
+        }
+      }
+    },
+    "Wine": {
+      "macro_pct": 0.2,
+      "spirits": {
+        "Aperol 70cl": {
+          "drinks": {
+            "Spritz": 1
+          },
+          "pct": 0.3
+        },
+        "Red Wine 75cl": {
+          "drinks": {
+            "Red Wine Glass": 1
+          },
+          "pct": 0.7
+        }
+      }
+    }
+  }
+}

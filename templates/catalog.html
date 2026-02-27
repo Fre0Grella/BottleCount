@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">📚 Catalog — Ingredients & Cocktails</h1>
+
+<!-- INGREDIENTS -->
+<div class="card p-4 mb-6">
+  <div class="flex justify-between items-center mb-3">
+    <h2 class="font-bold text-indigo-300">🧴 Ingredients</h2>
+    <button class="btn btn-primary text-sm" onclick="toggle('form_ing')">+ Add ingredient</button>
+  </div>
+
+  <div id="form_ing" style="display:none" class="p-3 mb-4 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
+    <div class="grid gap-3 mb-3" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+      <div><label class="text-xs text-slate-400">Name</label><input type="text" id="ing_name" placeholder="e.g. Rum 70cl"></div>
+      <div><label class="text-xs text-slate-400">Type</label>
+        <select id="ing_type">
+          <option value="spirit">Spirit</option><option value="beer">Beer</option>
+          <option value="wine">Wine</option><option value="mixer">Mixer</option>
+          <option value="snack">Snack</option><option value="extra">Extra</option>
+        </select>
+      </div>
+      <div><label class="text-xs text-slate-400">ABV (e.g. 0.40)</label><input type="number" id="ing_abv" value="0" step="0.01" min="0" max="1"></div>
+      <div><label class="text-xs text-slate-400">Volume ml (0 if kg/pcs)</label><input type="number" id="ing_vol" value="700"></div>
+      <div><label class="text-xs text-slate-400">Unit (ml/kg/pcs)</label><input type="text" id="ing_unit" value="ml" style="width:70px"></div>
+      <div><label class="text-xs text-slate-400">Min price €</label><input type="number" id="ing_pmin" value="0" step="0.01"></div>
+      <div><label class="text-xs text-slate-400">Max price €</label><input type="number" id="ing_pmax" value="0" step="0.01"></div>
+    </div>
+    <button class="btn btn-success" onclick="addIngredient()">✅ Add</button>
+  </div>
+
+  <table>
+    <thead><tr><th>Name</th><th>Type</th><th>ABV</th><th>Volume</th><th>Min €</th><th>Max €</th><th></th></tr></thead>
+    <tbody>
+      {% for name, ing in catalog.ingredients.items()|sort %}
+      <tr>
+        <td class="font-medium">{{ name }}</td>
+        <td><span class="text-xs px-2 rounded" style="background:#2d2d44">{{ ing.type }}</span></td>
+        <td>{% if ing.abv %}{{ "%.0f"|format(ing.abv*100) }}%{% else %}—{% endif %}</td>
+        <td>{% if ing.volume_ml %}{{ ing.volume_ml }} ml{% else %}{{ ing.get('unit','pcs') }}{% endif %}</td>
+        <td class="text-green-400">{{ ing.price_min }}</td>
+        <td class="text-red-400">{{ ing.price_max }}</td>
+        <td><button class="btn-danger text-xs" onclick="deleteIngredient('{{ name }}')">✖</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- COCKTAILS -->
+<div class="card p-4">
+  <div class="flex justify-between items-center mb-3">
+    <h2 class="font-bold text-indigo-300">🍸 Cocktails</h2>
+    <button class="btn btn-primary text-sm" onclick="toggle('form_ck')">+ Add cocktail</button>
+  </div>
+
+  <div id="form_ck" style="display:none" class="p-3 mb-4 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
+    <div class="grid gap-3 mb-3" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      <div><label class="text-xs text-slate-400">Cocktail name</label><input type="text" id="ck_name" placeholder="e.g. Vodka Tonic"></div>
+      <div><label class="text-xs text-slate-400">Category</label>
+        <select id="ck_cat"><option>Spirits</option><option>Wine</option><option>Beer</option></select>
+      </div>
+      <div><label class="text-xs text-slate-400">Main spirit</label>
+        <select id="ck_spirit">
+          {% for name, ing in catalog.ingredients.items() %}
+            {% if ing.type in ['spirit','beer','wine'] %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="text-xs text-slate-400 block mb-2">Recipe (add ingredients one by one):</label>
+      <div id="recipe_rows" class="space-y-2 mb-2"></div>
+      <div class="flex gap-2 flex-wrap items-center">
+        <select id="sel_ing_ck" style="width:200px">
+          {% for name in catalog.ingredients.keys() %}
+          <option value="{{ name }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+        <input type="number" id="ing_ck_qty" value="50" style="width:80px" placeholder="qty">
+        <select id="ing_ck_unit" style="width:70px"><option>ml</option><option>kg</option><option>pcs</option></select>
+        <button class="btn btn-primary text-xs" onclick="addRecipeRow()">+ Add</button>
+      </div>
+    </div>
+    <button class="btn btn-success" onclick="addCocktail()">✅ Create cocktail</button>
+  </div>
+
+  <table>
+    <thead><tr><th>Name</th><th>Category</th><th>Main spirit</th><th>Recipe</th><th></th></tr></thead>
+    <tbody>
+      {% for name, ck in catalog.cocktails.items()|sort %}
+      <tr>
+        <td class="font-medium">{{ name }}</td>
+        <td><span class="text-xs px-2 rounded" style="background:#2d2d44">{{ ck.category }}</span></td>
+        <td class="text-indigo-300">{{ ck.main_spirit }}</td>
+        <td class="text-xs text-slate-400">
+          {% for ing, det in ck.recipe.items() %}
+            {{ ing }}: {{ det.quantity }}{{ det.unit }}{% if not loop.last %},{% endif %}
+          {% endfor %}
+        </td>
+        <td><button class="btn-danger text-xs" onclick="deleteCocktail('{{ name }}')">✖</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let recipe = {};
+
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function addRecipeRow() {
+  const ing  = document.getElementById('sel_ing_ck').value;
+  const qty  = parseFloat(document.getElementById('ing_ck_qty').value);
+  const unit = document.getElementById('ing_ck_unit').value;
+  recipe[ing] = {quantity: qty, unit: unit};
+  document.getElementById('recipe_rows').innerHTML +=
+    `<div class="flex items-center gap-2 text-sm">
+       <span style="min-width:180px">${ing}</span>
+       <span class="text-indigo-300">${qty} ${unit}</span>
+       <button class="btn-danger text-xs" onclick="delete recipe['${ing}'];this.parentElement.remove()">✖</button>
+     </div>`;
+}
+
+async function addIngredient() {
+  const vol = parseInt(document.getElementById('ing_vol').value);
+  const r = await apiPost('/api/catalog/ingredient', {
+    name:      document.getElementById('ing_name').value,
+    type:      document.getElementById('ing_type').value,
+    abv:       parseFloat(document.getElementById('ing_abv').value),
+    volume_ml: vol > 0 ? vol : null,
+    unit:      document.getElementById('ing_unit').value,
+    price_min: parseFloat(document.getElementById('ing_pmin').value),
+    price_max: parseFloat(document.getElementById('ing_pmax').value),
+  });
+  if (r.ok) location.reload();
+  else alert('❌ ' + r.error);
+}
+
+async function deleteIngredient(name) {
+  if (!confirm('Delete ' + name + '?')) return;
+  await apiDelete('/api/catalog/ingredient/' + encodeURIComponent(name));
+  location.reload();
+}
+
+async function addCocktail() {
+  if (Object.keys(recipe).length === 0) { alert('Add at least one ingredient to the recipe'); return; }
+  const r = await apiPost('/api/catalog/cocktail', {
+    name:         document.getElementById('ck_name').value,
+    category:     document.getElementById('ck_cat').value,
+    main_spirit:  document.getElementById('ck_spirit').value,
+    recipe:       recipe,
+  });
+  if (r.ok) location.reload();
+  else alert('❌ ' + r.error);
+}
+
+async function deleteCocktail(name) {
+  if (!confirm('Delete ' + name + '?')) return;
+  await apiDelete('/api/catalog/cocktail/' + encodeURIComponent(name));
+  location.reload();
+}
+</script>
+{% endblock %}

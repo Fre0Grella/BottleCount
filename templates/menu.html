@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between flex-wrap gap-3">
+  <h1 class="text-xl font-bold">🍹 Drink Menu — Configure percentages</h1>
+  <button class="btn btn-success" onclick="saveMenu()">💾 Save Menu</button>
+</div>
+
+{% if errors %}
+<div class="card p-3 mb-4" style="border-color:#ef4444">
+  {% for e in errors %}<p class="text-red-400 text-sm">⚠️ {{ e }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<!-- LEVEL 1: macro categories -->
+<div class="card p-4 mb-4">
+  <h2 class="font-bold text-indigo-300 mb-3">Level 1 — Category split</h2>
+  <div class="flex flex-wrap gap-6 items-end">
+    {% for cat, data in settings.menu.items() %}
+    <div>
+      <label class="text-xs text-slate-400 block mb-1">{{ cat }}</label>
+      <div class="flex items-center gap-1">
+        <input type="number" id="macro_{{ cat }}" value="{{ (data.macro_pct * 100)|round(1) }}"
+               style="width:70px" min="0" max="100" step="1" oninput="checkSum('macro')">
+        <span class="text-slate-400">%</span>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="ml-auto text-sm">
+      Total: <span id="sum_macro" class="font-bold">
+        {{ (settings.menu.values()|map(attribute='macro_pct')|sum * 100)|round(1) }}%
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- LEVELS 2 + 3: spirits and drinks per category -->
+{% for category, cat_data in settings.menu.items() %}
+<div class="card p-4 mb-4">
+  <h2 class="font-bold text-indigo-300 mb-3">
+    {{ category }}
+    <span class="text-sm text-slate-400 font-normal ml-2">
+      ({{ (cat_data.macro_pct * 100)|round(0)|int }}% of total alcohol)
+    </span>
+  </h2>
+
+  <div class="space-y-4">
+    {% for spirit_name, spirit_data in cat_data.spirits.items() %}
+    <div class="p-3 rounded-lg" style="background:#252538;border:1px solid #3d3d5c">
+
+      <!-- Level 2: spirit percentage -->
+      <div class="flex items-center gap-3 mb-2 flex-wrap">
+        <strong class="text-indigo-200">{{ spirit_name }}</strong>
+        <div class="flex items-center gap-1">
+          <input type="number"
+                 id="pct_spirit_{{ category }}_{{ spirit_name|replace(' ','_') }}"
+                 value="{{ (spirit_data.pct * 100)|round(1) }}"
+                 style="width:65px" min="0" max="100" step="1"
+                 oninput="checkSum('spirits_{{ category }}')">
+          <span class="text-slate-400">% of {{ category }}</span>
+        </div>
+        <button class="btn-danger text-xs ml-auto"
+          onclick="removeSpirit('{{ category }}','{{ spirit_name }}')">✖ Remove</button>
+      </div>
+
+      <!-- Level 3: drink percentages -->
+      <div class="ml-4 space-y-1">
+        {% for drink_name, drink_pct in spirit_data.drinks.items() %}
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-slate-300" style="min-width:170px">{{ drink_name }}</span>
+          <input type="number"
+                 id="pct_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}_{{ drink_name|replace(' ','_') }}"
+                 value="{{ (drink_pct * 100)|round(1) }}"
+                 style="width:65px" min="0" max="100" step="1"
+                 oninput="checkSum('drinks_{{ category }}_{{ spirit_name|replace(' ','_') }}')">
+          <span class="text-slate-400">%</span>
+          <button class="btn-danger text-xs"
+            onclick="removeDrink('{{ category }}','{{ spirit_name }}','{{ drink_name }}')">✖</button>
+        </div>
+        {% endfor %}
+        <div class="text-xs mt-1">
+          Drinks total:
+          <span id="sum_drinks_{{ category }}_{{ spirit_name|replace(' ','_') }}" class="font-bold">
+            {{ (spirit_data.drinks.values()|sum * 100)|round(1) }}%
+          </span>
+        </div>
+      </div>
+
+      <!-- Add drink to this spirit -->
+      <div class="ml-4 mt-2 flex gap-2 flex-wrap items-center">
+        <select id="sel_drink_{{ category }}_{{ spirit_name|replace(' ','_') }}" style="width:190px">
+          {% for ck_name, ck in catalog.cocktails.items() %}
+            {% if ck.category == category %}
+            <option value="{{ ck_name }}">{{ ck_name }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <button class="btn btn-primary text-xs"
+          onclick="addDrink('{{ category }}','{{ spirit_name }}')">+ Add drink</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Spirit sum for this category -->
+  <div class="text-sm mt-3">
+    Spirits total for {{ category }}:
+    <span id="sum_spirits_{{ category }}" class="font-bold">
+      {{ (cat_data.spirits.values()|map(attribute='pct')|sum * 100)|round(1) }}%
+    </span>
+  </div>
+
+  <!-- Add spirit to this category -->
+  <div class="mt-3 flex gap-2 flex-wrap items-center">
+    <select id="sel_spirit_{{ category }}" style="width:190px">
+      {% for ing_name, ing in catalog.ingredients.items() %}
+        {% if ing.type in ['spirit','beer','wine'] %}
+        <option value="{{ ing_name }}">{{ ing_name }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary text-xs"
+      onclick="addSpirit('{{ category }}')">+ Add spirit</button>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let menu = {{ settings.menu | tojson }};
+
+function checkSum(scope) {
+  if (scope === 'macro') {
+    let s = 0;
+    Object.keys(menu).forEach(cat => {
+      s += parseFloat(document.getElementById('macro_' + cat)?.value || 0);
+    });
+    const el = document.getElementById('sum_macro');
+    el.textContent = s.toFixed(1) + '%';
+    el.className = 'font-bold ' + (Math.abs(s - 100) < 0.5 ? 'ok' : 'err');
+
+  } else if (scope.startsWith('spirits_')) {
+    const cat = scope.replace('spirits_', '');
+    let s = 0;
+    Object.keys(menu[cat]?.spirits || {}).forEach(sp => {
+      s += parseFloat(document.getElementById('pct_spirit_' + cat + '_' + sp.replace(/ /g,'_'))?.value || 0);
+    });
+    const el = document.getElementById('sum_spirits_' + cat);
+    if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
+
+  } else if (scope.startsWith('drinks_')) {
+    const rest   = scope.replace('drinks_', '');
+    const cat    = Object.keys(menu).find(c => rest.startsWith(c));
+    const sp_key = rest.replace(cat + '_', '');
+    const sp_name = Object.keys(menu[cat]?.spirits || {}).find(s => s.replace(/ /g,'_') === sp_key);
+    if (!sp_name) return;
+    let s = 0;
+    Object.keys(menu[cat].spirits[sp_name].drinks || {}).forEach(dk => {
+      const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk.replace(/ /g,'_');
+      s += parseFloat(document.getElementById(id)?.value || 0);
+    });
+    const el = document.getElementById('sum_drinks_' + cat + '_' + sp_key);
+    if (el) { el.textContent = s.toFixed(1) + '%'; el.className = 'font-bold ' + (Math.abs(s-100)<0.5?'ok':'err'); }
+  }
+}
+
+function readMenu() {
+  const m = JSON.parse(JSON.stringify(menu));
+  Object.keys(m).forEach(cat => {
+    m[cat].macro_pct = parseFloat(document.getElementById('macro_' + cat)?.value || 0) / 100;
+    Object.keys(m[cat].spirits).forEach(sp => {
+      const sp_key = sp.replace(/ /g,'_');
+      m[cat].spirits[sp].pct = parseFloat(document.getElementById('pct_spirit_' + cat + '_' + sp_key)?.value || 0) / 100;
+      Object.keys(m[cat].spirits[sp].drinks).forEach(dk => {
+        const dk_key = dk.replace(/ /g,'_');
+        const id = 'pct_drink_' + cat + '_' + sp_key + '_' + dk_key;
+        m[cat].spirits[sp].drinks[dk] = parseFloat(document.getElementById(id)?.value || 0) / 100;
+      });
+    });
+  });
+  return m;
+}
+
+async function saveMenu() {
+  const m = readMenu();
+  const r = await apiPost('/api/menu', {menu: m});
+  if (r.ok) { alert('✅ Menu saved!'); location.reload(); }
+  else alert('❌ Errors:\n' + r.errors.join('\n'));
+}
+
+async function addDrink(cat, spirit) {
+  const sel = document.getElementById('sel_drink_' + cat + '_' + spirit.replace(/ /g,'_'));
+  const dk  = sel.value;
+  if (!dk || menu[cat].spirits[spirit].drinks[dk] !== undefined) return;
+  const m = readMenu();
+  m[cat].spirits[spirit].drinks[dk] = 0;
+  await apiPost('/api/menu', {menu: m});
+  location.reload();
+}
+
+async function removeDrink(cat, spirit, drink) {
+  const m = readMenu();
+  delete m[cat].spirits[spirit].drinks[drink];
+  await apiPost('/api/menu', {menu: m});
+  location.reload();
+}
+
+async function addSpirit(cat) {
+  const sel = document.getElementById('sel_spirit_' + cat);
+  const sp  = sel.value;
+  if (!sp || menu[cat].spirits[sp]) return;
+  const m = readMenu();
+  m[cat].spirits[sp] = {pct: 0, drinks: {}};
+  await apiPost('/api/menu', {menu: m});
+  location.reload();
+}
+
+async function removeSpirit(cat, spirit) {
+  if (!confirm('Remove ' + spirit + ' from ' + cat + '?')) return;
+  const m = readMenu();
+  delete m[cat].spirits[spirit];
+  await apiPost('/api/menu', {menu: m});
+  location.reload();
+}
+</script>
+{% endblock %}
