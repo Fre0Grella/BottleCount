@@ -1,10 +1,73 @@
 import os, io
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, request
 from store import get_catalog, save_catalog, get_settings, save_settings
 from core import calculate, validate_menu, ALCOHOL_LEVELS
+from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
+from functools import wraps
+
+load_dotenv()
 
 app = Flask(__name__)
+
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
+
+oauth = OAuth(app)
+google = oauth.register(
+    name="google",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
+
+
+# ── Auth routes ───────────────────────────────────────────────
+
+@app.route("/login")
+def login():
+    redirect_uri = url_for("auth_callback", _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route("/auth/callback")
+def auth_callback():
+    token    = google.authorize_access_token()
+    userinfo = token["userinfo"]
+    session["user_id"] = userinfo["sub"]   # Google's unique user ID
+    session["email"]   = userinfo["email"]
+    session["name"]    = userinfo.get("name", "")
+    session["picture"] = userinfo.get("picture", "")
+    return redirect("/")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+# ── Auth guard — add this before every protected route ────────
+def login_required(f):
+    """Redirects to /login for page routes."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+def api_login_required(f):
+    """Returns JSON error for API/CRUD routes."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({
+                "ok": False,
+                "error": "Authentication required",
+                "message": "You must be signed in to perform this action.",
+                "login_url": "/login"
+            }), 401
+        return f(*args, **kwargs)
+    return decorated
 
 # ── PAGES ────────────────────────────────────────────────────
 
@@ -34,6 +97,7 @@ def catalog_page():
 # ── API: global settings ──────────────────────────────────────
 
 @app.route("/api/settings", methods=["POST"])
+@api_login_required
 def api_settings():
     s = get_settings()
     for key in ["guests", "ticket_price", "venue_cost", "equipment_cost",
@@ -46,6 +110,7 @@ def api_settings():
 # ── API: save 3-level menu ────────────────────────────────────
 
 @app.route("/api/menu", methods=["POST"])
+@api_login_required
 def api_menu():
     s = get_settings()
     s["menu"] = request.json["menu"]
@@ -72,6 +137,7 @@ def api_calculate():
 # ── API: ingredients CRUD ─────────────────────────────────────
 
 @app.route("/api/catalog/ingredient", methods=["POST"])
+@api_login_required
 def add_ingredient():
     catalog = get_catalog()
     data    = request.json
@@ -91,6 +157,7 @@ def add_ingredient():
     return jsonify({"ok": True})
 
 @app.route("/api/catalog/ingredient/price", methods=["POST"])
+@api_login_required
 def update_ingredient_price():
     catalog = get_catalog()
     data    = request.json
@@ -107,6 +174,7 @@ def update_ingredient_price():
     return jsonify({"ok": True})
 
 @app.route("/api/catalog/ingredient/<name>", methods=["DELETE"])
+@api_login_required
 def delete_ingredient(name):
     catalog = get_catalog()
     catalog["ingredients"].pop(name, None)
@@ -116,6 +184,7 @@ def delete_ingredient(name):
 # ── API: cocktails CRUD ───────────────────────────────────────
 
 @app.route("/api/catalog/cocktail", methods=["POST"])
+@api_login_required
 def add_cocktail():
     catalog = get_catalog()
     data    = request.json
@@ -131,6 +200,7 @@ def add_cocktail():
     return jsonify({"ok": True})
 
 @app.route("/api/catalog/cocktail/<name>", methods=["DELETE"])
+@api_login_required
 def delete_cocktail(name):
     catalog = get_catalog()
     catalog["cocktails"].pop(name, None)
