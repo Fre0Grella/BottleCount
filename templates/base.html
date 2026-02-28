@@ -347,6 +347,12 @@
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 6000);
     }
+
+    function toggleSection(btnEl) {
+      btnEl.classList.toggle('open');
+      const body = btnEl.nextElementSibling;
+      body.classList.toggle('closed');
+    }
   </script>
 
   {% block scripts %}{% endblock %}
