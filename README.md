@@ -170,7 +170,7 @@ python server.py
 The core formula for each spirit bottle count:
 
 $$
-\text{bottles} = \left\lceil \frac{N \times \text{alcohol\_target} \times \text{buffer} \times \text{macro\%} \times \text{spirit\%} \times \text{drink\%}}{\text{ABV} \times \text{bottle\_ml}} \right\rceil
+\text{bottles} = \left\lceil \frac{N \times \text{alcohol target} \times \text{buffer} \times \text{macro\%} \times \text{spirit\%} \times \text{drink\%}}{\text{ABV} \times \text{bottle ml}} \right\rceil
 $$
 
 Mixer quantities are derived directly from cocktail recipes — if Vodka Redbull uses 250ml of energy drink per serving, and there are 400 servings, the energy drink quantity is computed automatically.
@@ -180,7 +180,7 @@ Mixer quantities are derived directly from cocktail recipes — if Vodka Redbull
 Simpler formula — no cocktail recipe needed:
 
 $$
-\text{bottles} = \left\lceil \frac{N \times \text{alcohol\_target} \times \text{buffer} \times \text{macro\%} \times \text{variety\%}}{\text{ABV} \times \text{bottle\_ml}} \right\rceil
+\text{bottles} = \left\lceil \frac{N \times \text{alcohol target} \times \text{buffer} \times \text{macro\%} \times \text{variety\%}}{\text{ABV} \times \text{bottle ml}} \right\rceil
 $$
 
 ### Break-even
