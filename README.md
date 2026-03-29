@@ -2,7 +2,6 @@
 
 Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, cost range, break-even point, and optional QR-based ticket workflow in a fully static web app.
 
-[![Deploy to GitHub Pages](https://github.com/fre0grella/BottleCount/actions/workflows/deploy.yml/badge.svg)](https://github.com/fre0grella/BottleCount/actions/workflows/deploy.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Astro](https://img.shields.io/badge/Astro-5.x-BC52EE?logo=astro&logoColor=white)](https://astro.build/)
 [![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
