@@ -1,0 +1,39 @@
+Copyright (c) 2026 Marco Galeri
+
+This work is licensed under the PolyForm Noncommercial License 1.0.0.
+Full license text: https://polyformproject.org/licenses/noncommercial/1.0.0/
+
+=======================================================================
+
+COMMERCIAL USE
+
+Commercial use of this work is not permitted under the license above.
+If you wish to use this work commercially, contact the author via
+GitHub: https://github.com/Fre0Grella
+
+Commercial licenses are granted at the author's discretion.
+
+=======================================================================
+
+ATTRIBUTION
+
+Any permitted use or adaptation of this work must credit:
+
+  "QuantumNotes" by Marco Galeri (2026)
+  Inspired by the course of Prof. Marco Chiani and the notes of
+  Lorenzo Valentini, Università di Bologna.
+  https://github.com/Fre0Grella/QuantumNotes
+
+=======================================================================
+
+THIRD-PARTY COMPONENTS
+
+The circuit simulator in this project uses Q.js, which is distributed
+separately under its own license:
+
+  Q.js — Quantum circuit simulator and editor
+  Copyright (c) 2019–2020 Stewart Smith
+  MIT License — https://github.com/stewdio/q.js/blob/master/LICENSE.md
+
+  The files q.js and q.css are NOT covered by the PolyForm Noncommercial
+  license above. Refer to the Q.js repository for their terms of use.
