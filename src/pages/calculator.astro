@@ -1,0 +1,29 @@
+---
+import '../styles/global.css';
+import Calculator from '../components/Calculator.vue';
+import CatalogManager from '../components/CatalogManager.vue';
+const base = import.meta.env.BASE_URL;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BottleCount — Calculator</title>
+  <link rel="icon" href={`${base}favicon.svg`} />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href={base}>🍾 BottleCount</a>
+    <a class="nav-link" href={base}>Home</a>
+    <a class="nav-link active" href={`${base}calculator`}>Calculator</a>
+    <a class="nav-link" href={`${base}tickets`}>Tickets</a>
+    <a class="nav-link" href={`${base}scanner`}>Scanner</a>
+    <a class="nav-link" href={`${base}docs`}>Docs</a>
+  </nav>
+  <main class="page">
+    <Calculator client:load />
+    <CatalogManager client:load />
+  </main>
+</body>
+</html>

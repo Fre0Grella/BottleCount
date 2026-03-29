@@ -1,167 +1,102 @@
-# 🍹 BottleCount
+# 🍾 BottleCount
 
-Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, profit margin, and break-even point in seconds.
+Plan your party like an engineer. Calculate shopping lists, generate signed QR tickets, and validate them at the door — fully offline, no server required.
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.x-black?logo=flask)](https://flask.palletsprojects.com)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase)](https://supabase.com)
-[![Deploy on Railway](https://img.shields.io/badge/Deploy-Railway-blueviolet?logo=railway)](https://railway.app)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Deploy to GitHub Pages](https://github.com/fre0grella/BottleCount/actions/workflows/deploy.yml/badge.svg)](https://github.com/fre0grella/BottleCount/actions/workflows/deploy.yml)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
----
-
-## What It Does
-
-BottleCount takes the guesswork out of organizing a ticketed party.
-You define **who's coming**, **what they're drinking**, and **what it costs** —
-the app calculates everything else: how many bottles to buy, how much you'll spend, when you break even, and how much profit you walk away with.
-
-No spreadsheets. No magic numbers. Everything is driven by your cocktail menu.
-
----
-
-## Features
-
-### 🍸 Drink Menu Engine
-- Define your party's macro split: **Beer / Wine / Spirits** (adjustable percentages)
-- For each spirit, configure cocktail ratios — e.g. Vodka → 30% Redbull, 40% Lemon, 30% Orange
-- Mixer quantities are **automatically derived** from cocktail recipes, not hardcoded
-- Alcohol intensity presets: 🟢 Light Aperitivo · 🟡 Party · 🔴 Full Send — configurable pure-alcohol target per person (25/50/75/100 ml)
-
-### 🛒 Smart Shopping List
-- Auto-calculates bottle counts per ingredient based on ABV, bottle volume, and drink ratios
-- Supports **min/max price ranges** per item (best deal vs. shelf price)
-- All quantities scale automatically when headcount changes
-- Add custom ingredients and cocktails through the UI — changes persist
-
-### 📊 Financial Dashboard
-- Real-time **profit range** (min/max) based on price ranges
-- Interactive **Margin vs. Headcount** chart with break-even line
-- **Cost breakdown pie chart** by category (Spirits, Wine, Beer, Mixers, Snacks, Venue, Equipment)
-- Fixed costs (venue rental, sound system) tracked separately from variable costs
-
-### 🗂️ Catalog Management
-- Built-in catalog of ingredients (with ABV and bottle volumes) and base cocktail recipes
-- Full **CRUD** for ingredients and cocktails via the web UI
-- Add new ingredients specifying format (ml), ABV (for spirits), and category
-- Add new cocktails with proportional composition (mixer ratios, ice included)
-
-### ☁️ Cloud-Ready
-- All data persisted in **Supabase PostgreSQL** — no data loss on redeploy
-- `store.py` acts as a clean abstraction layer — swap backend without touching business logic
-- Deployable in ~5 minutes on Railway or Render (free tier)
-- Fully accessible from any device via browser — no app installation needed
+**Live:** https://fre0grella.github.io/BottleCount
 
 ---
 
 ## Architecture
 
-```
-bottle-count/
-│
-├── server.py          # Flask app — all API routes
-├── core.py            # Pure calculation logic (no I/O, fully testable)
-├── store.py           # Data layer — reads/writes to Supabase (swap here to change DB)
-│
-├── templates/
-│   ├── dashboard.html # Main planning view + charts
-│   ├── menu.html      # Drink menu configuration (macro %, cocktail ratios)
-│   └── catalog.html   # Ingredient & cocktail CRUD
-│
-├── requirements.txt
-├── Procfile           # Railway/Render deploy config
-└── nixpacks.toml
-```
-
-**Key design principle:** `core.py` has zero I/O. It only takes plain Python dicts in and returns results — making it trivially testable and reusable.
-
----
-
-## Getting Started
-
-### Prerequisites
-- Python 3.11+
-- A free [Supabase](https://supabase.com) account
-- (Optional) A [Railway](https://railway.app) account for cloud deploy
-
-### Local Setup
-
-```bash
-git clone https://github.com/YOUR_USERNAME/bottle-count.git
-cd bottle-count
-
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-pip install -r requirements.txt
-```
-
-Create a `.env` file:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
-FLASK_SECRET_KEY=your-secret-key
-```
-
-Run:
-
-```bash
-python server.py
-```
-
-Open [http://localhost:5000](http://localhost:5000).
-
----
-
-## Cloud Deploy (Railway)
-
-1. Push the repo to GitHub
-2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub Repo**
-3. Add your environment variables in Railway's dashboard
-4. Click **Generate Domain** — you're live
-
----
-
-## How the Calculation Works
-
-The core formula for bottle count of any spirit is:
-
-$$
-\text{bottles} = \left\lceil \frac{N \times \text{alcohol target} \times \text{buffer} \times \text{macro\%} \times \text{spirit\%}}{\text{ABV} \times \text{vol bottle}} \right\rceil
-$$
-
-
-Where:
-- `N` = number of guests
-- `alcohol_target` = ml of pure alcohol per person (set by intensity preset)
-- `buffer` = 1.10 (10% safety margin)
-- `macro%` / `spirit%` = percentages from your menu configuration
-
-Mixer quantities are derived directly from cocktail recipes — if Vodka Redbull is 50% of Vodka cocktails and each serving is 200ml, the energy drink quantity is computed automatically.
-
-Break-even uses the standard contribution margin formula:
-
-$$
-N_{\text{be}} = \frac{\text{fixed costs}}{\text{ticket price} - \text{variable cost per person}}
-$$
-
----
-
-## Stack
+This is a **100% static site** — no backend, no accounts, no server costs.
 
 | Layer | Technology |
 |---|---|
-| Backend | Python 3.11 + Flask |
-| Database | Supabase (PostgreSQL) |
-| Charts | Chart.js |
-| Deploy | Railway / Render |
-| Data layer | `store.py` abstraction (swappable) |
+| Language | TypeScript (strict) |
+| Framework | Astro + Vue 3 |
+| Build | Vite (via Astro) |
+| Client storage | Dexie.js (IndexedDB) |
+| Crypto | Web Crypto API (HMAC-SHA256) |
+| QR generation | qrcode |
+| QR scanning | nimiq/qr-scanner |
+| Cloud sync | User-owned Google Sheet + Apps Script |
+| Deploy | GitHub Pages via `withastro/action` |
+
+```
+BottleCount/
+├── .github/workflows/deploy.yml   ← GH Pages CI
+├── public/favicon.svg
+├── src/
+│   ├── pages/
+│   │   ├── index.astro            ← Landing (zero JS)
+│   │   ├── docs.astro             ← How-to guide (zero JS)
+│   │   ├── calculator.astro       ← Calculator shell
+│   │   ├── tickets.astro          ← Ticket creator shell
+│   │   └── scanner.astro          ← Door scanner shell
+│   ├── components/
+│   │   ├── Calculator.vue         ← Settings + menu editor + shopping list
+│   │   ├── CatalogManager.vue     ← Ingredient & cocktail CRUD
+│   │   ├── TicketCreator.vue      ← Party management + QR generation
+│   │   └── Scanner.vue            ← Camera scan + 3-layer validation
+│   ├── lib/
+│   │   ├── types.ts               ← All shared interfaces
+│   │   ├── core.ts                ← calculate() + validateMenu()
+│   │   ├── db.ts                  ← Typed Dexie class + helpers
+│   │   ├── crypto.ts              ← HMAC sign/verify
+│   │   └── sheets.ts              ← Apps Script wrapper
+│   ├── data/
+│   │   ├── catalog.json           ← Preset ingredients + cocktails
+│   │   └── settings.json          ← Default party settings
+│   └── styles/global.css
+├── apps-script/validate.gs        ← Google Sheets validator source
+├── astro.config.mjs
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## Local development
+
+```bash
+git clone https://github.com/fre0grella/BottleCount
+cd BottleCount
+npm install
+npm run dev
+```
+
+Open http://localhost:4321/BottleCount
+
+---
+
+## Deploy to GitHub Pages
+
+1. Push to `main` — the workflow in `.github/workflows/deploy.yml` handles everything automatically via `withastro/action`.
+2. In your repo Settings → Pages → Source: **GitHub Actions**.
+3. After the first successful run, the site is live at `https://fre0grella.github.io/BottleCount`.
+
+---
+
+## Google Sheet setup (multi-scanner validation)
+
+For multi-device ticket validation at the door:
+
+1. **Create a Google Sheet** — columns: `ticketId` (A), `used` (B), `usedAt` (C). Add ticket IDs in column A.
+2. **Add Apps Script** — Extensions → Apps Script → paste `apps-script/validate.gs`.
+3. **Set secret** — Script Properties → add `TOKEN = your-secret`.  Deploy as web app (Execute as: Me, Anyone can access).
+4. **Configure in Scanner** — paste your deployment URL and token into the ⚙️ config panel.
+
+---
+
+## Data & Privacy
+
+All data lives in your browser's IndexedDB. Nothing is sent anywhere unless you configure the optional Google Sheet sync. Use the **Export backup** button in the Catalog page to download a full JSON backup.
 
 ---
 
 ## License
 
-This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
-
-For commercial use without open-source obligations, contact the author.
+[GNU Affero General Public License v3.0](LICENSE)

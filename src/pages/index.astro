@@ -1,0 +1,67 @@
+---
+import '../styles/global.css';
+const base = import.meta.env.BASE_URL;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BottleCount — Plan your party like an engineer</title>
+  <link rel="icon" href={`${base}favicon.svg`} />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href={base}>🍾 BottleCount</a>
+    <a class="nav-link active" href={base}>Home</a>
+    <a class="nav-link" href={`${base}calculator`}>Calculator</a>
+    <a class="nav-link" href={`${base}tickets`}>Tickets</a>
+    <a class="nav-link" href={`${base}scanner`}>Scanner</a>
+    <a class="nav-link" href={`${base}docs`}>Docs</a>
+  </nav>
+
+  <main class="page">
+    <div class="hero">
+      <h1>🍾 BottleCount</h1>
+      <p>Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, profit margin, and break-even in seconds.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a class="btn btn-primary" href={`${base}calculator`}>🧮 Open Calculator</a>
+        <a class="btn btn-ghost" href={`${base}docs`}>📖 How it works</a>
+      </div>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div style="font-size:2rem">🍸</div>
+        <h3>Smart Drink Menu</h3>
+        <p>3-level Spirits engine, simple Beer/Wine split. ABV-driven bottle calculations.</p>
+      </div>
+      <div class="feature-card">
+        <div style="font-size:2rem">🛒</div>
+        <h3>Shopping List</h3>
+        <p>Auto-calculates bottles, mixers, snacks with min/max price ranges and 10% buffer.</p>
+      </div>
+      <div class="feature-card">
+        <div style="font-size:2rem">📊</div>
+        <h3>Financial Dashboard</h3>
+        <p>Revenue, profit range, cost breakdown chart, and break-even guest count.</p>
+      </div>
+      <div class="feature-card">
+        <div style="font-size:2rem">🎫</div>
+        <h3>QR Tickets</h3>
+        <p>Generate cryptographically signed QR tickets per party. Print or share digitally.</p>
+      </div>
+      <div class="feature-card">
+        <div style="font-size:2rem">📷</div>
+        <h3>Door Scanner</h3>
+        <p>Camera-based ticket validation. Works offline, optional multi-scanner via Google Sheets.</p>
+      </div>
+      <div class="feature-card">
+        <div style="font-size:2rem">✈️</div>
+        <h3>100% Offline</h3>
+        <p>Runs as a static site. Data lives in your browser — no accounts, no servers.</p>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
