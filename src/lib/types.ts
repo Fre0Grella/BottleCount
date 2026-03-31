@@ -79,11 +79,15 @@ export interface CalculationResult {
 
 // ── Tickets ────────────────────────────────────────────────────────────────
 
+/** Drink menu stored per party — same shape as Settings['menu'] */
+export type PartyMenu = Record<string, CategoryEntry>;
+
 export interface Party {
-  id?:       number;
-  name:      string;
-  date:      string;
-  createdAt: string;
+  id?:        number;
+  name:       string;
+  date:       string;
+  createdAt:  string;
+  partyMenu?: PartyMenu;   // party-specific drink menu (optional for backward compat)
 }
 
 export interface Ticket {

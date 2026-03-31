@@ -1,7 +1,6 @@
 ---
 import '../styles/global.css';
 import Calculator from '../components/Calculator.vue';
-import CatalogManager from '../components/CatalogManager.vue';
 const base = import.meta.env.BASE_URL;
 ---
 <!DOCTYPE html>
@@ -23,7 +22,6 @@ const base = import.meta.env.BASE_URL;
   </nav>
   <main class="page">
     <Calculator client:load />
-    <CatalogManager client:load />
   </main>
 </body>
 </html>
