@@ -1,0 +1,49 @@
+---
+const { active } = Astro.props as { active: string };
+const base = import.meta.env.BASE_URL;
+
+const links = [
+  { href: base,                    label: 'Home',       key: 'home' },
+  { href: `${base}calculator`,     label: 'Calculator', key: 'calculator' },
+  { href: `${base}tickets`,        label: 'Tickets',    key: 'tickets' },
+  { href: `${base}scanner`,        label: 'Scanner',    key: 'scanner' },
+  { href: `${base}docs`,           label: 'Docs',       key: 'docs' },
+];
+---
+
+<nav class="nav">
+  <a class="nav-brand" href={base}>🍾 BottleCount</a>
+
+  <!-- Desktop links -->
+  <div class="nav-links">
+    {links.map(l => (
+      <a class={`nav-link${active === l.key ? ' active' : ''}`} href={l.href}>{l.label}</a>
+    ))}
+  </div>
+
+  <!-- Hamburger (mobile only) -->
+  <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">☰</button>
+</nav>
+
+<!-- Mobile drawer (outside nav so it can be full-width below) -->
+<div class="nav-drawer" id="nav-drawer">
+  {links.map(l => (
+    <a class={`nav-link${active === l.key ? ' active' : ''}`} href={l.href}>{l.label}</a>
+  ))}
+</div>
+
+<script>
+  const btn    = document.getElementById('nav-hamburger')!;
+  const drawer = document.getElementById('nav-drawer')!;
+  btn.addEventListener('click', () => {
+    const open = drawer.classList.toggle('open');
+    btn.textContent = open ? '✕' : '☰';
+  });
+  // Close on link click
+  drawer.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      drawer.classList.remove('open');
+      btn.textContent = '☰';
+    });
+  });
+</script>

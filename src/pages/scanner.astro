@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import NavBar from '../components/NavBar.astro';
 import Scanner from '../components/Scanner.vue';
 const base = import.meta.env.BASE_URL;
 ---
@@ -12,14 +13,7 @@ const base = import.meta.env.BASE_URL;
   <link rel="icon" href={`${base}favicon.svg`} />
 </head>
 <body>
-  <nav class="nav">
-    <a class="nav-brand" href={base}>🍾 BottleCount</a>
-    <a class="nav-link" href={base}>Home</a>
-    <a class="nav-link" href={`${base}calculator`}>Calculator</a>
-    <a class="nav-link" href={`${base}tickets`}>Tickets</a>
-    <a class="nav-link active" href={`${base}scanner`}>Scanner</a>
-    <a class="nav-link" href={`${base}docs`}>Docs</a>
-  </nav>
+  <NavBar active="scanner" />
   <main class="page">
     <Scanner client:load />
   </main>

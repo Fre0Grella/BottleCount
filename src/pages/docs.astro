@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import NavBar from '../components/NavBar.astro';
 const base = import.meta.env.BASE_URL;
 ---
 <!DOCTYPE html>
@@ -11,15 +12,7 @@ const base = import.meta.env.BASE_URL;
   <link rel="icon" href={`${base}favicon.svg`} />
 </head>
 <body>
-  <nav class="nav">
-    <a class="nav-brand" href={base}>🍾 BottleCount</a>
-    <a class="nav-link" href={base}>Home</a>
-    <a class="nav-link" href={`${base}calculator`}>Calculator</a>
-    <a class="nav-link" href={`${base}tickets`}>Tickets</a>
-    <a class="nav-link" href={`${base}scanner`}>Scanner</a>
-    <a class="nav-link active" href={`${base}docs`}>Docs</a>
-  </nav>
-
+  <NavBar active="docs" />
   <main class="page" style="max-width:720px;">
     <h1 style="font-size:1.5rem;font-weight:900;margin-bottom:4px;">📖 How it works</h1>
     <p style="color:var(--muted);margin-bottom:32px;">Everything you need to plan a party and validate tickets at the door.</p>
@@ -38,7 +31,7 @@ const base = import.meta.env.BASE_URL;
     <div class="card card-pad" style="margin-bottom:16px;">
       <h2 style="font-size:1.1rem;margin:0 0 12px;">🎫 Tickets</h2>
       <p style="color:var(--muted);line-height:1.7;margin:0;">
-        Create a party, then generate QR tickets for each guest. Each ticket is HMAC-signed with a key stored only in your browser — tickets cannot be forged. Print them or share as images.
+        Create a party, then generate QR tickets for each guest. Each ticket is HMAC-signed with a key stored only in your browser — tickets cannot be forged. Print them or share via WhatsApp, Email, or as a PNG image.
       </p>
     </div>
 
@@ -52,7 +45,6 @@ const base = import.meta.env.BASE_URL;
     <div class="card card-pad">
       <h2 style="font-size:1.1rem;margin:0 0 16px;">☁️ Google Sheet setup (multi-scanner)</h2>
       <p style="color:var(--muted);margin-bottom:20px;">Follow these 4 steps to enable cross-device ticket validation:</p>
-
       <div style="display:flex;flex-direction:column;gap:16px;">
         {[
           ['1', 'Create a Google Sheet', 'Add columns: ticketId (A), used (B), usedAt (C). Add one row per ticket with its ID.'],

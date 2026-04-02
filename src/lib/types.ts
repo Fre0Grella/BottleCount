@@ -55,6 +55,16 @@ export interface Settings {
   menu:                  Record<string, CategoryEntry>;
 }
 
+/** Per-party overrideable settings (guests, ticket price, venue, equipment) */
+export interface PartySettings {
+  guests:                number;
+  ticket_price:          number;
+  venue_cost:            number;
+  equipment_cost:        number;
+  alcohol_ml_per_person: number;
+  buffer:                number;
+}
+
 // ── Calculation output ─────────────────────────────────────────────────────
 
 export interface ShoppingItem {
@@ -83,11 +93,12 @@ export interface CalculationResult {
 export type PartyMenu = Record<string, CategoryEntry>;
 
 export interface Party {
-  id?:        number;
-  name:       string;
-  date:       string;
-  createdAt:  string;
-  partyMenu?: PartyMenu;   // party-specific drink menu (optional for backward compat)
+  id?:             number;
+  name:            string;
+  date:            string;
+  createdAt:       string;
+  partyMenu?:      PartyMenu;      // per-party drink menu
+  partySettings?:  PartySettings;  // per-party guests/prices/etc.
 }
 
 export interface Ticket {
