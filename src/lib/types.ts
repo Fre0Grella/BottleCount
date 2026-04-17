@@ -117,25 +117,6 @@ export interface TicketQRPayload {
   expiresAt: string;
 }
 
-// ── Google Sync ────────────────────────────────────────────────────────────
-
-export interface GoogleSyncConfig {
-  sheetId: string;
-}
-
-export type ValidationReason =
-  | 'unauthorized'
-  | 'unknown_ticket'
-  | 'already_used'
-  | 'forged_ticket'
-  | 'expired';
-
-export interface ValidationResult {
-  ok:      boolean;
-  reason?: ValidationReason;
-  usedAt?: string;
-}
-
 // ── IndexedDB userdata keys ────────────────────────────────────────────────
 
 export type UserDataKey =
