@@ -7,6 +7,9 @@
     "build": "astro build",
     "preview": "astro preview"
   },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "@astrojs/vue": "^6.0.1",
     "astro": "^6.1.1",
