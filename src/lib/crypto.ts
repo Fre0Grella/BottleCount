@@ -1,18 +1,37 @@
 import { getKey, setKey } from './db';
 import type { TicketQRPayload } from './types';
 
+// The HMAC key is persisted as a JWK (plain JSON), NOT as a CryptoKey object.
+// IndexedDB's structured-clone algorithm cannot serialise CryptoKey instances,
+// so storing one directly would throw a DataCloneError.  Always call
+// crypto.subtle.exportKey("jwk", key) before writing to IndexedDB, and
+// crypto.subtle.importKey("jwk", ...) when reading it back.
 async function getOrCreateKey(): Promise<CryptoKey> {
   const stored = await getKey<JsonWebKey | null>('hmac_key', null);
+
   if (stored) {
     return crypto.subtle.importKey(
-      'jwk', stored, { name: 'HMAC', hash: 'SHA-256' }, true, ['sign', 'verify'],
+      'jwk',
+      stored,
+      { name: 'HMAC', hash: 'SHA-256' },
+      true,
+      ['sign', 'verify'],
     );
   }
+
+  // Generate a new key, export it to JWK immediately, then persist the JWK.
   const key = await crypto.subtle.generateKey(
-    { name: 'HMAC', hash: 'SHA-256' }, true, ['sign', 'verify'],
+    { name: 'HMAC', hash: 'SHA-256' },
+    true,
+    ['sign', 'verify'],
   );
-  const jwk = await crypto.subtle.exportKey('jwk', key);
+
+  // Export to plain JSON before storing — this is what makes it
+  // IndexedDB-safe.  setKey itself also guards against raw CryptoKey objects,
+  // but being explicit here makes the intent obvious.
+  const jwk: JsonWebKey = await crypto.subtle.exportKey('jwk', key);
   await setKey('hmac_key', jwk);
+
   return key;
 }
 
@@ -28,12 +47,16 @@ export async function signTicket(payload: TicketQRPayload): Promise<string> {
 export async function verifyTicket(qrString: string): Promise<TicketQRPayload | null> {
   const [payB64, sigB64] = qrString.split('.');
   if (!payB64 || !sigB64) return null;
+
   try {
     const key     = await getOrCreateKey();
     const payload = JSON.parse(atob(payB64)) as TicketQRPayload;
     const sig     = Uint8Array.from(atob(sigB64), c => c.charCodeAt(0));
     const valid   = await crypto.subtle.verify(
-      'HMAC', key, sig, new TextEncoder().encode(JSON.stringify(payload)),
+      'HMAC',
+      key,
+      sig,
+      new TextEncoder().encode(JSON.stringify(payload)),
     );
     return valid ? payload : null;
   } catch {
