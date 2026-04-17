@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, toRaw } from 'vue';
 import { db, getKey, setKey } from '../lib/db';
 import { calculate, validateMenu, ALCOHOL_LEVELS } from '../lib/core';
 import type {
@@ -109,6 +109,14 @@ const partyMenuErrors = ref<string[]>([]);
 const partyMenuSaving = ref(false);
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Drink menu select state — replaces document.getElementById pattern
+// ─────────────────────────────────────────────────────────────────────────────
+/** Selected spirit/variety to add, keyed by category name */
+const selSpirit = ref<Record<string, string>>({});
+/** Selected cocktail to add, keyed by `${cat}__${spName}` */
+const selDrink  = ref<Record<string, string>>({});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -177,20 +185,20 @@ async function handleSave() {
   saving.value = true;
   try {
     if (isGlobal.value) {
-      // Save global settings (menu included in settings object)
-      await setKey('settings', globalSettings.value);
+      // toRaw() strips the Vue reactive Proxy so IndexedDB can structured-clone it
+      await setKey('settings', toRaw(globalSettings.value));
     } else {
       const p = selectedParty.value!;
-      // Extract partySettings fields from the working copy
-      const ps: PartySettings = {
+      // Extract partySettings fields from the working copy and strip proxies
+      const ps: PartySettings = toRaw({
         guests:                settings.value.guests,
         ticket_price:          settings.value.ticket_price,
         venue_cost:            settings.value.venue_cost,
         equipment_cost:        settings.value.equipment_cost,
         alcohol_ml_per_person: settings.value.alcohol_ml_per_person,
         buffer:                settings.value.buffer,
-      };
-      const pm: PartyMenu = settings.value.menu;
+      });
+      const pm: PartyMenu = toRaw(settings.value.menu);
       // Update DB and local ref
       await db.parties.update(p.id!, { partySettings: ps, partyMenu: pm });
       // Patch the local party object so it stays in sync
@@ -537,11 +545,11 @@ function exportTxt() {
               Total: <span :class="pctOk(spiritsSum(cat as string))?'ok':'err'">{{ (spiritsSum(cat as string)*100).toFixed(1) }}%</span>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <select :id="`sel_${cat}`" style="flex:1;min-width:0;">
+              <select v-model="selSpirit[cat as string]" style="flex:1;min-width:0;">
                 <option v-for="n in spiritsByType(cat==='Beer'?'beer':'wine')" :key="n" :value="n">{{ n }}</option>
               </select>
               <button class="btn btn-primary btn-sm"
-                @click="addSpirit(cat as string,(document.getElementById(`sel_${cat}`) as HTMLSelectElement)?.value)">+ Add</button>
+                @click="addSpirit(cat as string, selSpirit[cat as string])">+ Add</button>
             </div>
           </template>
           <template v-else>
@@ -572,12 +580,12 @@ function exportTxt() {
                   Total: <span :class="pctOk(drinksSum(cat as string,spName as string))?'ok':'err'">{{ (drinksSum(cat as string,spName as string)*100).toFixed(1) }}%</span>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <select :id="`sel_drink_${cat}_${spName}`" style="flex:1;min-width:0;">
+                  <select v-model="selDrink[`${cat as string}__${spName as string}`]" style="flex:1;min-width:0;">
                     <option v-for="ck in cocktailsFor(spName as string)" :key="ck" :value="ck">{{ ck }}</option>
                     <option v-if="!cocktailsFor(spName as string).length" disabled>No cocktails for this spirit</option>
                   </select>
                   <button class="btn btn-primary btn-sm"
-                    @click="addDrink(cat as string,spName as string,(document.getElementById(`sel_drink_${cat}_${spName}`) as HTMLSelectElement)?.value)">+ Add drink</button>
+                    @click="addDrink(cat as string, spName as string, selDrink[`${cat as string}__${spName as string}`])">+ Add drink</button>
                 </div>
               </div>
             </div>
@@ -585,11 +593,11 @@ function exportTxt() {
               Spirits total: <span :class="pctOk(spiritsSum(cat as string))?'ok':'err'">{{ (spiritsSum(cat as string)*100).toFixed(1) }}%</span>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <select :id="`sel_sp_${cat}`" style="flex:1;min-width:0;">
+              <select v-model="selSpirit[cat as string]" style="flex:1;min-width:0;">
                 <option v-for="n in spiritsByType('spirit')" :key="n" :value="n">{{ n }}</option>
               </select>
               <button class="btn btn-primary btn-sm"
-                @click="addSpirit(cat as string,(document.getElementById(`sel_sp_${cat}`) as HTMLSelectElement)?.value)">+ Add spirit</button>
+                @click="addSpirit(cat as string, selSpirit[cat as string])">+ Add spirit</button>
             </div>
           </template>
         </div>
