@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { db } from '../lib/db';
-import { signTicket } from '../lib/crypto';
-import type { Party, Ticket, TicketQRPayload } from '../lib/types';
+import {computed, onMounted, ref} from 'vue';
+import {db} from '../lib/db';
+import {signTicket} from '../lib/crypto';
+import type {Party, Ticket, TicketQRPayload} from '../lib/types';
 import QRCode from 'qrcode';
 import defaultSettings from '../data/settings.json';
 
@@ -56,8 +56,7 @@ async function createParty() {
     createdAt: new Date().toISOString(),
     partyMenu: buildMenu(partyForm.value.menuTemplate),
   };
-  const id = await db.parties.add(p);
-  p.id = id;
+  p.id = await db.parties.add(p);
   parties.value.push(p);
   partyForm.value = { name: '', date: '', menuTemplate: 'default' };
   showPartyForm.value = false;
@@ -89,8 +88,7 @@ async function addTicket() {
     used:      false,
     expiresAt: new Date(guestForm.value.expiresAt).toISOString(),
   };
-  const id = await db.tickets.add(t);
-  t.id = id;
+  t.id = await db.tickets.add(t);
   tickets.value.push(t);
   guestForm.value.name = '';
   await ensureQR(t);
@@ -186,75 +184,6 @@ function printTickets() {
     gap: 16px;
     padding: 20px;
     justify-content: flex-start;
-  }
-
-  /* Individual ticket */
-  .ticket {
-    width: 240px;
-    border: 2px solid #334155;
-    border-radius: 14px;
-    overflow: hidden;
-    background: #fff;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  .ticket-header {
-    background: #1e293b;
-    color: #f1f5f9;
-    padding: 14px 16px 10px;
-    text-align: center;
-  }
-  .party-name {
-    font-size: 1rem;
-    font-weight: 900;
-    letter-spacing: .01em;
-    line-height: 1.2;
-  }
-  .party-date {
-    font-size: .72rem;
-    color: #94a3b8;
-    margin-top: 4px;
-  }
-  .ticket-body {
-    padding: 12px;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .qr {
-    width: 192px;
-    height: 192px;
-    display: block;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-  }
-  .qr-missing {
-    width: 192px; height: 192px;
-    display: flex; align-items: center; justify-content: center;
-    background: #f1f5f9; color: #94a3b8; font-size: .8rem; border-radius: 6px;
-  }
-  .ticket-footer {
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
-    padding: 10px 16px 12px;
-    text-align: center;
-  }
-  .guest-name {
-    font-size: .95rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin-bottom: 3px;
-  }
-  .valid-until {
-    font-size: .68rem;
-    color: #64748b;
-    margin-bottom: 2px;
-  }
-  .ticket-id {
-    font-size: .62rem;
-    color: #94a3b8;
-    font-family: monospace;
   }
 
   /* Print styles */
@@ -568,7 +497,7 @@ const usedCount    = computed(() => tickets.value.filter(t => t.used).length);
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <!-- QR preview -->
           <img v-if="qrImages[t.id!]" :src="qrImages[t.id!]"
-            style="width:80px;height:80px;border-radius:6px;flex-shrink:0;background:#fff;" />
+            style="width:80px;height:80px;border-radius:6px;flex-shrink:0;background:#fff;"  alt="Ticket QR Code"/>
           <div v-else style="width:80px;height:80px;background:var(--surface2);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--muted);">…</div>
 
           <!-- Info -->
@@ -618,7 +547,7 @@ const usedCount    = computed(() => tickets.value.filter(t => t.used).length);
         <!-- Preview -->
         <div style="text-align:center;margin-bottom:16px;">
           <img v-if="shareImg" :src="shareImg"
-            style="width:120px;height:120px;border-radius:8px;border:2px solid var(--border2);background:#fff;" />
+            style="width:120px;height:120px;border-radius:8px;border:2px solid var(--border2);background:#fff;"  alt="Ticket QR Code"/>
           <div style="font-weight:700;margin-top:8px;">{{ shareTicket.guestName }}</div>
           <div style="font-size:.8rem;color:var(--muted);">{{ selected?.name }}</div>
           <div style="font-size:.72rem;color:var(--muted);margin-top:6px;">

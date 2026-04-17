@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { db, getKey, setKey } from '../lib/db';
+import { db, setKey } from '../lib/db';
 import { verifyTicket } from '../lib/crypto';
 import { validateWithSheet, getSheetsConfig } from '../lib/sheets';
 import type { ValidationResult, SheetsConfig } from '../lib/types';

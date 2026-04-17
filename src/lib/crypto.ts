@@ -19,20 +19,36 @@ async function getOrCreateKey(): Promise<CryptoKey> {
     );
   }
 
-  // Generate a new key, export it to JWK immediately, then persist the JWK.
   const key = await crypto.subtle.generateKey(
     { name: 'HMAC', hash: 'SHA-256' },
     true,
     ['sign', 'verify'],
   );
 
-  // Export to plain JSON before storing — this is what makes it
-  // IndexedDB-safe.  setKey itself also guards against raw CryptoKey objects,
-  // but being explicit here makes the intent obvious.
   const jwk: JsonWebKey = await crypto.subtle.exportKey('jwk', key);
   await setKey('hmac_key', jwk);
-
   return key;
+}
+
+/**
+ * Called after a Google Sync pull — adopts the shared key from the sheet
+ * so all devices sign/verify with the same secret.
+ * Returns true if the key actually changed (caller should regenerate QR codes).
+ */
+export async function adoptRemoteKey(jwk: JsonWebKey): Promise<boolean> {
+  const local = await getKey<JsonWebKey | null>('hmac_key', null);
+  // Compare by the key material ("k" field in HMAC JWK)
+  if (local?.k && local.k === jwk.k) return false;
+  await setKey('hmac_key', jwk);
+  return true;
+}
+
+/**
+ * Export the current local key as a JWK so it can be pushed to the sheet.
+ */
+export async function exportLocalKeyJwk(): Promise<JsonWebKey> {
+  const key = await getOrCreateKey();
+  return crypto.subtle.exportKey('jwk', key);
 }
 
 export async function signTicket(payload: TicketQRPayload): Promise<string> {

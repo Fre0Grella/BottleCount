@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { db, getKey, setKey } from '../lib/db';
-import { signTicket, verifyTicket } from '../lib/crypto';
+import { signTicket, verifyTicket, exportLocalKeyJwk, adoptRemoteKey } from '../lib/crypto';
 import {
   startOAuth, connectSheet, pullAll,
   pushParties, pushTickets, markTicketUsed,
-  isConnected, getAccessToken,
+  syncHmacKey, getAccessToken,
 } from '../lib/google';
 import type { Party, Ticket, TicketQRPayload, GoogleSyncConfig } from '../lib/types';
 import QRCode from 'qrcode';
@@ -158,11 +158,20 @@ async function doSync(token: string, sheetId: string) {
   syncStatus.value = 'syncing';
   syncError.value  = '';
   try {
+    // ── 1. Sync HMAC key first so all devices share the same signing secret ──
+    const localJwk  = await exportLocalKeyJwk();
+    const sharedJwk = await syncHmacKey(token, sheetId, localJwk);
+    await adoptRemoteKey(sharedJwk);
+    // Regenerate QR codes if the key changed (new key means old QRs are invalid)
+    qrImages.value = {};
+
+    // ── 2. Push local data ───────────────────────────────────────────────────
     const allParties = await db.parties.toArray();
     const allTickets = await db.tickets.toArray();
     await pushParties(token, sheetId, allParties);
     await pushTickets(token, sheetId, allTickets);
 
+    // ── 3. Pull remote data ──────────────────────────────────────────────────
     const remote = await pullAll(token, sheetId);
     for (const rp of remote.parties) {
       const id = Number(rp.id); if (!id) continue;
@@ -181,6 +190,7 @@ async function doSync(token: string, sheetId: string) {
       }
     }
 
+    // ── 4. Refresh UI ────────────────────────────────────────────────────────
     parties.value = await db.parties.toArray();
     if (selected.value) {
       const refreshed = parties.value.find(p => p.id === selected.value!.id);
@@ -189,7 +199,7 @@ async function doSync(token: string, sheetId: string) {
       await selectParty(parties.value[0]);
     }
 
-    syncStatus.value = 'ok';
+    syncStatus.value   = 'ok';
     lastSyncedAt.value = new Date();
   } catch (e: any) {
     syncStatus.value = 'error';

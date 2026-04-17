@@ -2,8 +2,8 @@
 // Uses postMessage from a dedicated oauth-callback page to avoid
 // Cross-Origin-Opener-Policy issues with popup.location polling.
 
-const CLIENT_ID = '402376254532-ji43fivhq1ksni3pahe1hrsblvsbsm7l.apps.googleusercontent.com';
-const SCOPES    = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+const CLIENT_ID  = '402376254532-ji43fivhq1ksni3pahe1hrsblvsbsm7l.apps.googleusercontent.com';
+const SCOPES     = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
 const SHEET_NAME = 'BottleCount';
 
 // In-memory only — never persisted (implicit flow tokens are short-lived)
@@ -13,15 +13,12 @@ export function getAccessToken() { return accessToken; }
 export function isConnected()    { return !!accessToken; }
 
 // ── OAuth ──────────────────────────────────────────────────────────────────
-// Standard pattern: redirect to a dedicated /oauth-callback page that does
-// window.opener.postMessage(token) and closes itself.  No cross-origin
-// popup.location polling → no COOP warnings, no race conditions.
+// Standard pattern: redirect to /oauth-callback, which does
+// window.opener.postMessage(token) and closes itself.
+// No cross-origin popup.location polling → no COOP warnings.
 
 export function startOAuth(): Promise<string> {
   return new Promise((resolve, reject) => {
-    // The redirect URI must be registered in Google Cloud Console.
-    // During local dev: http://localhost:4322/BottleCount/oauth-callback
-    // On GitHub Pages : https://<user>.github.io/BottleCount/oauth-callback
     const base        = window.location.origin + (import.meta.env.BASE_URL ?? '/');
     const redirectUri = base.replace(/\/$/, '') + '/oauth-callback';
 
@@ -38,7 +35,6 @@ export function startOAuth(): Promise<string> {
       return;
     }
 
-    // Timeout: if the user doesn't complete in 5 minutes, give up
     const timeout = setTimeout(() => {
       window.removeEventListener('message', onMessage);
       popup.close();
@@ -46,9 +42,7 @@ export function startOAuth(): Promise<string> {
     }, 5 * 60 * 1000);
 
     function onMessage(event: MessageEvent) {
-      // Only accept messages from the same origin
       if (event.origin !== window.location.origin) return;
-
       const data = event.data;
       if (!data || typeof data !== 'object') return;
 
@@ -80,7 +74,6 @@ const REQUIRED_HEADERS: Record<string, string[]> = {
 };
 
 export async function connectSheet(token: string): Promise<string> {
-  // 1. Find existing BottleCount sheet
   const listRes = await gapi(
     token, 'GET',
     `https://www.googleapis.com/drive/v3/files` +
@@ -95,7 +88,7 @@ export async function connectSheet(token: string): Promise<string> {
     return sheetId;
   }
 
-  // 2. Create new spreadsheet with both tabs
+  // Create new spreadsheet with parties, tickets, and config tabs
   const createRes = await gapi(token, 'POST',
     'https://sheets.googleapis.com/v4/spreadsheets',
     {
@@ -103,15 +96,16 @@ export async function connectSheet(token: string): Promise<string> {
       sheets: [
         { properties: { title: 'parties' } },
         { properties: { title: 'tickets' } },
+        { properties: { title: 'config'  } },
       ],
     }
   );
   const sheetId: string = createRes.spreadsheetId;
 
-  // 3. Write headers
   await batchUpdate(token, sheetId, [
     { range: 'parties!A1', values: [['id', 'name', 'date', 'createdAt']] },
     { range: 'tickets!A1', values: [['id', 'partyId', 'guestName', 'used', 'usedAt', 'expiresAt']] },
+    { range: 'config!A1',  values: [['key', 'value']] },
   ]);
 
   return sheetId;
@@ -133,6 +127,30 @@ async function validateHeaders(token: string, sheetId: string) {
       );
     }
   }
+}
+
+// ── Config (HMAC key) ──────────────────────────────────────────────────────
+
+/**
+ * Push the local HMAC key JWK to the config tab if no key is stored yet.
+ * Returns the JWK that should be used (remote if it existed, local otherwise).
+ */
+export async function syncHmacKey(token: string, sheetId: string, localJwk: JsonWebKey): Promise<JsonWebKey> {
+  // Read the config tab
+  const res  = await gapi(token, 'GET',
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/config!A2:B`
+  );
+  const rows: string[][] = res.values ?? [];
+  const existing = rows.find(r => r[0] === 'hmac_key');
+
+  if (existing?.[1]) {
+    // Sheet already has a key — parse and return it so all devices share it
+    try { return JSON.parse(existing[1]) as JsonWebKey; } catch { /* fall through to overwrite */ }
+  }
+
+  // No key in sheet yet — push the local one so other devices can adopt it
+  await appendRows(token, sheetId, 'config', [['hmac_key', JSON.stringify(localJwk)]]);
+  return localJwk;
 }
 
 // ── Read / Write ───────────────────────────────────────────────────────────
@@ -180,8 +198,8 @@ export async function markTicketUsed(token: string, sheetId: string, ticketId: n
   );
   const ids  = (res.values ?? []).flat() as string[];
   const idx  = ids.findIndex(id => String(id) === String(ticketId));
-  if (idx === -1) return; // not synced yet — local mark is enough
-  const row  = idx + 2;  // +1 header, +1 one-based
+  if (idx === -1) return;
+  const row  = idx + 2;
   await batchUpdate(token, sheetId, [
     { range: `tickets!D${row}`, values: [['TRUE']] },
     { range: `tickets!E${row}`, values: [[usedAt]] },

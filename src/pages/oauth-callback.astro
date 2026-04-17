@@ -1,7 +1,7 @@
 ---
-// This page is the OAuth redirect URI.
-// It reads the access_token from the URL hash and postMessages it back
-// to the opener (EventManager), then closes itself.
+// Dedicated OAuth redirect URI page.
+// Reads access_token from the URL hash, postMessages it to the opener
+// (EventManager), then closes itself. No polling needed.
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -11,13 +11,9 @@
   <style>
     body {
       font-family: system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: #0f0f1a;
-      color: #e2e8f0;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; margin: 0;
+      background: #0f0f1a; color: #e2e8f0;
     }
     .msg { text-align: center; }
     .msg h2 { margin-bottom: 8px; }
@@ -34,7 +30,6 @@
       const params = new URLSearchParams(window.location.hash.slice(1));
       const token  = params.get('access_token');
       const error  = params.get('error');
-
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage(
           token
@@ -43,8 +38,6 @@
           window.location.origin
         );
       }
-
-      // Give the opener a tick to process, then close
       setTimeout(() => window.close(), 300);
     })();
   </script>
