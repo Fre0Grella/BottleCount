@@ -3,7 +3,7 @@ import vue from '@astrojs/vue';
 
 export default defineConfig({
   site: 'https://fre0grella.github.io',
-  base: '/BottleCount',
+  base: '/BottleCount/',
   integrations: [vue()],
   output: 'static',
 });
