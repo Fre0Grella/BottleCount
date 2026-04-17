@@ -1,6 +1,7 @@
 // Google OAuth implicit flow + Sheets API
 // Uses postMessage from a dedicated oauth-callback page to avoid
 // Cross-Origin-Opener-Policy issues with popup.location polling.
+// noinspection SpellCheckingInspection
 
 const CLIENT_ID  = '402376254532-ji43fivhq1ksni3pahe1hrsblvsbsm7l.apps.googleusercontent.com';
 const SCOPES     = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
@@ -54,7 +55,7 @@ export function startOAuth(): Promise<string> {
       } else if (data.type === 'GOOGLE_OAUTH_ERROR') {
         clearTimeout(timeout);
         window.removeEventListener('message', onMessage);
-        popup.close();
+        popup?.close();
         const msg = data.error === 'access_denied'
           ? 'Access denied. Make sure you are listed as a test user in Google Cloud Console.'
           : `Google OAuth error: ${data.error}`;
