@@ -15,15 +15,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: withastro/action@v3
+        with:
+          package-manager: 'npm'
+          node-version: 22
+
+  deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: withastro/action@v3
+      - name: Deploy to GitHub Pages
         id: deployment
-        with:
-          package-manager: 'npm'
-          node-version: 22
+        uses: actions/deploy-pages@v4
