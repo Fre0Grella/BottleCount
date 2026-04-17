@@ -127,7 +127,7 @@ function setResult(ok: boolean, message: string, guestName: string) {
 // ── Config ─────────────────────────────────────────────────────────────────
 async function saveConfig() {
   savingCfg.value = true;
-  await setKey('sheets_config', sheetsCfg.value);
+  await setKey('sheets_config', { ...sheetsCfg.value });
   savingCfg.value = false;
   showConfig.value = false;
 }
