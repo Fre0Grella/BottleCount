@@ -97,8 +97,8 @@ export interface Party {
   name:            string;
   date:            string;
   createdAt:       string;
-  partyMenu?:      PartyMenu;      // per-party drink menu
-  partySettings?:  PartySettings;  // per-party guests/prices/etc.
+  partyMenu?:      PartyMenu;
+  partySettings?:  PartySettings;
 }
 
 export interface Ticket {
@@ -117,11 +117,10 @@ export interface TicketQRPayload {
   expiresAt: string;
 }
 
-// ── Google Sheets ──────────────────────────────────────────────────────────
+// ── Google Sync ────────────────────────────────────────────────────────────
 
-export interface SheetsConfig {
-  url:   string;
-  token: string;
+export interface GoogleSyncConfig {
+  sheetId: string;
 }
 
 export type ValidationReason =
@@ -146,5 +145,5 @@ export type UserDataKey =
   | 'hidden_cocktails'
   | 'price_overrides'
   | 'settings'
-  | 'sheets_config'
+  | 'google_sync_config'
   | 'hmac_key';

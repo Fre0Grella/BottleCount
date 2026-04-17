@@ -1,0 +1,7 @@
+---
+import Layout from '../layouts/Layout.astro';
+import EventManager from '../components/EventManager.vue';
+---
+<Layout title="Event" active="event">
+  <EventManager client:only="vue" />
+</Layout>
