@@ -19,16 +19,25 @@
     "Spirits": {
       "macro_pct": 0.6,
       "spirits": {
-        "Amaro 70cl":     { "drinks": { "Amaro Shot": 1 },                              "pct": 0.08 },
-        "Gin 70cl":       { "drinks": { "Gin Lemon": 0.5, "Gin Tonic": 0.5 },           "pct": 0.4 },
-        "Limoncello 70cl":{ "drinks": { "Limoncello Shot": 1 },                          "pct": 0.07 },
-        "Rum 70cl":       { "drinks": { "Cuba Libre": 1 },                               "pct": 0.1 },
-        "Vodka 70cl":     { "drinks": { "Vodka Lemon": 0.4, "Vodka Redbull": 0.6 },     "pct": 0.35 }
+        "Amaro 70cl": { "drinks": { "Amaro Shot": 1 }, "pct": 0.08 },
+        "Gin 70cl": {
+          "drinks": { "Gin Lemon": 0.5, "Gin Tonic": 0.5 },
+          "pct": 0.4
+        },
+        "Limoncello 70cl": { "drinks": { "Limoncello Shot": 1 }, "pct": 0.07 },
+        "Rum 70cl": { "drinks": { "Cuba Libre": 1 }, "pct": 0.1 },
+        "Vodka 70cl": {
+          "drinks": { "Vodka Lemon": 0.4, "Vodka Redbull": 0.6 },
+          "pct": 0.35
+        }
       }
     },
     "Wine": {
       "macro_pct": 0.2,
-      "spirits": { "Red Wine 75cl": { "pct": 0.7 }, "White Wine 75cl": { "pct": 0.3 } }
+      "spirits": {
+        "Red Wine 75cl": { "pct": 0.7 },
+        "White Wine 75cl": { "pct": 0.3 }
+      }
     }
   }
 }

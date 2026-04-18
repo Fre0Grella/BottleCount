@@ -52,23 +52,25 @@ export async function exportLocalKeyJwk(): Promise<JsonWebKey> {
 }
 
 export async function signTicket(payload: TicketQRPayload): Promise<string> {
-  const key     = await getOrCreateKey();
+  const key = await getOrCreateKey();
   const encoded = new TextEncoder().encode(JSON.stringify(payload));
-  const sig     = await crypto.subtle.sign('HMAC', key, encoded);
-  const sigB64  = btoa(String.fromCharCode(...new Uint8Array(sig)));
-  const payB64  = btoa(JSON.stringify(payload));
+  const sig = await crypto.subtle.sign('HMAC', key, encoded);
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+  const payB64 = btoa(JSON.stringify(payload));
   return `${payB64}.${sigB64}`;
 }
 
-export async function verifyTicket(qrString: string): Promise<TicketQRPayload | null> {
+export async function verifyTicket(
+  qrString: string,
+): Promise<TicketQRPayload | null> {
   const [payB64, sigB64] = qrString.split('.');
   if (!payB64 || !sigB64) return null;
 
   try {
-    const key     = await getOrCreateKey();
+    const key = await getOrCreateKey();
     const payload = JSON.parse(atob(payB64)) as TicketQRPayload;
-    const sig     = Uint8Array.from(atob(sigB64), c => c.charCodeAt(0));
-    const valid   = await crypto.subtle.verify(
+    const sig = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify(
       'HMAC',
       key,
       sig,

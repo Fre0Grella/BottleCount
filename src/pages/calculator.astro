@@ -4,18 +4,19 @@ import NavBar from '../components/NavBar.astro';
 import CalculatorVue from '../components/Calculator.vue';
 const base = import.meta.env.BASE_URL;
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BottleCount — Calculator</title>
-  <link rel="icon" href={`${base}favicon.svg`} />
-</head>
-<body>
-  <NavBar active="calculator" />
-  <main class="page">
-    <CalculatorVue client:load />
-  </main>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BottleCount — Calculator</title>
+    <link rel="icon" href={`${base}favicon.svg`} />
+  </head>
+  <body>
+    <NavBar active="calculator" />
+    <main class="page">
+      <CalculatorVue client:load />
+    </main>
+  </body>
 </html>

@@ -3,43 +3,55 @@
 // Reads access_token from the URL hash, postMessages it to the opener
 // (EventManager), then closes itself. No polling needed.
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Connecting…</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; margin: 0;
-      background: #0f0f1a; color: #e2e8f0;
-    }
-    .msg { text-align: center; }
-    .msg h2 { margin-bottom: 8px; }
-    .msg p  { font-size: .85rem; color: #94a3b8; }
-  </style>
-</head>
-<body>
-  <div class="msg">
-    <h2>⏳ Connecting to Google…</h2>
-    <p>This window will close automatically.</p>
-  </div>
-  <script is:inline>
-    (function () {
-      const params = new URLSearchParams(window.location.hash.slice(1));
-      const token  = params.get('access_token');
-      const error  = params.get('error');
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(
-          token
-            ? { type: 'GOOGLE_OAUTH_TOKEN', token }
-            : { type: 'GOOGLE_OAUTH_ERROR', error: error ?? 'unknown_error' },
-          window.location.origin
-        );
+  <head>
+    <meta charset="UTF-8" />
+    <title>Connecting…</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #0f0f1a;
+        color: #e2e8f0;
       }
-      setTimeout(() => window.close(), 300);
-    })();
-  </script>
-</body>
+      .msg {
+        text-align: center;
+      }
+      .msg h2 {
+        margin-bottom: 8px;
+      }
+      .msg p {
+        font-size: 0.85rem;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="msg">
+      <h2>⏳ Connecting to Google…</h2>
+      <p>This window will close automatically.</p>
+    </div>
+    <script is:inline>
+      (function () {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const token = params.get('access_token');
+        const error = params.get('error');
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(
+            token
+              ? { type: 'GOOGLE_OAUTH_TOKEN', token }
+              : { type: 'GOOGLE_OAUTH_ERROR', error: error ?? 'unknown_error' },
+            window.location.origin,
+          );
+        }
+        setTimeout(() => window.close(), 300);
+      })();
+    </script>
+  </body>
 </html>

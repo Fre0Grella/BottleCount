@@ -70,17 +70,17 @@ Alcohol intensity presets still map to pure alcohol targets per person: 🌿 Sof
 
 BottleCount is a **100% static site** with a TypeScript-first frontend architecture.
 
-| Layer | Technology |
-|---|---|
-| Language | TypeScript (strict) |
-| Framework | Astro + Vue 3 |
-| Build | Vite via Astro |
-| Client storage | Dexie.js on IndexedDB |
-| Crypto | Web Crypto API (HMAC-SHA256) |
-| QR generation | `qrcode` |
-| QR scanning | `nimiq/qr-scanner` |
-| Optional sync | User-owned Google Sheet + Apps Script |
-| Deploy | GitHub Pages via `withastro/action` |
+| Layer          | Technology                            |
+| -------------- | ------------------------------------- |
+| Language       | TypeScript (strict)                   |
+| Framework      | Astro + Vue 3                         |
+| Build          | Vite via Astro                        |
+| Client storage | Dexie.js on IndexedDB                 |
+| Crypto         | Web Crypto API (HMAC-SHA256)          |
+| QR generation  | `qrcode`                              |
+| QR scanning    | `nimiq/qr-scanner`                    |
+| Optional sync  | User-owned Google Sheet + Apps Script |
+| Deploy         | GitHub Pages via `withastro/action`   |
 
 ---
 
@@ -111,7 +111,7 @@ These categories skip the cocktail layer and use the simpler formula:
 The break-even guest count is computed as:
 
 \[
-N_{\text{be}} = \left\lceil \frac{\text{fixed costs}}{\text{ticket price} - \text{avg variable cost per person}} \right\rceil
+N\_{\text{be}} = \left\lceil \frac{\text{fixed costs}}{\text{ticket price} - \text{avg variable cost per person}} \right\rceil
 \]
 
 ---

@@ -3,65 +3,109 @@ import '../styles/global.css';
 import NavBar from '../components/NavBar.astro';
 const base = import.meta.env.BASE_URL;
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BottleCount — Docs</title>
-  <link rel="icon" href={`${base}favicon.svg`} />
-</head>
-<body>
-  <NavBar active="docs" />
-  <main class="page" style="max-width:720px;">
-    <h1 style="font-size:1.5rem;font-weight:900;margin-bottom:4px;">📖 How it works</h1>
-    <p style="color:var(--muted);margin-bottom:32px;">Everything you need to plan a party and validate tickets at the door.</p>
-
-    <div class="card card-pad" style="margin-bottom:16px;">
-      <h2 style="font-size:1.1rem;margin:0 0 12px;">🧮 Calculator</h2>
-      <p style="color:var(--muted);line-height:1.7;margin:0;">
-        Set guest count, ticket price, and venue costs. Choose an alcohol intensity preset (25–100 ml pure alcohol/person). The menu engine supports three category types:
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BottleCount — Docs</title>
+    <link rel="icon" href={`${base}favicon.svg`} />
+  </head>
+  <body>
+    <NavBar active="docs" />
+    <main class="page" style="max-width:720px;">
+      <h1 style="font-size:1.5rem;font-weight:900;margin-bottom:4px;">
+        📖 How it works
+      </h1>
+      <p style="color:var(--muted);margin-bottom:32px;">
+        Everything you need to plan a party and validate tickets at the door.
       </p>
-      <ul style="color:var(--muted);line-height:1.8;margin:12px 0 0 16px;">
-        <li><strong style="color:var(--text)">Spirits</strong> — 3-level: category → spirit → cocktail. Mixer quantities derive from recipes.</li>
-        <li><strong style="color:var(--text)">Beer / Wine</strong> — 2-level: category → variety split. No cocktail layer needed.</li>
-      </ul>
-    </div>
 
-    <div class="card card-pad" style="margin-bottom:16px;">
-      <h2 style="font-size:1.1rem;margin:0 0 12px;">🎫 Tickets</h2>
-      <p style="color:var(--muted);line-height:1.7;margin:0;">
-        Create a party, then generate QR tickets for each guest. Each ticket is HMAC-signed with a key stored only in your browser — tickets cannot be forged. Print them or share via WhatsApp, Email, or as a PNG image.
-      </p>
-    </div>
-
-    <div class="card card-pad" style="margin-bottom:16px;">
-      <h2 style="font-size:1.1rem;margin:0 0 12px;">📷 Scanner</h2>
-      <p style="color:var(--muted);line-height:1.7;margin:0;">
-        Use the camera to scan QR codes at the door. Validation is three-layer: signature check → expiry → already-used. Works fully offline. For multi-scanner setups, configure a Google Sheet (see below).
-      </p>
-    </div>
-
-    <div class="card card-pad">
-      <h2 style="font-size:1.1rem;margin:0 0 16px;">☁️ Google Sheet setup (multi-scanner)</h2>
-      <p style="color:var(--muted);margin-bottom:20px;">Follow these 4 steps to enable cross-device ticket validation:</p>
-      <div style="display:flex;flex-direction:column;gap:16px;">
-        {[
-          ['1', 'Create a Google Sheet', 'Add columns: ticketId (A), used (B), usedAt (C). Add one row per ticket with its ID.'],
-          ['2', 'Add Apps Script', 'In the Sheet, go to Extensions → Apps Script. Paste the contents of apps-script/validate.gs from the repo.'],
-          ['3', 'Set a secret token', 'In Script Properties, add TOKEN = your-secret-string. Deploy as a web app (Execute as: Me, Anyone can access).'],
-          ['4', 'Configure in Scanner', 'Open the Scanner page, paste your deployment URL and token. Multi-scanner validation is now active.'],
-        ].map(([n, title, desc]) => (
-          <div style="display:flex;gap:14px;align-items:flex-start;">
-            <div style="background:var(--indigo);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">{n}</div>
-            <div>
-              <div style="font-weight:700;margin-bottom:4px;">{title}</div>
-              <div style="color:var(--muted);font-size:.875rem;">{desc}</div>
-            </div>
-          </div>
-        ))}
+      <div class="card card-pad" style="margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;margin:0 0 12px;">🧮 Calculator</h2>
+        <p style="color:var(--muted);line-height:1.7;margin:0;">
+          Set guest count, ticket price, and venue costs. Choose an alcohol
+          intensity preset (25–100 ml pure alcohol/person). The menu engine
+          supports three category types:
+        </p>
+        <ul style="color:var(--muted);line-height:1.8;margin:12px 0 0 16px;">
+          <li>
+            <strong style="color:var(--text)">Spirits</strong> — 3-level: category
+            → spirit → cocktail. Mixer quantities derive from recipes.
+          </li>
+          <li>
+            <strong style="color:var(--text)">Beer / Wine</strong> — 2-level: category
+            → variety split. No cocktail layer needed.
+          </li>
+        </ul>
       </div>
-    </div>
-  </main>
-</body>
+
+      <div class="card card-pad" style="margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;margin:0 0 12px;">🎫 Tickets</h2>
+        <p style="color:var(--muted);line-height:1.7;margin:0;">
+          Create a party, then generate QR tickets for each guest. Each ticket
+          is HMAC-signed with a key stored only in your browser — tickets cannot
+          be forged. Print them or share via WhatsApp, Email, or as a PNG image.
+        </p>
+      </div>
+
+      <div class="card card-pad" style="margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;margin:0 0 12px;">📷 Scanner</h2>
+        <p style="color:var(--muted);line-height:1.7;margin:0;">
+          Use the camera to scan QR codes at the door. Validation is
+          three-layer: signature check → expiry → already-used. Works fully
+          offline. For multi-scanner setups, configure a Google Sheet (see
+          below).
+        </p>
+      </div>
+
+      <div class="card card-pad">
+        <h2 style="font-size:1.1rem;margin:0 0 16px;">
+          ☁️ Google Sheet setup (multi-scanner)
+        </h2>
+        <p style="color:var(--muted);margin-bottom:20px;">
+          Follow these 4 steps to enable cross-device ticket validation:
+        </p>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          {
+            [
+              [
+                '1',
+                'Create a Google Sheet',
+                'Add columns: ticketId (A), used (B), usedAt (C). Add one row per ticket with its ID.',
+              ],
+              [
+                '2',
+                'Add Apps Script',
+                'In the Sheet, go to Extensions → Apps Script. Paste the contents of apps-script/validate.gs from the repo.',
+              ],
+              [
+                '3',
+                'Set a secret token',
+                'In Script Properties, add TOKEN = your-secret-string. Deploy as a web app (Execute as: Me, Anyone can access).',
+              ],
+              [
+                '4',
+                'Configure in Scanner',
+                'Open the Scanner page, paste your deployment URL and token. Multi-scanner validation is now active.',
+              ],
+            ].map(([n, title, desc]) => (
+              <div style="display:flex;gap:14px;align-items:flex-start;">
+                <div style="background:var(--indigo);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">
+                  {n}
+                </div>
+                <div>
+                  <div style="font-weight:700;margin-bottom:4px;">{title}</div>
+                  <div style="color:var(--muted);font-size:.875rem;">
+                    {desc}
+                  </div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </main>
+  </body>
 </html>
