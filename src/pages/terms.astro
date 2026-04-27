@@ -1,0 +1,145 @@
+---
+import '../styles/global.css';
+import NavBar from '../components/NavBar.astro';
+import Footer from '../components/Footer.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terms of Service · BottleCount</title>
+    <link rel="icon" href={`${base}faviconDark.svg`} />
+</head>
+<body>
+<NavBar active="" />
+<main class="page">
+    <article class="legal-page">
+        <h1>Terms of Service</h1>
+        <p class="legal-updated">Last updated: April 27, 2026</p>
+
+        <h2>1. Acceptance of terms</h2>
+        <p>
+            By accessing or using BottleCount ("the app"), you agree to be bound
+            by these Terms of Service. If you do not agree, please do not use the
+            app.
+        </p>
+
+        <h2>2. Description of the service</h2>
+        <p>
+            BottleCount is a web application that helps you plan parties and
+            manage tickets by reading and writing data in a Google Sheets
+            spreadsheet that you control. The app is provided for convenience
+            only and may change or be discontinued at any time.
+        </p>
+
+        <h2>3. Your responsibilities</h2>
+        <ul>
+            <li>Maintaining the security of your Google account and devices.</li>
+            <li>
+                Ensuring you have the right to use any data stored in your
+                BottleCount spreadsheet.
+            </li>
+            <li>
+                Using BottleCount in compliance with applicable laws and Google's
+                terms of service.
+            </li>
+        </ul>
+
+        <h2>4. Use of Google APIs</h2>
+        <p>
+            BottleCount uses Google APIs to access your Google Sheets and Google
+            Drive metadata with your permission. BottleCount's use and transfer of
+            information received from Google APIs adheres to the
+            <a
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noreferrer"
+            >
+                Google API Services User Data Policy
+            </a>, including the Limited Use requirements.
+        </p>
+
+        <h2>5. No warranties</h2>
+        <p>
+            BottleCount is provided "as is" and "as available", without warranties
+            of any kind. We do not guarantee the app will be error‑free,
+            uninterrupted, or suitable for your specific requirements.
+        </p>
+
+        <h2>6. Limitation of liability</h2>
+        <p>
+            To the maximum extent permitted by law, the developer of BottleCount
+            shall not be liable for any indirect, incidental, special,
+            consequential, or punitive damages, or any loss of data, revenue, or
+            profits arising from your use of the app.
+        </p>
+
+        <h2>7. Changes to the service</h2>
+        <p>
+            We reserve the right to modify, suspend, or discontinue BottleCount at
+            any time, with or without notice.
+        </p>
+
+        <h2>8. Changes to these Terms</h2>
+        <p>
+            We may update these Terms from time to time. When we do, we will
+            update the "Last updated" date above. Your continued use of BottleCount
+            after changes are posted constitutes your acceptance of the updated
+            Terms.
+        </p>
+
+        <h2>9. Governing law</h2>
+        <p>
+            These Terms are governed by the laws of Italy, without regard to its
+            conflict of law principles.
+        </p>
+
+        <h2>10. Contact</h2>
+        <p>
+            Questions? Contact the developer at
+            <a href="mailto:you@example.com">you@example.com</a>.
+        </p>
+    </article>
+</main>
+<Footer />
+</body>
+</html>
+
+<style>
+    .legal-page {
+        max-width: 760px;
+        margin: 0 auto;
+        line-height: 1.7;
+    }
+    .legal-page h1 {
+        font-size: 1.8rem;
+        margin-bottom: 0.25rem;
+    }
+    .legal-page h2 {
+        font-size: 1.1rem;
+        margin-top: 1.75rem;
+        color: var(--text);
+    }
+    .legal-updated {
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-bottom: 1.5rem;
+    }
+    .legal-page a {
+        color: var(--indigo);
+        text-decoration: none;
+    }
+    .legal-page a:hover {
+        text-decoration: underline;
+    }
+    .legal-page ul {
+        padding-left: 1.25rem;
+        color: var(--muted);
+    }
+    .legal-page p {
+        color: var(--muted);
+    }
+</style>

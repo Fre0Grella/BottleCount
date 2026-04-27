@@ -1,0 +1,104 @@
+---
+const base = import.meta.env.BASE_URL;
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-left">
+            <span class="footer-copy">© {currentYear} BottleCount</span>
+            <span class="footer-sep">|</span>
+            <a href={`${base}privacy`} class="footer-link">Privacy</a>
+            <span class="footer-sep">|</span>
+            <a href={`${base}terms`} class="footer-link">Terms</a>
+        </div>
+
+        <div class="footer-right">
+            <span class="footer-copy">Made with ❤️ by FreoGrella </span>
+            <span class="footer-sep">|</span>
+            <a
+                    href="https://github.com/Fre0Grella"
+                    class="footer-link"
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="GitHub"
+            >
+                GitHub
+            </a>
+            <span class="footer-sep">|</span>
+            <a
+                    href="https://www.linkedin.com/in/marco-galeri-2b6500384/"
+                    class="footer-link"
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="LinkedIn"
+            >
+                LinkedIn
+            </a>
+            <span class="footer-sep">|</span>
+            <a
+                    href="https://ko-fi.com/freogrella"
+                    class="footer-link"
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Support on Ko-fi"
+            >
+                ☕ Donate
+            </a>
+        </div>
+    </div>
+</footer>
+
+<style>
+    .site-footer {
+        border-top: 1px solid var(--border);
+        margin-top: 3rem;
+        padding: 1.25rem 1rem;
+        background: var(--surface);
+        font-size: 0.8rem;
+        color: var(--muted);
+    }
+    .footer-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+    .footer-left,
+    .footer-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .footer-copy {
+        color: var(--muted);
+    }
+    .footer-sep {
+        color: var(--border2);
+    }
+    .footer-link {
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.15s;
+    }
+    .footer-link:hover {
+        color: var(--text);
+    }
+    .footer-donate {
+        color: var(--indigo);
+        font-weight: 700;
+    }
+    .footer-donate:hover {
+        color: var(--text);
+    }
+    @media (max-width: 500px) {
+        .footer-inner {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
