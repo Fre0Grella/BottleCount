@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@astrojs/vue": "^6.0.1",
-    "astro": "^6.1.1",
+    "astro": "^6.1.10",
     "dexie": "^3.2.7",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.3",
@@ -22,8 +22,6 @@
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",
-    "prettier": "^3.8.3",
-    "prettier-plugin-astro": "^0.14.1",
     "prettier": "^3.8.3",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.0.0"
