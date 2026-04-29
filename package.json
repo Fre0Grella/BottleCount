@@ -8,7 +8,9 @@
     "preview": "astro preview",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -22,11 +24,20 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/qrcode": "^1.5.5",
+    "astro-eslint-parser": "^1.4.0",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-astro": "^1.7.0",
+    "eslint-plugin-vue": "^10.9.0",
+    "globals": "^17.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "prettier-plugin-astro": "^0.14.1",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.59.1",
+    "vue-eslint-parser": "^10.4.0"
   }
 }
