@@ -1,0 +1,573 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>BottleCount | Engineered Hospitality</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space_Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'primary-fixed-dim': '#bbc6e2',
+              'on-surface-variant': '#44474c',
+              error: '#ba1a1a',
+              'surface-tint': '#545e76',
+              'on-surface': '#191c1d',
+              'on-error-container': '#93000a',
+              'on-tertiary-fixed-variant': '#005049',
+              primary: '#000000',
+              'on-tertiary': '#ffffff',
+              background: '#f8f9fa',
+              'outline-variant': '#c4c6cc',
+              'surface-variant': '#e1e3e4',
+              'on-secondary-container': '#5c2900',
+              secondary: '#984800',
+              'surface-dim': '#d9dadb',
+              'on-primary-fixed': '#101b30',
+              'on-background': '#191c1d',
+              'inverse-surface': '#2e3132',
+              'secondary-fixed': '#ffdbc8',
+              'on-primary-container': '#79849d',
+              tertiary: '#000000',
+              'on-secondary-fixed': '#311300',
+              'inverse-on-surface': '#f0f1f2',
+              'on-error': '#ffffff',
+              'primary-container': '#101b30',
+              'on-tertiary-fixed': '#00201d',
+              'error-container': '#ffdad6',
+              'surface-container': '#edeeef',
+              'on-secondary': '#ffffff',
+              'tertiary-fixed': '#70f8e8',
+              surface: '#f8f9fa',
+              'on-primary-fixed-variant': '#3c475d',
+              'surface-container-highest': '#e1e3e4',
+              'secondary-fixed-dim': '#ffb689',
+              'secondary-container': '#fd7c00',
+              'primary-fixed': '#d7e2ff',
+              'on-primary': '#ffffff',
+              'surface-container-low': '#f3f4f5',
+              outline: '#74777d',
+              'on-secondary-fixed-variant': '#733500',
+              'surface-bright': '#f8f9fa',
+              'on-tertiary-container': '#009489',
+              'tertiary-container': '#00201d',
+              'surface-container-lowest': '#ffffff',
+              'tertiary-fixed-dim': '#4fdbcc',
+              'surface-container-high': '#e7e8e9',
+              'inverse-primary': '#bbc6e2',
+            },
+            borderRadius: {
+              DEFAULT: '0.125rem',
+              lg: '0.25rem',
+              xl: '0.5rem',
+              full: '0.75rem',
+            },
+            fontFamily: {
+              headline: ['Space Grotesk'],
+              body: ['Inter'],
+              label: ['Inter'],
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
+        vertical-align: middle;
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      h1,
+      h2,
+      h3,
+      .font-headline {
+        font-family: 'Space Grotesk', sans-serif;
+      }
+      .glass-panel {
+        background: rgba(248, 249, 250, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      .dark .glass-panel {
+        background: rgba(13, 27, 42, 0.8);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-[#0D1B2A] text-white selection:bg-secondary-fixed pb-24 md:pb-0"
+  >
+    <!-- TopAppBar -->
+    <header
+      class="fixed top-0 w-full z-50 bg-[#0D1B2A]/80 backdrop-blur-md border-b border-white/10"
+    >
+      <nav
+        class="flex justify-between items-center px-8 h-20 max-w-7xl mx-auto"
+      >
+        <div
+          class="text-2xl font-bold text-white tracking-tighter font-['Space_Grotesk']"
+        >
+          BottleCount
+        </div>
+        <div
+          class="hidden md:flex gap-8 items-center font-['Space_Grotesk'] tracking-tight font-medium"
+        >
+          <a class="text-white font-bold border-b-2 border-white pb-1" href="#"
+            >Planning</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-all duration-300"
+            href="#"
+            >Economics</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-all duration-300"
+            href="#"
+            >Shopping</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-all duration-300"
+            href="#"
+            >Ticketing</a
+          >
+        </div>
+        <div class="flex items-center gap-4">
+          <button
+            class="hidden md:block px-5 py-2 text-slate-400 font-medium hover:bg-white/10 rounded-lg transition-all duration-300 active:scale-95"
+          >
+            Sign In
+          </button>
+          <button
+            class="bg-white text-[#0D1B2A] px-6 py-2.5 rounded-lg font-bold tracking-tight transition-transform active:scale-95 shadow-sm hover:bg-slate-200"
+          >
+            Get Started
+          </button>
+        </div>
+      </nav>
+    </header>
+    <main class="pt-32">
+      <!-- Hero Section -->
+      <section class="max-w-7xl mx-auto px-8 mb-24">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+          <div class="lg:col-span-5">
+            <span
+              class="inline-block px-3 py-1 bg-secondary-fixed text-on-secondary-fixed text-xs font-bold tracking-widest uppercase rounded-sm mb-6"
+              >Engineered Hospitality</span
+            >
+            <h1
+              class="text-6xl md:text-7xl font-bold tracking-tighter text-white leading-[1.1] mb-8"
+            >
+              Plan like an engineer. <br />Party like a legend.
+            </h1>
+            <p class="text-lg text-slate-300 leading-relaxed mb-10 max-w-md">
+              More powerful than a group chat, easier than a pro tool. Configure
+              your event, skip the guesswork, and secure the legendary status
+              you deserve.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4">
+              <button
+                class="bg-white text-[#0D1B2A] px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-all hover:bg-slate-200"
+              >
+                Start Your First Plan
+                <span class="material-symbols-outlined">bolt</span>
+              </button>
+              <div
+                class="flex items-center gap-3 px-4 py-2 border border-white/20 rounded-lg bg-white/5"
+              >
+                <div class="flex -space-x-2">
+                  <div
+                    class="w-8 h-8 rounded-full bg-slate-700 border-2 border-[#0D1B2A]"
+                  ></div>
+                  <div
+                    class="w-8 h-8 rounded-full bg-slate-600 border-2 border-[#0D1B2A]"
+                  ></div>
+                  <div
+                    class="w-8 h-8 rounded-full bg-secondary-fixed border-2 border-[#0D1B2A]"
+                  ></div>
+                </div>
+                <span
+                  class="text-xs font-medium text-slate-300 uppercase tracking-wider"
+                  >Trusted by 2k+ Hosts</span
+                >
+              </div>
+            </div>
+          </div>
+          <div class="lg:col-span-7 relative">
+            <div
+              class="absolute -top-12 -right-12 w-64 h-64 bg-secondary/20 rounded-full blur-3xl"
+            ></div>
+            <div
+              class="bg-white/5 p-4 rounded-full overflow-hidden shadow-2xl relative z-10 border border-white/10 backdrop-blur-sm"
+            >
+              <img
+                alt="Dashboard Preview"
+                class="w-full h-auto rounded-full object-cover grayscale-[0.2]"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9m-AHVnUB8UvltmV17z3tu15jxPx4MnjzgIj1DyO8JvaCxM27peVIvZA1nUyh9-bVg5vxmQiy7ZwracNT_UScOPXh0KNd36IiPzdyj0tBT_0kDQNSmFeuq63coAmnbdM8eXYpRHr1umnUiGMDAhFIA6iDiA_MJ4aqiGFp-grxp_g8hE3TgCXTbNNFapnjYW-n-NcqlPRspokflaYEgYBhXyeDmZzYeRQGsrERv0yrg0gICyZTLeuiXjrONGMOzbsQ-2yxMsq6Uu35"
+              />
+              <!-- Floating KPI Component Over Hero Image -->
+              <div
+                class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-[#0D1B2A] p-6 rounded-xl shadow-lg w-48 border border-white/10 border-b-2 border-b-secondary"
+              >
+                <p
+                  class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1"
+                >
+                  Total Bottles
+                </p>
+                <p class="text-4xl font-headline font-bold text-white">142</p>
+                <div class="mt-4 flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary text-sm"
+                    >trending_up</span
+                  >
+                  <span
+                    class="text-[10px] font-bold text-slate-400 tracking-tighter"
+                    >+12.4% vs Estimate</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Features Bento Grid (Available Power-Ups) -->
+      <section class="max-w-7xl mx-auto px-8 mb-32 mt-24">
+        <div class="mb-16">
+          <h2 class="text-4xl font-bold tracking-tight text-white mb-4">
+            Available Power-Ups.
+          </h2>
+          <div class="w-24 h-1 bg-secondary mb-4"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 h-full">
+          <!-- Drink Architect (formerly Smart Drink Modeling) -->
+          <div
+            class="md:col-span-8 bg-[#15273C] p-10 rounded-full flex flex-col justify-between group transition-all hover:bg-[#1A2E46] border border-white/10"
+          >
+            <div>
+              <div
+                class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-[#0D1B2A] mb-8"
+              >
+                <span class="material-symbols-outlined">science</span>
+              </div>
+              <h3 class="text-3xl font-bold mb-4 tracking-tight text-white">
+                Drink Architect
+                <span
+                  class="text-[10px] bg-white text-[#0D1B2A] px-2 py-0.5 rounded ml-2 uppercase tracking-widest font-bold"
+                  >Lvl 2</span
+                >
+              </h3>
+              <p class="text-slate-300 max-w-sm mb-12">
+                Model exactly what your crowd needs. Swap spirits, wine, and
+                beer based on guest-mix logic that actually works.
+              </p>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div
+                class="h-16 bg-[#0D1B2A] rounded-lg border border-white/5"
+              ></div>
+              <div
+                class="h-16 bg-[#0D1B2A] rounded-lg border border-white/5"
+              ></div>
+              <div
+                class="h-16 bg-secondary-fixed rounded-lg flex items-center justify-center font-bold text-on-secondary-fixed"
+              >
+                84% Spirits
+              </div>
+            </div>
+          </div>
+          <!-- Event Economics (Budget Maxer) -->
+          <div
+            class="md:col-span-4 bg-white text-[#0D1B2A] p-10 rounded-full flex flex-col justify-between hover:scale-[1.02] transition-transform"
+          >
+            <div>
+              <span
+                class="material-symbols-outlined text-secondary text-4xl mb-8"
+                >database</span
+              >
+              <h3 class="text-3xl font-bold mb-4 tracking-tight">
+                Budget Maxer
+              </h3>
+              <p class="text-[#0D1B2A]/70 mb-8 text-sm">
+                Keep your wallet happy. Track spending and see exactly when you
+                hit the break-even point.
+              </p>
+            </div>
+            <div class="mt-auto">
+              <div class="text-5xl font-headline font-bold mb-2 text-secondary">
+                $0 Over
+              </div>
+              <div
+                class="text-[10px] uppercase tracking-[0.2em] text-[#0D1B2A]/40"
+              >
+                Efficiency Rating: 99%
+              </div>
+            </div>
+          </div>
+          <!-- Supply Runner (formerly Interactive Shopping Lists) -->
+          <div
+            class="md:col-span-5 bg-[#15273C] p-10 rounded-full flex flex-col border border-white/10"
+          >
+            <span class="material-symbols-outlined text-white text-4xl mb-8"
+              >shopping_cart</span
+            >
+            <h3 class="text-2xl font-bold mb-4 tracking-tight text-white">
+              Supply Runner
+            </h3>
+            <p class="text-slate-300 mb-10">
+              Instant, purchase-ready shopping lists. Sorted by store aisle and
+              categorized for maximum speed.
+            </p>
+            <div
+              class="bg-[#0D1B2A] p-4 rounded-xl space-y-3 border border-white/5"
+            >
+              <div
+                class="flex justify-between items-center px-2 py-1 border-b border-white/10"
+              >
+                <span class="text-sm font-medium text-white"
+                  >Premium Vodka 1.75L</span
+                >
+                <span
+                  class="bg-white/10 px-2 py-0.5 rounded text-xs font-mono text-white"
+                  >x12</span
+                >
+              </div>
+              <div
+                class="flex justify-between items-center px-2 py-1 border-b border-white/10"
+              >
+                <span class="text-sm font-medium text-white">Dry Vermouth</span>
+                <span
+                  class="bg-white/10 px-2 py-0.5 rounded text-xs font-mono text-white"
+                  >x04</span
+                >
+              </div>
+            </div>
+          </div>
+          <!-- Local-First Privacy (NEW CARD) -->
+          <!-- Gatekeeper Pro (formerly QR Ticketing) -->
+          <div
+            class="md:col-span-12 bg-[#15273C] p-10 rounded-full flex flex-col md:flex-row items-center justify-between gap-10 border border-white/10"
+          >
+            <div class="flex-1 max-w-xl">
+              <span
+                class="material-symbols-outlined text-secondary text-4xl mb-8"
+                data-weight="fill"
+                style="font-variation-settings: 'FILL' 1"
+                >confirmation_number</span
+              >
+              <h3 class="text-3xl font-bold mb-4 tracking-tight text-white">
+                Gatekeeper Pro
+              </h3>
+              <p class="text-slate-300">
+                The ultimate flex. Generate and scan tickets for seamless entry
+                management across multiple devices. Keep the guest list tight
+                and the flow efficient.
+              </p>
+            </div>
+            <div
+              class="w-48 h-48 bg-[#0D1B2A] p-6 rounded-full flex items-center justify-center border-2 border-dashed border-white/20"
+            >
+              <div
+                class="w-full h-full bg-white flex items-center justify-center text-[#0D1B2A] rounded-lg p-2"
+              >
+                <span class="material-symbols-outlined text-6xl"
+                  >qr_code_scanner</span
+                >
+              </div>
+            </div>
+          </div>
+          <div
+            class="md:col-span-7 bg-secondary-fixed p-10 rounded-full flex flex-col justify-center border border-white/10 group hover:shadow-[0_0_30px_rgba(255,219,200,0.1)] transition-all"
+          >
+            <div class="flex items-start gap-8">
+              <div
+                class="w-16 h-16 bg-on-secondary-fixed rounded-full flex items-center justify-center text-secondary-fixed-dim"
+              >
+                <span class="material-symbols-outlined text-3xl">security</span>
+              </div>
+              <div>
+                <h3
+                  class="text-3xl font-bold mb-4 tracking-tight text-on-secondary-fixed"
+                >
+                  Local-First Privacy
+                </h3>
+                <p
+                  class="text-on-secondary-fixed-variant leading-relaxed max-w-md"
+                >
+                  Your party data stays on your device. 100% offline-capable
+                  with no accounts, no trackers, and zero server-side storage
+                  required.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- CTA Section -->
+      <section class="max-w-7xl mx-auto px-8 mb-32">
+        <div
+          class="bg-primary-container rounded-full p-16 md:p-24 text-center relative overflow-hidden border border-white/10"
+        >
+          <div
+            class="absolute top-0 left-0 w-full h-full opacity-10"
+            style="
+              background-image: radial-gradient(#ffffff 1px, transparent 1px);
+              background-size: 40px 40px;
+            "
+          ></div>
+          <div class="relative z-10">
+            <h2
+              class="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-8 max-w-3xl mx-auto leading-tight"
+            >
+              Ready to Host Your Best Event Ever?
+            </h2>
+            <button
+              class="bg-white text-primary px-10 py-5 rounded-lg font-bold text-xl hover:bg-secondary-fixed transition-colors"
+            >
+              Start Your First Plan
+            </button>
+            <p class="mt-8 text-white/80 font-medium"><br /></p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <!-- Footer -->
+    <footer class="bg-[#0A1521] w-full py-12 px-8 border-t border-white/5">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-7xl mx-auto">
+        <div class="md:col-span-1">
+          <div class="font-['Space_Grotesk'] font-bold text-lg text-white mb-4">
+            BottleCount
+          </div>
+          <p class="text-slate-400 text-sm leading-relaxed font-['Inter']">
+            The professional choice for modern event hosts and logistics
+            coordinators.
+          </p>
+        </div>
+        <div
+          class="md:col-span-1 flex flex-col gap-3 font-['Inter'] text-sm tracking-wide"
+        >
+          <span class="font-bold text-white mb-2">Product</span>
+          <a
+            class="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            href="#"
+            >Planning</a
+          >
+          <a
+            class="text-white hover:text-white transition-colors cursor-pointer underline"
+            href="#"
+            >Economics</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            href="#"
+            >Shopping</a
+          >
+        </div>
+        <div
+          class="md:col-span-1 flex flex-col gap-3 font-['Inter'] text-sm tracking-wide"
+        >
+          <span class="font-bold text-white mb-2">Resources</span>
+          <a
+            class="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            href="#"
+            >Privacy Policy</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            href="#"
+            >Terms of Service</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            href="#"
+            >Support</a
+          >
+          <a
+            class="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            href="#"
+            >Contact Us</a
+          >
+        </div>
+        <div class="md:col-span-1">
+          <span class="font-bold text-white mb-4 block text-sm">Follow Us</span>
+          <div class="flex gap-4">
+            <div
+              class="w-10 h-10 bg-[#15273C] text-white rounded-full flex items-center justify-center hover:bg-secondary-fixed hover:text-on-secondary-fixed transition-colors cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-sm">share</span>
+            </div>
+            <div
+              class="w-10 h-10 bg-[#15273C] text-white rounded-full flex items-center justify-center hover:bg-secondary-fixed hover:text-on-secondary-fixed transition-colors cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-sm">hub</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="max-w-7xl mx-auto mt-12 pt-8 border-t border-white/10">
+        <p class="text-slate-500 text-xs font-['Inter'] text-center">
+          © 2024 BottleCount. Engineered Hospitality.
+        </p>
+      </div>
+    </footer>
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav
+      class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-[#0D1B2A]/90 backdrop-blur-xl border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.2)] md:hidden"
+    >
+      <a
+        class="flex flex-col items-center justify-center text-white bg-white/10 rounded-xl px-3 py-1.5 transition-all cubic-bezier(0.4,0,0.2,1) active:scale-90"
+        href="#"
+      >
+        <span class="material-symbols-outlined">event_note</span>
+        <span
+          class="font-['Inter'] text-[10px] font-medium tracking-wider uppercase mt-1"
+          >Plan</span
+        >
+      </a>
+      <a
+        class="flex flex-col items-center justify-center text-slate-400 px-3 py-1.5 transition-all cubic-bezier(0.4,0,0.2,1) active:scale-90 hover:text-white"
+        href="#"
+      >
+        <span class="material-symbols-outlined">local_bar</span>
+        <span
+          class="font-['Inter'] text-[10px] font-medium tracking-wider uppercase mt-1"
+          >Menu</span
+        >
+      </a>
+      <a
+        class="flex flex-col items-center justify-center text-slate-400 px-3 py-1.5 transition-all cubic-bezier(0.4,0,0.2,1) active:scale-90 hover:text-white"
+        href="#"
+      >
+        <span class="material-symbols-outlined">shopping_cart</span>
+        <span
+          class="font-['Inter'] text-[10px] font-medium tracking-wider uppercase mt-1"
+          >Shop</span
+        >
+      </a>
+      <a
+        class="flex flex-col items-center justify-center text-slate-400 px-3 py-1.5 transition-all cubic-bezier(0.4,0,0.2,1) active:scale-90 hover:text-white"
+        href="#"
+      >
+        <span class="material-symbols-outlined">qr_code_scanner</span>
+        <span
+          class="font-['Inter'] text-[10px] font-medium tracking-wider uppercase mt-1"
+          >Tickets</span
+        >
+      </a>
+    </nav>
+  </body>
+</html>

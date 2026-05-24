@@ -31,34 +31,17 @@ const links = [
       ))
     }
   </div>
-
-  <!-- Hamburger (mobile only) -->
-  <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">☰</button>
 </nav>
 
-<!-- Mobile drawer (outside nav so it can be full-width below) -->
-<div class="nav-drawer" id="nav-drawer">
+<nav class="nav-bottom" aria-label="Primary">
   {
     links.map((l) => (
-      <a class={`nav-link${active === l.key ? ' active' : ''}`} href={l.href}>
-        {l.label}
+      <a
+        class={`nav-bottom__link${active === l.key ? ' active' : ''}`}
+        href={l.href}
+      >
+        <span class="nav-bottom__label">{l.label}</span>
       </a>
     ))
   }
-</div>
-
-<script>
-  const btn = document.getElementById('nav-hamburger')!;
-  const drawer = document.getElementById('nav-drawer')!;
-  btn.addEventListener('click', () => {
-    const open = drawer.classList.toggle('open');
-    btn.textContent = open ? '✕' : '☰';
-  });
-  // Close on link click
-  drawer.querySelectorAll('a').forEach((a) => {
-    a.addEventListener('click', () => {
-      drawer.classList.remove('open');
-      btn.textContent = '☰';
-    });
-  });
-</script>
+</nav>

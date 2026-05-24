@@ -1,7 +1,6 @@
 ---
 import '../styles/global.css';
-import NavBar from '../components/NavBar.astro';
-import Footer from "../components/Footer.astro";
+import '../styles/index.css';
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -12,74 +11,288 @@ const base = import.meta.env.BASE_URL;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BottleCount — Plan your party like an engineer</title>
     <link rel="icon" href={`${base}faviconDark.svg`} />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body>
-    <NavBar active="home" />
-    <main class="page">
-      <div class="hero">
-        <h1>
+  <body class="landing-body">
+    <header class="landing-header">
+      <div class="landing-shell">
+        <a class="brand" href={base}>
           <img
             src={`${base}logoDark.svg`}
-            alt=""
-            width="48"
-            height="48"
-            style="display:inline-block;vertical-align:middle;margin-right:10px;"
+            alt="BottleCount logo"
+            width="28"
+            height="28"
           />
           BottleCount
-        </h1>
-        <p>
-          Plan your party like an engineer. Configure drinks, cocktail recipes,
-          and headcount — get a precise shopping list, profit margin, and
-          break-even in seconds.
-        </p>
-        <div
-          style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"
-        >
-          <a class="btn btn-primary" href={`${base}calculator`}
-            >🧮 Open Calculator</a
+        </a>
+        <nav class="nav-links">
+          <a href={base}>Home</a>
+          <a href={`${base}calculator`}>Calculator</a>
+          <a href={`${base}event`}>Event</a>
+          <a href={`${base}docs`}>Docs</a>
+        </nav>
+        <a class="cta-link" href={`${base}calculator`}>Open Calculator</a>
+      </div>
+    </header>
+
+    <main class="landing">
+      <section class="hero">
+        <div class="landing-shell hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow">Engineered Hospitality</span>
+            <h1>Plan like an engineer. Party like a legend.</h1>
+            <p>
+              More powerful than a group chat, easier than a pro tool. Configure
+              your event, skip the guesswork, and secure the legendary status
+              you deserve.
+            </p>
+            <div class="hero-actions">
+              <a class="btn-primary" href={`${base}calculator`}
+                >Start Your First Plan</a
+              >
+              <a class="btn-ghost" href={`${base}docs`}>How it works</a>
+            </div>
+            <div class="trust-row">
+              <div>
+                <span class="trust-title">Offline-first</span>
+                <span class="trust-detail">Your data stays in the browser.</span
+                >
+              </div>
+              <div>
+                <span class="trust-title">Fast decisions</span>
+                <span class="trust-detail"
+                  >Spend range and break-even in one view.</span
+                >
+              </div>
+              <div>
+                <span class="trust-title">Built for hosts</span>
+                <span class="trust-detail"
+                  >No accounts, no training, no bloat.</span
+                >
+              </div>
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="hero-logo">
+              <img
+                src={`${base}logoDark.svg`}
+                alt="BottleCount logo"
+                width="120"
+                height="120"
+              />
+              <div class="logo-caption">
+                <span class="caption-title">Planning snapshot</span>
+                <span class="caption-sub"
+                  >Guest mix and bottle list, verified.</span
+                >
+              </div>
+            </div>
+            <div class="hero-panels">
+              <div class="panel ledger">
+                <div class="panel-header">
+                  <span class="panel-title">Pointed list</span>
+                  <span class="panel-sub">Priority buys</span>
+                </div>
+                <ul>
+                  <li>
+                    <span class="dot"></span>Premium vodka 1.75L<span
+                      class="pill">x08</span>
+                  </li>
+                  <li>
+                    <span class="dot"></span>Dry vermouth<span class="pill"
+                      >x04</span>
+                  </li>
+                  <li>
+                    <span class="dot"></span>Still water<span class="pill"
+                      >x12</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="panel chart">
+                <div class="panel-header">
+                  <span class="panel-title">Guest mix</span>
+                  <span class="panel-sub">Spirits, wine, beer</span>
+                </div>
+                <svg
+                  viewBox="0 0 120 120"
+                  role="img"
+                  aria-label="Pie chart showing menu mix"
+                >
+                  <circle cx="60" cy="60" r="46" class="ring"></circle>
+                  <path
+                    d="M60 14 A46 46 0 0 1 103 84 L60 60 Z"
+                    class="slice-one"></path>
+                  <path
+                    d="M103 84 A46 46 0 0 1 37 104 L60 60 Z"
+                    class="slice-two"></path>
+                  <path
+                    d="M37 104 A46 46 0 0 1 60 14 L60 60 Z"
+                    class="slice-three"></path>
+                </svg>
+                <div class="legend">
+                  <span><i class="swatch"></i>Spirits 52%</span>
+                  <span><i class="swatch teal"></i>Wine 28%</span>
+                  <span><i class="swatch amber"></i>Beer 20%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="landing-shell">
+          <div class="section-header">
+            <h2>Available Power-Ups.</h2>
+          </div>
+          <div class="features-grid">
+            <article class="feature-card feature-card--wide">
+              <span class="feature-icon material-symbols-outlined">science</span
+              >
+              <h3>Drink Architect</h3>
+              <p>
+                Model exactly what your crowd needs. Swap spirits, wine, and
+                beer based on guest-mix logic that actually works.
+              </p>
+              <div class="dashed-divider"></div>
+              <div class="mix-grid">
+                <div class="mix-cell"></div>
+                <div class="mix-cell"></div>
+                <div class="mix-cell dashed">84% Spirits</div>
+              </div>
+            </article>
+            <article class="feature-card feature-card--tall">
+              <span class="feature-icon material-symbols-outlined"
+                >database</span
+              >
+              <h3>Budget Maxer</h3>
+              <p>
+                Keep your wallet happy. Track spending and see exactly when you
+                hit the break-even point.
+              </p>
+              <div class="budget-kpi">
+                <span class="kpi-value">$0 Over</span>
+                <span class="kpi-label">Efficiency Rating: 99%</span>
+              </div>
+            </article>
+            <article class="feature-card feature-card--mid">
+              <span class="feature-icon material-symbols-outlined"
+                >shopping_cart</span
+              >
+              <h3>Supply Runner</h3>
+              <p>
+                Instant, purchase-ready shopping lists. Sorted by store aisle
+                and categorized for maximum speed.
+              </p>
+              <div class="mini-ledger">
+                <span>Premium Vodka 1.75L</span>
+                <span class="pill">x12</span>
+              </div>
+              <div class="mini-ledger">
+                <span>Dry Vermouth</span>
+                <span class="pill">x04</span>
+              </div>
+            </article>
+            <article class="feature-card feature-card--side accent">
+              <span class="feature-icon material-symbols-outlined"
+                >confirmation_number</span
+              >
+              <h3>Gatekeeper Pro</h3>
+              <p>
+                The ultimate flex. Generate and scan tickets for seamless entry
+                management across multiple devices. Keep the guest list tight
+                and the flow efficient.
+              </p>
+              <div class="ticket">
+                <span>Gate pass</span>
+                <span class="ticket-code">BC-2841</span>
+              </div>
+              <div class="ticket-visual">
+                <span class="material-symbols-outlined">qr_code_scanner</span>
+              </div>
+            </article>
+            <article class="feature-card feature-card--full accent">
+              <span class="feature-icon material-symbols-outlined"
+                >security</span
+              >
+              <h3>Local-First Privacy</h3>
+              <p>
+                Your party data stays on your device. 100% offline-capable with
+                no accounts, no trackers, and zero server-side storage required.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="workflow">
+        <div class="landing-shell workflow-grid">
+          <div>
+            <h2>Get to a decision in three passes.</h2>
+            <p>
+              Each pass narrows uncertainty and leaves you with a plan you can
+              act on tonight.
+            </p>
+          </div>
+          <ol class="workflow-steps">
+            <li>
+              <span class="step-title">Set the crowd</span>
+              <span class="step-detail"
+                >Guests, drinking style, and duration.</span
+              >
+            </li>
+            <li>
+              <span class="step-title">Pick the menu mix</span>
+              <span class="step-detail"
+                >Spirits, wine, and beer balanced to your vibe.</span
+              >
+            </li>
+            <li>
+              <span class="step-title">Read the numbers</span>
+              <span class="step-detail"
+                >Spend range, break-even, and list in one view.</span
+              >
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div class="landing-shell cta-panel">
+          <div>
+            <h2>Ready to Host Your Best Event Ever?</h2>
+          </div>
+          <a class="btn-primary" href={`${base}calculator`}
+            >Start Your First Plan</a
           >
-          <a class="btn btn-ghost" href={`${base}docs`}>📖 How it works</a>
         </div>
-      </div>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div style="font-size:2rem">🍸</div><h3>Smart Drink Menu</h3><p>
-            3-level Spirits engine, simple Beer/Wine split. ABV-driven bottle
-            calculations.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div style="font-size:2rem">🛒</div><h3>Shopping List</h3><p>
-            Auto-calculates bottles, mixers, snacks with min/max price ranges
-            and 10% buffer.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div style="font-size:2rem">📊</div><h3>Financial Dashboard</h3><p>
-            Revenue, profit range, cost breakdown chart, and break-even guest
-            count.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div style="font-size:2rem">🎫</div><h3>QR Tickets</h3><p>
-            Generate cryptographically signed QR tickets per party. Print or
-            share digitally.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div style="font-size:2rem">📷</div><h3>Door Scanner</h3><p>
-            Camera-based ticket validation. Works offline, optional
-            multi-scanner via Google Sheets.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div style="font-size:2rem">✈️</div><h3>100% Offline</h3><p>
-            Runs as a static site. Data lives in your browser — no accounts, no
-            servers.
-          </p>
-        </div>
-      </div>
+      </section>
     </main>
-    <Footer/>
+
+    <footer class="landing-footer">
+      <div class="landing-shell footer-grid">
+        <div class="footer-brand">
+          <img
+            src={`${base}logoDark.svg`}
+            alt="BottleCount logo"
+            width="24"
+            height="24"
+          />
+          <span>BottleCount</span>
+        </div>
+        <div class="footer-links">
+          <a href={`${base}privacy`}>Privacy</a>
+          <a href={`${base}terms`}>Terms</a>
+          <a href={`${base}docs`}>Docs</a>
+        </div>
+        <span class="footer-note"
+          >The professional choice for modern event hosts and logistics
+          coordinators.</span
+        >
+      </div>
+    </footer>
   </body>
 </html>

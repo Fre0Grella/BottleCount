@@ -182,7 +182,7 @@ async function ensureQR(t: Ticket) {
     width: 320,
     margin: 2,
     errorCorrectionLevel: 'H', // ← must be H for logo overlay
-    color: { dark: '#000000', light: '#ffffff' },
+    color: { dark: '#0f1117', light: '#f6f7fa' },
   });
   // Overlay the logo
   await overlayLogo(canvas);
@@ -198,7 +198,7 @@ async function overlayLogo(canvas: HTMLCanvasElement): Promise<void> {
       const x = (canvas.width - size) / 2;
       const y = (canvas.height - size) / 2;
 
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#f6f7fa';
       ctx.beginPath();
       ctx.roundRect(x - 6, y - 6, size + 12, size + 12, 6);
       ctx.fill();
@@ -489,7 +489,7 @@ async function buildTicketBlob(t: Ticket): Promise<Blob> {
   ctx.fillStyle = '#0f0f1a';
   roundRect(ctx, 0, 0, 400, 560, 20);
   ctx.fill();
-  ctx.strokeStyle = '#6366f1';
+  ctx.strokeStyle = '#1b263b';
   ctx.lineWidth = 3;
   roundRect(ctx, 4, 4, 392, 552, 18);
   ctx.stroke();
@@ -531,7 +531,7 @@ async function buildTicketBlob(t: Ticket): Promise<Blob> {
   ctx.fillStyle = '#475569';
   ctx.font = '12px monospace';
   ctx.fillText(`Ticket #${t.id}`, 200, 444);
-  ctx.fillStyle = '#6366f1';
+  ctx.fillStyle = '#1b263b';
   ctx.font = 'bold 14px system-ui,sans-serif';
   ctx.fillText('🎫 BottleCount', 200, 506);
   return new Promise<Blob>((res, rej) =>
@@ -993,7 +993,7 @@ async function downloadImage() {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  border-style: dashed;
+  background: var(--surface-3);
 }
 
 .em-sync-connect__title {
@@ -1047,9 +1047,8 @@ async function downloadImage() {
 }
 
 .em-party-form {
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  border-radius: 10px;
+  background: var(--surface-3);
+  border-radius: 12px;
   padding: 12px;
   margin-bottom: 12px;
 }
@@ -1088,15 +1087,20 @@ async function downloadImage() {
   cursor: pointer;
   flex: 1;
   min-width: 140px;
-  background: var(--surface);
-  border: 2px solid var(--border2);
-  border-radius: 10px;
+  background: var(--surface-3);
+  border-radius: 12px;
   padding: 10px 14px;
-  transition: border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .em-menu-option--active {
-  border-color: var(--indigo);
+  background: var(--surface-4);
+}
+
+.em-menu-option--active .em-menu-option__title {
+  color: var(--accent);
 }
 
 .em-menu-option__radio {
@@ -1119,22 +1123,21 @@ async function downloadImage() {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   margin-bottom: 4px;
-  border: 1px solid transparent;
+  background: var(--surface-2);
   transition:
     background 0.15s,
-    border-color 0.15s;
+    color 0.15s;
 }
 
 .em-party-row:hover {
-  background: var(--border);
+  background: var(--surface-3);
 }
 
 .em-party-row--active {
-  background: var(--border);
-  border-color: var(--indigo);
+  background: var(--surface-4);
 }
 
 .em-party-row__info {
@@ -1159,8 +1162,7 @@ async function downloadImage() {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--surface-2);
   border-radius: 12px;
   padding: 4px;
 }
@@ -1181,8 +1183,8 @@ async function downloadImage() {
 }
 
 .em-tab--active {
-  background: var(--indigo);
-  color: #fff;
+  background: var(--primary);
+  color: oklch(96% 0.01 255);
 }
 
 /* ── Tickets tab ─────────────────────────────────────────── */
@@ -1223,15 +1225,15 @@ async function downloadImage() {
 }
 
 .em-stat__value--green {
-  color: #4ade80;
+  color: var(--success);
 }
 
 .em-stat__value--indigo {
-  color: #818cf8;
+  color: var(--primary-strong);
 }
 
 .em-stat__value--red {
-  color: #f87171;
+  color: var(--danger);
 }
 
 .em-guest-form {
@@ -1256,11 +1258,11 @@ async function downloadImage() {
   height: 80px;
   border-radius: 6px;
   flex-shrink: 0;
-  background: #fff;
+  background: oklch(96% 0.01 255);
 }
 
 .em-ticket-row__qr--placeholder {
-  background: var(--surface2);
+  background: var(--surface-3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1305,18 +1307,18 @@ async function downloadImage() {
 }
 
 .em-badge--used {
-  background: #14532d;
-  color: #86efac;
+  background: oklch(28% 0.08 150);
+  color: oklch(82% 0.12 150);
 }
 
 .em-badge--expired {
-  background: #7c2d12;
-  color: #f87171;
+  background: oklch(28% 0.08 25);
+  color: oklch(78% 0.16 25);
 }
 
 .em-badge--valid {
-  background: #0c4a6e;
-  color: #38bdf8;
+  background: oklch(28% 0.08 200);
+  color: oklch(80% 0.12 200);
 }
 
 /* ── Scanner ───────────────────────────────────────────── */
@@ -1330,7 +1332,7 @@ async function downloadImage() {
   width: 100%;
   display: block;
   aspect-ratio: 4/3;
-  background: #000;
+  background: var(--bg);
   object-fit: cover;
 }
 
@@ -1348,11 +1350,11 @@ async function downloadImage() {
 }
 
 .em-scan-result--ok {
-  background: rgba(34, 197, 94, 0.85);
+  background: color-mix(in oklch, var(--success) 78%, transparent);
 }
 
 .em-scan-result--err {
-  background: rgba(239, 68, 68, 0.85);
+  background: color-mix(in oklch, var(--danger) 78%, transparent);
 }
 
 .em-scan-result__icon {
@@ -1362,7 +1364,7 @@ async function downloadImage() {
 .em-scan-result__message {
   font-weight: 800;
   font-size: 1.1rem;
-  color: #fff;
+  color: oklch(96% 0.01 255);
   margin-top: 8px;
   text-align: center;
   padding: 0 16px;
@@ -1383,7 +1385,6 @@ async function downloadImage() {
   padding: 12px 16px;
   font-weight: 700;
   font-size: 0.9rem;
-  border-bottom: 1px solid var(--border);
 }
 
 .em-scan-history__icon {
@@ -1412,7 +1413,7 @@ async function downloadImage() {
 .em-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: color-mix(in oklch, var(--bg) 82%, transparent);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -1447,8 +1448,7 @@ async function downloadImage() {
   width: 120px;
   height: 120px;
   border-radius: 8px;
-  border: 2px solid var(--border2);
-  background: #fff;
+  background: oklch(96% 0.01 255);
 }
 
 .em-share-modal__guest {
@@ -1480,6 +1480,6 @@ async function downloadImage() {
 }
 
 .em-share-modal__download {
-  border: 1px solid var(--border2);
+  background: var(--surface-3);
 }
 </style>

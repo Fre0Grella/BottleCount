@@ -556,23 +556,14 @@ function exportTxt() {
 </script>
 
 <template>
-  <div
-    v-if="!ready"
-    style="text-align: center; padding: 60px; color: var(--muted)"
-  >
-    Loading…
-  </div>
+  <div v-if="!ready" class="calc-loading">Loading…</div>
   <div v-else>
     <!-- ══════════════════════════════════════════════════════════
          PARTY SWITCHER — always visible at the top
     ═══════════════════════════════════════════════════════════ -->
-    <div class="card card-pad" style="margin-bottom: 16px">
-      <div class="section-label" style="margin-bottom: 8px">
-        Calculating for
-      </div>
-      <div
-        style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"
-      >
+    <div class="card card-pad calc-switcher">
+      <div class="section-label">Calculating for</div>
+      <div class="calc-switcher-actions">
         <!-- Global -->
         <button
           class="btn btn-sm"
@@ -599,21 +590,21 @@ function exportTxt() {
         </span>
       </div>
       <!-- Context label -->
-      <div style="margin-top: 10px; font-size: 0.8rem; color: var(--muted)">
+      <div class="calc-context">
         <span v-if="isGlobal"
-          >Editing <strong style="color: var(--text)">global defaults</strong> —
-          shared baseline for all parties</span
+          >Editing <strong>global defaults</strong> — shared baseline for all
+          parties</span
         >
         <span v-else
           >Editing
-          <strong style="color: #818cf8">{{ selectedParty?.name }}</strong> —
-          independent settings &amp; drink menu</span
+          <strong class="calc-context-accent">{{ selectedParty?.name }}</strong>
+          — independent settings &amp; drink menu</span
         >
       </div>
     </div>
 
     <!-- ── Tabs ── -->
-    <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap">
+    <div class="calc-tabs">
       <button
         class="btn btn-sm"
         :class="activeTab === 'settings' ? 'btn-primary' : 'btn-ghost'"
@@ -639,11 +630,11 @@ function exportTxt() {
 
     <!-- ══ SETTINGS TAB ══ -->
     <template v-if="activeTab === 'settings'">
-      <div class="card card-pad">
+      <div class="card card-pad calc-section">
         <div class="section-label">
           {{ isGlobal ? 'Global Settings' : selectedParty?.name + ' Settings' }}
         </div>
-        <div class="grid-2" style="margin-bottom: 14px">
+        <div class="grid-2 calc-grid">
           <div>
             <label>Guests</label
             ><input type="number" v-model.number="settings.guests" min="1" />
@@ -674,21 +665,14 @@ function exportTxt() {
             />
           </div>
         </div>
-        <label
-          >Alcohol / person:
-          <strong style="color: var(--text)"
+        <label>
+          Alcohol / person:
+          <strong
             >{{ settings.alcohol_ml_per_person }} ml —
             {{ alcoholLabel }}</strong
-          ></label
-        >
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-          "
-        >
+          >
+        </label>
+        <div class="calc-slider-row">
           <span style="font-size: 0.75rem; color: var(--muted)">25ml</span>
           <input
             type="range"
@@ -699,39 +683,15 @@ function exportTxt() {
           />
           <span style="font-size: 0.75rem; color: var(--muted)">100ml</span>
         </div>
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: var(--indigo);
-            margin-bottom: 4px;
-          "
-        >
+        <div class="calc-slider-labels">
           <span v-for="(name, ml) in ALCOHOL_LEVELS" :key="ml">{{ name }}</span>
         </div>
       </div>
 
-      <div
-        v-if="errors.length"
-        class="card card-pad"
-        style="border-color: var(--red)"
-      >
-        <p style="color: #f87171; font-weight: 700; margin-bottom: 8px">
-          ⚠️ Menu errors
-        </p>
-        <p
-          v-for="e in errors"
-          :key="e"
-          style="color: #fca5a5; font-size: 0.875rem; margin-bottom: 2px"
-        >
-          • {{ e }}
-        </p>
-        <button
-          class="btn btn-sm btn-ghost"
-          style="margin-top: 10px"
-          @click="activeTab = 'menu'"
-        >
+      <div v-if="errors.length" class="card card-pad calc-errors">
+        <p class="calc-errors-title">Menu errors</p>
+        <p v-for="e in errors" :key="e" class="calc-errors-item">• {{ e }}</p>
+        <button class="btn btn-sm btn-ghost" @click="activeTab = 'menu'">
           Fix Drink Menu →
         </button>
       </div>
@@ -739,151 +699,81 @@ function exportTxt() {
       <!-- KPIs -->
       <div v-if="result" class="kpi-grid">
         <div
-          class="card card-pad"
+          class="card card-pad kpi-card"
           v-for="(kpi, i) in [
             {
-              label: '💰 Revenue',
+              label: 'Revenue',
               val: `€${result.revenue}`,
-              color: '#4ade80',
+              color: 'var(--success)',
             },
             {
-              label: '💸 Spend',
+              label: 'Spend',
               val: `€${result.total_min}–${result.total_max}`,
-              color: '#f87171',
+              color: 'var(--danger)',
             },
             {
-              label: '🏠 Fixed',
+              label: 'Fixed',
               val: `€${result.fixed_costs}`,
-              color: '#fbbf24',
+              color: 'var(--warning)',
             },
             {
-              label: '📈 Profit',
+              label: 'Profit',
               val: `€${result.profit_min}–${result.profit_max}`,
-              color: '#34d399',
+              color: 'var(--success)',
             },
             {
-              label: '⚖️ Break-even',
+              label: 'Break-even',
               val: `${result.break_even} guests`,
-              color: '#818cf8',
+              color: 'var(--primary-strong)',
             },
           ]"
           :key="i"
         >
-          <div
-            style="font-size: 0.7rem; color: var(--muted); margin-bottom: 4px"
-          >
+          <div class="kpi-label">
             {{ kpi.label }}
           </div>
-          <div
-            style="font-size: 0.95rem; font-weight: 800; line-height: 1.2"
-            :style="{ color: kpi.color }"
-          >
+          <div class="kpi-value" :style="{ color: kpi.color }">
             {{ kpi.val }}
           </div>
         </div>
       </div>
 
       <!-- Shopping list -->
-      <div v-if="result" class="card">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 16px 8px;
-          "
-        >
-          <span style="font-weight: 700; font-size: 1rem"
-            >🛒 Shopping List</span
-          >
+      <div v-if="result" class="card calc-shopping">
+        <div class="calc-shopping-header">
+          <span style="font-weight: 700; font-size: 1rem">Shopping List</span>
           <button class="btn btn-ghost btn-sm" @click="exportTxt">
-            📄 Export TXT
+            Export TXT
           </button>
         </div>
-        <div
-          style="
-            display: flex;
-            gap: 8px;
-            padding: 6px 12px;
-            background: #252538;
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: var(--muted);
-            border-bottom: 1px solid var(--border2);
-          "
-        >
-          <span style="flex: 1">Item</span
-          ><span style="width: 52px; text-align: right">Qty</span>
-          <span style="width: 52px; text-align: right; color: #4ade80"
-            >Min€</span
-          ><span style="width: 52px; text-align: right; color: #f87171"
-            >Max€</span
-          >
+        <div class="calc-shopping-head">
+          <span>Item</span>
+          <span style="text-align: right">Qty</span>
+          <span style="text-align: right; color: var(--success)">Min€</span>
+          <span style="text-align: right; color: var(--danger)">Max€</span>
         </div>
         <div
-          class="shop-row"
+          class="shop-row calc-shopping-row"
           v-for="item in result.shopping_list"
           :key="item.name"
         >
-          <div style="flex: 1; min-width: 0">
-            <div
-              style="
-                font-weight: 500;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              "
-            >
-              {{ item.name }}
-            </div>
+          <div class="shop-item">
+            <div class="shop-item-name">{{ item.name }}</div>
             <span class="badge" :class="BADGE[item.type] ?? 'badge-extra'">{{
               item.type
             }}</span>
           </div>
-          <span
-            style="
-              width: 52px;
-              text-align: right;
-              font-size: 0.8rem;
-              white-space: nowrap;
-            "
-            >{{ item.quantity }} {{ item.unit }}</span
-          >
-          <span
-            style="
-              width: 52px;
-              text-align: right;
-              color: #4ade80;
-              font-size: 0.8rem;
-            "
-            >{{ item.cost_min.toFixed(2) }}</span
-          >
-          <span
-            style="
-              width: 52px;
-              text-align: right;
-              color: #f87171;
-              font-size: 0.8rem;
-            "
-            >{{ item.cost_max.toFixed(2) }}</span
-          >
+          <span class="shop-qty">{{ item.quantity }} {{ item.unit }}</span>
+          <span class="shop-cost min">{{ item.cost_min.toFixed(2) }}</span>
+          <span class="shop-cost max">{{ item.cost_max.toFixed(2) }}</span>
         </div>
-        <div
-          style="
-            display: flex;
-            gap: 8px;
-            padding: 10px 12px;
-            border-top: 2px solid #4d4d6e;
-            font-weight: 800;
-          "
-        >
-          <span style="flex: 1">TOTAL</span><span style="width: 52px"></span>
-          <span style="width: 52px; text-align: right; color: #4ade80">{{
+        <div class="calc-shopping-total">
+          <span>TOTAL</span>
+          <span></span>
+          <span style="text-align: right; color: var(--success)">{{
             result.total_min.toFixed(2)
           }}</span>
-          <span style="width: 52px; text-align: right; color: #f87171">{{
+          <span style="text-align: right; color: var(--danger)">{{
             result.total_max.toFixed(2)
           }}</span>
         </div>
@@ -893,17 +783,7 @@ function exportTxt() {
     <!-- ══ DRINK MENU TAB ══ -->
     <template v-if="activeTab === 'menu'">
       <!-- Context banner -->
-      <div
-        v-if="!isGlobal"
-        style="
-          background: #1e1b4b;
-          border: 1px solid #4338ca;
-          border-radius: 10px;
-          padding: 10px 14px;
-          margin-bottom: 12px;
-          font-size: 0.85rem;
-        "
-      >
+      <div v-if="!isGlobal" class="calc-menu-banner">
         🎉 Editing drink menu for <strong>{{ selectedParty?.name }}</strong>
       </div>
 
@@ -957,20 +837,8 @@ function exportTxt() {
         </div>
       </div>
 
-      <div
-        class="card"
-        v-for="(catData, cat) in settings.menu"
-        :key="cat"
-        style="margin-bottom: 12px"
-      >
-        <div
-          style="
-            padding: 14px 16px;
-            font-weight: 700;
-            font-size: 1rem;
-            border-bottom: 1px solid var(--border);
-          "
-        >
+      <div class="card" v-for="(catData, cat) in settings.menu" :key="cat">
+        <div class="calc-category-header">
           <span
             class="badge"
             :class="
