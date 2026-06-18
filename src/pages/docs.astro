@@ -1,7 +1,5 @@
 ---
-import '../styles/global.css';
-import NavBar from '../components/NavBar.astro';
-import Footer from '../components/Footer.astro';
+import '../styles/theme.css';
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -12,96 +10,440 @@ const base = import.meta.env.BASE_URL;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BottleCount — Docs</title>
     <link rel="icon" href={`${base}favicon.svg`} />
+    <script is:inline>
+      document.documentElement.dataset.theme =
+        localStorage.getItem('bc-theme') || 'dark';
+    </script>
   </head>
   <body>
-    <NavBar active="docs" />
-    <main class="page" style="max-width:720px;">
-      <div class="docs-hero">
-        <h1>How it works</h1>
-        <p>Plan the bar, generate tickets, and validate guests at the door.</p>
+    <!-- Sticky header -->
+    <header class="docs-header">
+      <a href={`${base}`} class="back-btn" aria-label="Back to home">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M19 12H5M12 5l-7 7 7 7"></path>
+        </svg>
+      </a>
+      <div class="docs-header__title">
+        <span class="docs-header__icon">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+            ></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </span>
+        Documentation
       </div>
+      <a href={`${base}app`} class="open-app-btn">Open app</a>
+    </header>
 
-      <div class="card card-pad doc-section">
-        <h2>Calculator</h2>
-        <p>
-          Set guest count, ticket price, and venue costs. Choose an alcohol
-          intensity preset (25–100 ml pure alcohol/person). The menu engine
-          supports three category types:
-        </p>
-        <ul style="margin:12px 0 0 16px;">
-          <li>
-            <strong style="color:var(--text)">Spirits</strong> — 3-level: category
-            → spirit → cocktail. Mixer quantities derive from recipes.
-          </li>
-          <li>
-            <strong style="color:var(--text)">Beer / Wine</strong> — 2-level: category
-            → variety split. No cocktail layer needed.
-          </li>
-        </ul>
-      </div>
-
-      <div class="card card-pad doc-section">
-        <h2>Tickets</h2>
-        <p>
-          Create a party, then generate QR tickets for each guest. Each ticket
-          is HMAC-signed with a key stored only in your browser — tickets cannot
-          be forged. Print them or share via WhatsApp, Email, or as a PNG image.
-        </p>
-      </div>
-
-      <div class="card card-pad doc-section">
-        <h2>Scanner</h2>
-        <p>
-          Use the camera to scan QR codes at the door. Validation is
-          three-layer: signature check → expiry → already-used. Works fully
-          offline. For multi-scanner setups, configure a Google Sheet (see
-          below).
-        </p>
-      </div>
-
-      <div class="card card-pad doc-section">
-        <h2>Google Sheet setup (multi-scanner)</h2>
-        <p style="margin-bottom:20px;">
-          Follow these 4 steps to enable cross-device ticket validation:
-        </p>
-        <div class="doc-steps">
-          {
-            [
-              [
-                '1',
-                'Create a Google Sheet',
-                'Add columns: ticketId (A), used (B), usedAt (C). Add one row per ticket with its ID.',
-              ],
-              [
-                '2',
-                'Add Apps Script',
-                'In the Sheet, go to Extensions → Apps Script. Paste the contents of apps-script/validate.gs from the repo.',
-              ],
-              [
-                '3',
-                'Set a secret token',
-                'In Script Properties, add TOKEN = your-secret-string. Deploy as a web app (Execute as: Me, Anyone can access).',
-              ],
-              [
-                '4',
-                'Configure in Scanner',
-                'Open the Scanner page, paste your deployment URL and token. Multi-scanner validation is now active.',
-              ],
-            ].map(([n, title, desc]) => (
-              <div class="doc-step">
-                <div class="doc-step__badge">{n}</div>
-                <div>
-                  <div class="doc-step__title">{title}</div>
-                  <div style="font-size:.875rem;color:var(--muted);">
-                    {desc}
-                  </div>
-                </div>
-              </div>
-            ))
-          }
+    <!-- Main content -->
+    <main class="docs-main">
+      <!-- Section 1: What is BottleCount? -->
+      <section class="doc-section">
+        <div class="doc-section__heading">
+          <span class="doc-section__icon">ℹ️</span>
+          <h2 class="doc-section__title">What is BottleCount?</h2>
         </div>
-      </div>
+        <p class="doc-para">
+          BottleCount is a planning console for people who actually host the
+          party — the friend who buys the booze, sets the budget and works the
+          door. It turns "how much do we need?" into an exact, costed shopping
+          list, then helps you fill the room.
+        </p>
+        <p class="doc-para">
+          It is built to stay simple. The big tools drown you in menus;
+          BottleCount is four steps — Plan, Menu, Shopping, Guests — and a
+          handful of sliders.
+        </p>
+      </section>
+
+      <!-- Section 2: The workflow -->
+      <section class="doc-section">
+        <div class="doc-section__heading">
+          <span class="doc-section__icon">📋</span>
+          <h2 class="doc-section__title">The workflow</h2>
+        </div>
+        <div class="doc-items">
+          <div class="doc-item">
+            <span class="doc-item__icon">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </span>
+            <div>
+              <span class="doc-item__key">Plan.</span>
+              <span class="doc-item__val"
+                >Venue, date, guest count, the vibe (how strong the pours are)
+                and your money — ticket price and fixed costs.</span
+              >
+            </div>
+          </div>
+          <div class="doc-item">
+            <span class="doc-item__icon">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 0-2 2h-3"
+                ></path>
+              </svg>
+            </span>
+            <div>
+              <span class="doc-item__key">Menu.</span>
+              <span class="doc-item__val"
+                >Split the drink mix across beer, wine and spirits, then
+                per-spirit across cocktails. Everything auto-balances.</span
+              >
+            </div>
+          </div>
+          <div class="doc-item">
+            <span class="doc-item__icon">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path
+                  d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
+                ></path>
+              </svg>
+            </span>
+            <div>
+              <span class="doc-item__key">Shopping.</span>
+              <span class="doc-item__val"
+                >A grouped, costed list with a price range and your buffer baked
+                in. Tick items off as you buy.</span
+              >
+            </div>
+          </div>
+          <div class="doc-item">
+            <span class="doc-item__icon">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </span>
+            <div>
+              <span class="doc-item__key">Guests.</span>
+              <span class="doc-item__val"
+                >Send invites, track RSVPs and the friend-to-friend spread, then
+                scan QR tickets at the door.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: The pour model -->
+      <section class="doc-section">
+        <div class="doc-section__heading">
+          <span class="doc-section__icon">💧</span>
+          <h2 class="doc-section__title">The pour model</h2>
+        </div>
+        <p class="doc-para">
+          Every guest is assumed to drink a fixed amount of pure alcohol — the
+          "ml per guest" you choose with the vibe (25 soft → 100 hardcore). That
+          total is split by your menu percentages, then converted to real
+          bottles using each drink's ABV and recipe.
+        </p>
+        <div class="formula-box">
+          pure alcohol = guests × ml/guest<br />
+          per drink → servings = share × alcohol ÷ (recipe ml × ABV)<br />
+          bottles = ceil(volume × buffer ÷ bottle size)
+        </div>
+      </section>
+
+      <!-- Section 4: Pricing & break-even -->
+      <section class="doc-section">
+        <div class="doc-section__heading">
+          <span class="doc-section__icon">€</span>
+          <h2 class="doc-section__title">Pricing &amp; break-even</h2>
+        </div>
+        <p class="doc-para">
+          Each catalogue item carries a low and high price, so totals are shown
+          as a range. Revenue is tickets × price; profit subtracts the drinks
+          and your fixed costs (venue + equipment).
+        </p>
+        <p class="doc-para">
+          Break-even is the headcount where ticket revenue covers your fixed
+          costs given the per-guest drink margin.
+        </p>
+        <div class="formula-box">
+          margin/guest = ticket price − avg drink cost/guest<br />
+          break-even = ceil(fixed costs ÷ margin/guest)
+        </div>
+      </section>
+
+      <!-- Section 5: RSVP & spread -->
+      <section class="doc-section">
+        <div class="doc-section__heading">
+          <span class="doc-section__icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+          </span>
+          <h2 class="doc-section__title">RSVP &amp; spread</h2>
+        </div>
+        <p class="doc-para">
+          Invites move through a funnel: reached → confirmed, with maybes shown
+          faded against your capacity so you can read the room. When you allow
+          it, guests can forward the invite to their own friends.
+        </p>
+        <p class="doc-para">
+          The spread view groups people into tiers — you, your direct invites,
+          and friends-of-friends — and shows a spread factor: the average number
+          of extra people each direct invite brought in.
+        </p>
+      </section>
     </main>
-    <Footer />
   </body>
 </html>
+
+<style>
+  /* ── Layout ── */
+  .docs-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .docs-main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+  }
+
+  /* ── Header elements ── */
+  .back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--rs);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+
+  .back-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .docs-header__title {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .docs-header__icon {
+    display: flex;
+    color: var(--accent);
+  }
+
+  .open-app-btn {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+
+  .open-app-btn:hover {
+    opacity: 0.88;
+  }
+
+  /* ── Doc sections ── */
+  .doc-section {
+    margin-bottom: 30px;
+    animation: bcFadeUp 0.3s ease both;
+  }
+
+  .doc-section:nth-child(2) {
+    animation-delay: 0.05s;
+  }
+  .doc-section:nth-child(3) {
+    animation-delay: 0.1s;
+  }
+  .doc-section:nth-child(4) {
+    animation-delay: 0.15s;
+  }
+  .doc-section:nth-child(5) {
+    animation-delay: 0.2s;
+  }
+
+  .doc-section__heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .doc-section__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    flex-shrink: 0;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .doc-section__title {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--text);
+  }
+
+  /* ── Paragraphs ── */
+  .doc-para {
+    font-size: 14px;
+    color: var(--dim);
+    line-height: 1.65;
+    margin: 0 0 12px 0;
+    text-wrap: pretty;
+  }
+
+  /* ── Workflow items ── */
+  .doc-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .doc-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--rs);
+    padding: 11px 13px;
+  }
+
+  .doc-item__icon {
+    display: flex;
+    color: var(--accent);
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+
+  .doc-item__key {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 13.5px;
+  }
+
+  .doc-item__val {
+    color: var(--dim);
+    font-size: 13.5px;
+  }
+
+  /* ── Formula box ── */
+  .formula-box {
+    margin-top: 6px;
+    padding: 14px 16px;
+    border-radius: var(--rs);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+</style>

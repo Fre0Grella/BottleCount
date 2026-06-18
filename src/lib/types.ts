@@ -15,6 +15,7 @@ export interface Ingredient {
   price_min: number;
   price_max: number;
   unit?: string;
+  custom?: boolean;
 }
 
 export interface CocktailRecipeItem {
@@ -26,6 +27,7 @@ export interface Cocktail {
   main_spirit: string;
   category?: string;
   recipe: Record<string, CocktailRecipeItem>;
+  custom?: boolean;
 }
 
 export interface Catalog {
@@ -93,6 +95,24 @@ export interface CalculationResult {
   break_even: number | null;
 }
 
+// ── Venue & Invites ────────────────────────────────────────────────────────
+
+export interface Venue {
+  place: string;
+  city: string;
+  time: string;
+}
+
+export interface Invite {
+  id: number;
+  name: string;
+  status: 'accepted' | 'pending' | 'declined';
+  depth: number;
+  referrer: string | null;
+  used: boolean;
+  usedAt?: string;
+}
+
 // ── Tickets ────────────────────────────────────────────────────────────────
 
 /** Drink menu stored per party — same shape as Settings['menu'] */
@@ -103,8 +123,14 @@ export interface Party {
   name: string;
   date: string;
   createdAt: string;
-  partyMenu?: PartyMenu;
-  partySettings?: PartySettings;
+  cover: number; // 0..5 index into COVERS
+  venue: Venue;
+  settings: PartySettings; // existing interface
+  menu: PartyMenu; // existing type (Record<string, CategoryEntry>)
+  locks: Record<string, boolean>; // keys 'm:Cat' and 's:Cat:Spirit'
+  checked: Record<string, boolean>; // shopping check-off
+  allowForward: boolean;
+  invites: Invite[];
 }
 
 export interface Ticket {
@@ -132,5 +158,5 @@ export type UserDataKey =
   | 'hidden_cocktails'
   | 'price_overrides'
   | 'settings'
-  | 'google_sync_config'
+  | 'theme'
   | 'hmac_key';

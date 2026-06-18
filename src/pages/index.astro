@@ -1,6 +1,5 @@
 ---
-import '../styles/global.css';
-import '../styles/index.css';
+import '../styles/theme.css';
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -9,290 +8,1101 @@ const base = import.meta.env.BASE_URL;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BottleCount — Plan your party like an engineer</title>
+    <title>BottleCount — Throw the party. We'll count the bottles.</title>
     <link rel="icon" href={`${base}faviconDark.svg`} />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
+    <script is:inline>
+      document.documentElement.dataset.theme =
+        localStorage.getItem('bc-theme') || 'dark';
+    </script>
   </head>
-  <body class="landing-body">
-    <header class="landing-header">
-      <div class="landing-shell">
+  <body>
+    <!-- ── Nav ── -->
+    <nav class="nav">
+      <div class="shell nav-inner">
         <a class="brand" href={base}>
-          <img
-            src={`${base}logoDark.svg`}
-            alt="BottleCount logo"
-            width="28"
-            height="28"
-          />
-          BottleCount
-        </a>
-        <nav class="nav-links">
-          <a href={base}>Home</a>
-          <a href={`${base}calculator`}>Calculator</a>
-          <a href={`${base}event`}>Event</a>
-          <a href={`${base}docs`}>Docs</a>
-        </nav>
-        <a class="cta-link" href={`${base}calculator`}>Open Calculator</a>
-      </div>
-    </header>
-
-    <main class="landing">
-      <section class="hero">
-        <div class="landing-shell hero-grid">
-          <div class="hero-copy">
-            <span class="eyebrow">Engineered Hospitality</span>
-            <h1>Plan like an engineer. Party like a legend.</h1>
-            <p>
-              More powerful than a group chat, easier than a pro tool. Configure
-              your event, skip the guesswork, and secure the legendary status
-              you deserve.
-            </p>
-            <div class="hero-actions">
-              <a class="btn-primary" href={`${base}calculator`}
-                >Start Your First Plan</a
-              >
-              <a class="btn-ghost" href={`${base}docs`}>How it works</a>
-            </div>
-            <div class="trust-row">
-              <div>
-                <span class="trust-title">Offline-first</span>
-                <span class="trust-detail">Your data stays in the browser.</span
-                >
-              </div>
-              <div>
-                <span class="trust-title">Fast decisions</span>
-                <span class="trust-detail"
-                  >Spend range and break-even in one view.</span
-                >
-              </div>
-              <div>
-                <span class="trust-title">Built for hosts</span>
-                <span class="trust-detail"
-                  >No accounts, no training, no bloat.</span
-                >
-              </div>
-            </div>
-          </div>
-          <div class="hero-visual">
-            <div class="hero-logo">
-              <img
-                src={`${base}logoDark.svg`}
-                alt="BottleCount logo"
-                width="120"
-                height="120"
-              />
-              <div class="logo-caption">
-                <span class="caption-title">Planning snapshot</span>
-                <span class="caption-sub"
-                  >Guest mix and bottle list, verified.</span
-                >
-              </div>
-            </div>
-            <div class="hero-panels">
-              <div class="panel ledger">
-                <div class="panel-header">
-                  <span class="panel-title">Pointed list</span>
-                  <span class="panel-sub">Priority buys</span>
-                </div>
-                <ul>
-                  <li>
-                    <span class="dot"></span>Premium vodka 1.75L<span
-                      class="pill">x08</span>
-                  </li>
-                  <li>
-                    <span class="dot"></span>Dry vermouth<span class="pill"
-                      >x04</span>
-                  </li>
-                  <li>
-                    <span class="dot"></span>Still water<span class="pill"
-                      >x12</span>
-                  </li>
-                </ul>
-              </div>
-              <div class="panel chart">
-                <div class="panel-header">
-                  <span class="panel-title">Guest mix</span>
-                  <span class="panel-sub">Spirits, wine, beer</span>
-                </div>
-                <svg
-                  viewBox="0 0 120 120"
-                  role="img"
-                  aria-label="Pie chart showing menu mix"
-                >
-                  <circle cx="60" cy="60" r="46" class="ring"></circle>
-                  <path
-                    d="M60 14 A46 46 0 0 1 103 84 L60 60 Z"
-                    class="slice-one"></path>
-                  <path
-                    d="M103 84 A46 46 0 0 1 37 104 L60 60 Z"
-                    class="slice-two"></path>
-                  <path
-                    d="M37 104 A46 46 0 0 1 60 14 L60 60 Z"
-                    class="slice-three"></path>
-                </svg>
-                <div class="legend">
-                  <span><i class="swatch"></i>Spirits 52%</span>
-                  <span><i class="swatch teal"></i>Wine 28%</span>
-                  <span><i class="swatch amber"></i>Beer 20%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="features">
-        <div class="landing-shell">
-          <div class="section-header">
-            <h2>Available Power-Ups.</h2>
-          </div>
-          <div class="features-grid">
-            <article class="feature-card feature-card--wide">
-              <span class="feature-icon material-symbols-outlined">science</span
-              >
-              <h3>Drink Architect</h3>
-              <p>
-                Model exactly what your crowd needs. Swap spirits, wine, and
-                beer based on guest-mix logic that actually works.
-              </p>
-              <div class="dashed-divider"></div>
-              <div class="mix-grid">
-                <div class="mix-cell"></div>
-                <div class="mix-cell"></div>
-                <div class="mix-cell dashed">84% Spirits</div>
-              </div>
-            </article>
-            <article class="feature-card feature-card--tall">
-              <span class="feature-icon material-symbols-outlined"
-                >database</span
-              >
-              <h3>Budget Maxer</h3>
-              <p>
-                Keep your wallet happy. Track spending and see exactly when you
-                hit the break-even point.
-              </p>
-              <div class="budget-kpi">
-                <span class="kpi-value">$0 Over</span>
-                <span class="kpi-label">Efficiency Rating: 99%</span>
-              </div>
-            </article>
-            <article class="feature-card feature-card--mid">
-              <span class="feature-icon material-symbols-outlined"
-                >shopping_cart</span
-              >
-              <h3>Supply Runner</h3>
-              <p>
-                Instant, purchase-ready shopping lists. Sorted by store aisle
-                and categorized for maximum speed.
-              </p>
-              <div class="mini-ledger">
-                <span>Premium Vodka 1.75L</span>
-                <span class="pill">x12</span>
-              </div>
-              <div class="mini-ledger">
-                <span>Dry Vermouth</span>
-                <span class="pill">x04</span>
-              </div>
-            </article>
-            <article class="feature-card feature-card--side accent">
-              <span class="feature-icon material-symbols-outlined"
-                >confirmation_number</span
-              >
-              <h3>Gatekeeper Pro</h3>
-              <p>
-                The ultimate flex. Generate and scan tickets for seamless entry
-                management across multiple devices. Keep the guest list tight
-                and the flow efficient.
-              </p>
-              <div class="ticket">
-                <span>Gate pass</span>
-                <span class="ticket-code">BC-2841</span>
-              </div>
-              <div class="ticket-visual">
-                <span class="material-symbols-outlined">qr_code_scanner</span>
-              </div>
-            </article>
-            <article class="feature-card feature-card--full accent">
-              <span class="feature-icon material-symbols-outlined"
-                >security</span
-              >
-              <h3>Local-First Privacy</h3>
-              <p>
-                Your party data stays on your device. 100% offline-capable with
-                no accounts, no trackers, and zero server-side storage required.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="workflow">
-        <div class="landing-shell workflow-grid">
-          <div>
-            <h2>Get to a decision in three passes.</h2>
-            <p>
-              Each pass narrows uncertainty and leaves you with a plan you can
-              act on tonight.
-            </p>
-          </div>
-          <ol class="workflow-steps">
-            <li>
-              <span class="step-title">Set the crowd</span>
-              <span class="step-detail"
-                >Guests, drinking style, and duration.</span
-              >
-            </li>
-            <li>
-              <span class="step-title">Pick the menu mix</span>
-              <span class="step-detail"
-                >Spirits, wine, and beer balanced to your vibe.</span
-              >
-            </li>
-            <li>
-              <span class="step-title">Read the numbers</span>
-              <span class="step-detail"
-                >Spend range, break-even, and list in one view.</span
-              >
-            </li>
-          </ol>
-        </div>
-      </section>
-
-      <section class="cta">
-        <div class="landing-shell cta-panel">
-          <div>
-            <h2>Ready to Host Your Best Event Ever?</h2>
-          </div>
-          <a class="btn-primary" href={`${base}calculator`}
-            >Start Your First Plan</a
+          <span class="brand-icon">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M10 2h4v3l1 3v12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8l1-3z"
+              ></path>
+              <path d="M9 12h6"></path>
+            </svg>
+          </span>
+          <span class="brand-name"
+            >Bottle<span class="brand-accent">Count</span></span
           >
+        </a>
+        <div class="nav-right">
+          <a class="nav-docs" href={`${base}docs`}>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
+              ></path>
+              <path d="M14 3v5h5"></path>
+              <path d="M8 13h7"></path>
+              <path d="M8 17h5"></path>
+            </svg>
+            Docs
+          </a>
+          <a class="btn-accent" href={`${base}app`}>
+            Open app
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
+          </a>
+          <button
+            class="theme-toggle"
+            id="themeToggle"
+            aria-label="Toggle theme"
+          >
+            <svg
+              class="icon-sun"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+            <svg
+              class="icon-moon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <main>
+      <!-- ── Hero ── -->
+      <section class="hero">
+        <div class="shell hero-inner">
+          <!-- Floating emoji -->
+          <span
+            class="float-emoji"
+            style="--rot:8deg;top:8%;right:6%;font-size:54px;opacity:0.9;animation-duration:6s;filter:drop-shadow(0 10px 30px rgba(255,122,61,0.3))"
+            >🍸</span
+          >
+          <span
+            class="float-emoji"
+            style="--rot:-10deg;top:38%;right:20%;font-size:38px;opacity:0.8;animation-duration:7.5s"
+            >🍾</span
+          >
+          <span
+            class="float-emoji"
+            style="--rot:14deg;top:62%;right:9%;font-size:30px;opacity:0.7;animation-duration:5.5s"
+            >🥂</span
+          >
+
+          <div class="hero-copy">
+            <!-- Badge -->
+            <div class="hero-badge">
+              <span class="badge-dot"></span>
+              For home hosts &amp; small party planners
+            </div>
+
+            <!-- H1 -->
+            <h1 class="hero-h1">
+              Throw the party.<br />We'll count the <span class="gradient-text"
+                >bottles</span
+              >.
+            </h1>
+
+            <!-- Subtitle -->
+            <p class="hero-sub">
+              Tell BottleCount who's coming and the vibe. It balances your drink
+              menu, works out the <strong>exact</strong> shopping list and budget,
+              then runs your invites and the door — all in one calm screen.
+            </p>
+
+            <!-- CTA buttons -->
+            <div class="hero-actions">
+              <a class="btn-accent btn-lg" href={`${base}app`}>
+                Plan a party
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5l7 7-7 7"></path>
+                </svg>
+              </a>
+              <a class="btn-ghost btn-lg" href={`${base}docs`}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
+                  ></path>
+                  <path d="M14 3v5h5"></path>
+                  <path d="M8 13h7"></path>
+                  <path d="M8 17h5"></path>
+                </svg>
+                How it works
+              </a>
+            </div>
+
+            <!-- Stats -->
+            <div class="hero-stats">
+              <div class="stat">
+                <span class="stat-val">75 ml</span>
+                <span class="stat-label">alcohol / guest model</span>
+              </div>
+              <div class="stat">
+                <span class="stat-val">€ exact</span>
+                <span class="stat-label">shopping list &amp; budget</span>
+              </div>
+              <div class="stat">
+                <span class="stat-val">QR door</span>
+                <span class="stat-label">check-in built in</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Four steps ── -->
+      <section class="steps-section">
+        <div class="shell">
+          <p class="section-eyebrow">The flow</p>
+          <h2 class="section-h2">Four steps, no spreadsheet</h2>
+          <div class="steps-grid">
+            <!-- Step 1 -->
+            <article class="step-card">
+              <span class="step-num">1</span>
+              <span
+                class="step-chip"
+                style="background:var(--accent-soft);color:var(--accent)"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"
+                  ></path>
+                  <circle cx="12" cy="10" r="2.5"></circle>
+                </svg>
+              </span>
+              <h3 class="step-title">Set the scene</h3>
+              <p class="step-body">
+                Name it, pin the venue, pick the date and how hard it goes.
+              </p>
+            </article>
+
+            <!-- Step 2 -->
+            <article class="step-card">
+              <span class="step-num">2</span>
+              <span
+                class="step-chip"
+                style="background:rgba(45,212,191,0.16);color:#2DD4BF"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 4h16l-8 9-8-9z"></path>
+                  <path d="M12 13v7"></path>
+                  <path d="M8 20h8"></path>
+                </svg>
+              </span>
+              <h3 class="step-title">Balance the bar</h3>
+              <p class="step-body">
+                Drag sliders to mix beer, wine and cocktails. We pour the math.
+              </p>
+            </article>
+
+            <!-- Step 3 -->
+            <article class="step-card">
+              <span class="step-num">3</span>
+              <span
+                class="step-chip"
+                style="background:rgba(167,139,250,0.16);color:#A78BFA"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 4h2l2 12h11l2-8H6"></path>
+                  <circle cx="9" cy="20" r="1"></circle>
+                  <circle cx="18" cy="20" r="1"></circle>
+                </svg>
+              </span>
+              <h3 class="step-title">Shop smart</h3>
+              <p class="step-body">
+                An exact bottle-by-bottle list with a price range and a buffer.
+              </p>
+            </article>
+
+            <!-- Step 4 -->
+            <article class="step-card">
+              <span class="step-num">4</span>
+              <span
+                class="step-chip"
+                style="background:rgba(96,165,250,0.16);color:#60A5FA"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"></path>
+                  <circle cx="9.5" cy="6.5" r="3.5"></circle>
+                  <path d="M21 19v-1a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16.5 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </span>
+              <h3 class="step-title">Fill the room</h3>
+              <p class="step-body">
+                Send invites, watch RSVPs spread, scan tickets at the door.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Features ── -->
+      <section class="features-section">
+        <div class="shell">
+          <h2 class="section-h2">Everything a host actually needs</h2>
+          <div class="features-grid">
+            <!-- Feature 1 -->
+            <article class="feat-card">
+              <span class="feat-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 4h16l-8 9-8-9z"></path>
+                  <path d="M12 13v7"></path>
+                  <path d="M8 20h8"></path>
+                </svg>
+              </span>
+              <h3 class="feat-title">Auto-balancing menu</h3>
+              <p class="feat-body">
+                Move one drink and the rest rebalance to 100%. Pin the ones you
+                care about.
+              </p>
+            </article>
+
+            <!-- Feature 2 -->
+            <article class="feat-card">
+              <span class="feat-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"
+                  ></path>
+                  <path d="M19 15l.6 2L22 18l-2.4.6L19 21l-.6-2.4L16 18l2.4-.6z"
+                  ></path>
+                </svg>
+              </span>
+              <h3 class="feat-title">Custom cocktails</h3>
+              <p class="feat-body">
+                Pick classics per spirit or build your own from mixers —
+                quantities feed the list.
+              </p>
+            </article>
+
+            <!-- Feature 3 -->
+            <article class="feat-card">
+              <span class="feat-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 17l6-6 4 4 8-8"></path>
+                  <path d="M15 7h6v6"></path>
+                </svg>
+              </span>
+              <h3 class="feat-title">Live budget</h3>
+              <p class="feat-body">
+                Spend, revenue, profit and the exact break-even headcount,
+                always on screen.
+              </p>
+            </article>
+
+            <!-- Feature 4 -->
+            <article class="feat-card">
+              <span class="feat-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"></path>
+                  <circle cx="9.5" cy="6.5" r="3.5"></circle>
+                  <path d="M21 19v-1a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16.5 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </span>
+              <h3 class="feat-title">RSVP funnel</h3>
+              <p class="feat-body">
+                See reached, confirmed and maybes against your capacity at a
+                glance.
+              </p>
+            </article>
+
+            <!-- Feature 5 -->
+            <article class="feat-card">
+              <span class="feat-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <path d="M8.6 13.5l6.8 4"></path>
+                  <path d="M15.4 6.5l-6.8 4"></path>
+                </svg>
+              </span>
+              <h3 class="feat-title">Friends invite friends</h3>
+              <p class="feat-body">
+                Let guests forward the invite and watch how far the word
+                travels.
+              </p>
+            </article>
+
+            <!-- Feature 6 -->
+            <article class="feat-card">
+              <span class="feat-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 8V6a2 2 0 0 1 2-2h2"></path>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v2"></path>
+                  <path d="M20 16v2a2 2 0 0 1-2 2h-2"></path>
+                  <path d="M8 20H6a2 2 0 0 1-2-2v-2"></path>
+                  <path d="M4 12h16"></path>
+                </svg>
+              </span>
+              <h3 class="feat-title">Door scanner</h3>
+              <p class="feat-body">
+                Every accepted guest gets a QR ticket. Scan them in, no
+                clipboard needed.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CTA Banner ── -->
+      <section class="cta-section">
+        <div class="shell">
+          <div class="cta-banner">
+            <div class="cta-glow"></div>
+            <div class="cta-content">
+              <h2 class="cta-h2">Your next party, sorted in five minutes.</h2>
+              <p class="cta-sub">
+                No login needed for the demo — jump in, drag a few sliders,
+                watch the numbers land.
+              </p>
+              <a class="btn-dark btn-lg" href={`${base}app`}>
+                Open the console
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5l7 7-7 7"></path>
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          <!-- Footer line -->
+          <footer class="footer-line">
+            BottleCount · a calmer way to host · built for the people who
+            actually buy the booze
+          </footer>
         </div>
       </section>
     </main>
 
-    <footer class="landing-footer">
-      <div class="landing-shell footer-grid">
-        <div class="footer-brand">
-          <img
-            src={`${base}logoDark.svg`}
-            alt="BottleCount logo"
-            width="24"
-            height="24"
-          />
-          <span>BottleCount</span>
-        </div>
-        <div class="footer-links">
-          <a href={`${base}privacy`}>Privacy</a>
-          <a href={`${base}terms`}>Terms</a>
-          <a href={`${base}docs`}>Docs</a>
-        </div>
-        <span class="footer-note"
-          >The professional choice for modern event hosts and logistics
-          coordinators.</span
-        >
-      </div>
-    </footer>
+    <script is:inline>
+      document.getElementById('themeToggle').addEventListener('click', () => {
+        const next =
+          document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem('bc-theme', next);
+      });
+    </script>
   </body>
 </html>
+
+<style>
+  /* ── Page background ── */
+  body {
+    background:
+      radial-gradient(
+        120% 80% at 80% -10%,
+        rgba(255, 122, 61, 0.16),
+        transparent 55%
+      ),
+      radial-gradient(
+        90% 60% at 0% 0%,
+        rgba(45, 212, 191, 0.1),
+        transparent 50%
+      ),
+      var(--bg);
+    min-height: 100vh;
+  }
+
+  /* ── Shell (max-width wrapper) ── */
+  .shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: transparent;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    text-decoration: none;
+    color: var(--text);
+  }
+
+  .brand-icon {
+    display: flex;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--on-accent);
+    flex-shrink: 0;
+  }
+
+  .brand-name {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+
+  .brand-accent {
+    color: var(--accent);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-docs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    text-decoration: none;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+
+  .nav-docs:hover {
+    color: var(--text);
+    border-color: var(--dim);
+  }
+
+  /* ── Buttons ── */
+  .btn-accent {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: none;
+    background: var(--accent);
+    color: var(--on-accent);
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-accent:hover {
+    opacity: 0.88;
+  }
+
+  .btn-accent.btn-lg {
+    font-size: 15px;
+    padding: 14px 24px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(255, 122, 61, 0.28);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 22px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--dim);
+  }
+
+  .btn-dark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 24px;
+    border-radius: 13px;
+    border: none;
+    background: #0b1220;
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-dark:hover {
+    opacity: 0.88;
+  }
+
+  /* ── Theme toggle ── */
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+
+  .theme-toggle:hover {
+    color: var(--text);
+    border-color: var(--dim);
+  }
+
+  [data-theme='dark'] .icon-sun {
+    display: block;
+  }
+
+  [data-theme='dark'] .icon-moon {
+    display: none;
+  }
+
+  [data-theme='light'] .icon-sun {
+    display: none;
+  }
+
+  [data-theme='light'] .icon-moon {
+    display: block;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+  }
+
+  .hero-inner {
+    position: relative;
+    padding-top: 20px;
+    padding-bottom: 40px;
+  }
+
+  .float-emoji {
+    position: absolute;
+    animation: bcFloat var(--dur, 6s) ease-in-out infinite;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
+  }
+
+  .hero-copy {
+    max-width: 680px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Badge */
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 22px;
+  }
+
+  .badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--good);
+    animation: bcGlow 2s ease infinite;
+    flex-shrink: 0;
+  }
+
+  /* H1 */
+  .hero-h1 {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: clamp(34px, 5.5vw, 64px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    margin: 0;
+    max-width: 16ch;
+    text-wrap: balance;
+    color: var(--text);
+  }
+
+  .gradient-text {
+    background: linear-gradient(90deg, var(--accent), #ffb347, var(--accent));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: bcSweep 5s linear infinite;
+  }
+
+  /* Subtitle */
+  .hero-sub {
+    font-size: clamp(15px, 1.6vw, 18px);
+    color: var(--dim);
+    max-width: 48ch;
+    line-height: 1.5;
+    margin: 18px 0 28px 0;
+    text-wrap: pretty;
+  }
+
+  .hero-sub strong {
+    color: var(--text);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  /* CTA row */
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* Stats */
+  .hero-stats {
+    display: flex;
+    gap: 26px;
+    flex-wrap: wrap;
+    margin-top: 36px;
+  }
+
+  .stat-val {
+    display: block;
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 24px;
+    color: var(--text);
+  }
+
+  .stat-label {
+    display: block;
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Steps section ── */
+  .steps-section {
+    padding: 26px 0;
+  }
+
+  .section-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 6px 0;
+  }
+
+  .section-h2 {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: clamp(22px, 2.5vw, 28px);
+    letter-spacing: -0.02em;
+    margin: 0 0 22px 0;
+    color: var(--text);
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .step-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  .step-num {
+    position: absolute;
+    top: -12px;
+    right: 6px;
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 64px;
+    color: var(--track);
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .step-chip {
+    position: relative;
+    display: flex;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+
+  .step-title {
+    position: relative;
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 17px;
+    margin: 0 0 6px 0;
+    color: var(--text);
+  }
+
+  .step-body {
+    position: relative;
+    font-size: 13px;
+    color: var(--dim);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ── Features section ── */
+  .features-section {
+    padding: 26px 0;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .feat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.15s;
+  }
+
+  .feat-card:hover {
+    border-color: var(--dim);
+  }
+
+  .feat-icon {
+    display: flex;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .feat-title {
+    font-family: var(--font-disp);
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .feat-body {
+    font-size: 12.5px;
+    color: var(--dim);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ── CTA section ── */
+  .cta-section {
+    padding: 26px 0;
+  }
+
+  .cta-banner {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    padding: 40px 44px;
+    background: linear-gradient(120deg, var(--accent), #ff4d6d);
+    color: #fff;
+  }
+
+  .cta-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      60% 120% at 90% 10%,
+      rgba(255, 255, 255, 0.25),
+      transparent 60%
+    );
+    pointer-events: none;
+  }
+
+  .cta-content {
+    position: relative;
+  }
+
+  .cta-h2 {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: clamp(22px, 2.5vw, 28px);
+    letter-spacing: -0.02em;
+    margin: 0 0 8px 0;
+    color: #fff;
+  }
+
+  .cta-sub {
+    font-size: 15px;
+    opacity: 0.92;
+    margin: 0 0 20px 0;
+    max-width: 44ch;
+    color: #fff;
+  }
+
+  /* ── Footer line ── */
+  .footer-line {
+    text-align: center;
+    padding: 26px 0 36px 0;
+    font-size: 12px;
+    color: var(--faint);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    .shell {
+      padding: 0 16px;
+    }
+
+    .nav-inner {
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+
+    .hero-inner {
+      padding-top: 12px;
+      padding-bottom: 26px;
+    }
+
+    .float-emoji {
+      display: none;
+    }
+
+    .steps-section,
+    .features-section,
+    .cta-section {
+      padding: 8px 0 18px 0;
+    }
+
+    .steps-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .features-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .cta-banner {
+      padding: 24px 20px;
+    }
+  }
+</style>

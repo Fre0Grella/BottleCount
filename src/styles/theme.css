@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ── Shared / theme-independent tokens ── */
+:root {
+  --r: 18px;
+  --rs: 12px;
+  --font-disp: 'Space Grotesk', sans-serif;
+  --font-body: 'IBM Plex Mono', monospace;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* ── Dark theme (default) ── */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --surface: #111b30;
+  --surface2: #16223b;
+  --border: rgba(146, 166, 205, 0.16);
+
+  --text: #e9effa;
+  --dim: #9aa9c6;
+  --faint: #637197;
+
+  --accent: #ff7a3d;
+  --on-accent: #1b0c04;
+  --accent-soft: rgba(255, 122, 61, 0.16);
+
+  --good: #3dd68c;
+  --good-soft: rgba(61, 214, 140, 0.15);
+  --bad: #f87171;
+  --bad-soft: rgba(248, 113, 113, 0.14);
+
+  --track: rgba(146, 166, 205, 0.13);
+  --scrim: rgba(4, 8, 18, 0.72);
+  --shadow: 0 -10px 50px rgba(2, 6, 16, 0.6);
+
+  --seg-0: #ff7a3d;
+  --seg-1: #2dd4bf;
+  --seg-2: #a78bfa;
+  --seg-3: #60a5fa;
+  --seg-4: #f472b6;
+}
+
+/* ── Light theme ── */
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #eef2f8;
+  --surface: #ffffff;
+  --surface2: #eaeff7;
+  --border: rgba(23, 37, 63, 0.13);
+
+  --text: #16213a;
+  --dim: #54637f;
+  --faint: #8492ac;
+
+  --accent: #e8500f;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(232, 80, 15, 0.12);
+
+  --good: #0e8a53;
+  --good-soft: rgba(14, 138, 83, 0.12);
+  --bad: #c93a32;
+  --bad-soft: rgba(201, 58, 50, 0.1);
+
+  --track: rgba(23, 37, 63, 0.1);
+  --scrim: rgba(18, 26, 43, 0.42);
+  --shadow: 0 -10px 44px rgba(23, 37, 63, 0.18);
+
+  --seg-0: #e8500f;
+  --seg-1: #0e9384;
+  --seg-2: #6d4fc7;
+  --seg-3: #2468c4;
+  --seg-4: #c73e8c;
+}
+
+/* ── Keyframes ── */
+@keyframes bcFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bcPop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bcScan {
+  0% {
+    top: 6%;
+  }
+  50% {
+    top: 90%;
+  }
+  100% {
+    top: 6%;
+  }
+}
+
+@keyframes bcPulse {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes bcFloat {
+  0% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(-16px) rotate(var(--rot, 0deg));
+  }
+  100% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+}
+
+@keyframes bcGlow {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes bcSweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* ── Base resets ── */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input,
+textarea,
+button {
+  font-family: inherit;
+  outline: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 136, 160, 0.28);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

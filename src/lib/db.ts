@@ -31,6 +31,15 @@ export class BottleCountDB extends Dexie {
       tickets: '++id, partyId, guestName, used, expiresAt',
       userdata: 'key',
     });
+
+    // version(3) expands the Party shape to include venue, menu, locks,
+    // checked, invites, etc. (v2 redesign). Indexes are unchanged — the
+    // party object is stored as a single embedded document.
+    this.version(3).stores({
+      parties: '++id, name, date, createdAt',
+      tickets: '++id, partyId, guestName, used, expiresAt',
+      userdata: 'key',
+    });
   }
 }
 
