@@ -165,7 +165,6 @@ async function copyList(): Promise<void> {
         </div>
       </div>
       <button
-        @click="copyList"
         style="
           cursor: pointer;
           display: flex;
@@ -180,6 +179,7 @@ async function copyList(): Promise<void> {
           color: #fff;
           min-height: 44px;
         "
+        @click="copyList"
       >
         <span style="display: flex">
           <Icon name="copy" :size="15" />
@@ -221,7 +221,6 @@ async function copyList(): Promise<void> {
           <div
             v-for="item in g.items"
             :key="item.name"
-            @click="store.toggleChecked(item.name)"
             style="
               display: flex;
               align-items: center;
@@ -231,6 +230,7 @@ async function copyList(): Promise<void> {
               cursor: pointer;
               min-height: 44px;
             "
+            @click="store.toggleChecked(item.name)"
           >
             <!-- Checkbox -->
             <span

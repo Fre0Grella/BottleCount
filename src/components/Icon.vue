@@ -19,7 +19,9 @@ const icons: Record<string, string> = {
   calendar:
     '<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16"/><path d="M8 3v4"/><path d="M16 3v4"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  euro: '<path d="M17 5a7 7 0 1 0 0 14"/><path d="M4 10h8"/><path d="M4 14h7"/>',
+  euro: '<path d="M17.5 6.6a7 7 0 1 0 0 10.8"/><path d="M3 10h13"/><path d="M3 14h12"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
   share:
     '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4"/><path d="M15.4 6.5l-6.8 4"/>',
   plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',

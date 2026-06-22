@@ -2,7 +2,9 @@
 import { ref, watch, onUnmounted } from 'vue';
 import QrScanner from 'qr-scanner';
 import { useStore } from '../../lib/store';
-import { verifyTicket } from '../../lib/crypto';
+import { verifyTicket, signTicket } from '../../lib/crypto';
+import { ticketPayload } from '../../lib/ticket';
+import type { Invite } from '../../lib/types';
 import Icon from '../Icon.vue';
 
 const store = useStore();
@@ -10,6 +12,7 @@ const store = useStore();
 // ── QR scanner instance ───────────────────────────────────────────────────
 const videoRef = ref<HTMLVideoElement | null>(null);
 let scanner: QrScanner | null = null;
+let lastScanTime = 0;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function nowHHMM(): string {
@@ -46,53 +49,74 @@ function scheduleClear(): void {
 
 // ── Real scan callback ─────────────────────────────────────────────────────
 async function onScanResult(result: { data: string }): Promise<void> {
+  const now = Date.now();
+  if (now - lastScanTime < 2000) return;
+  lastScanTime = now;
+
   const party = store.activeParty();
   if (!party) return;
 
   const payload = await verifyTicket(result.data);
 
-  if (payload && payload.partyId === party.id) {
-    const accepted = party.invites.filter((i) => i.status === 'accepted');
-    const invite =
-      accepted.find((i) => i.id === payload.ticketId && !i.used) ??
-      accepted.find((i) => i.name === payload.guestName && !i.used);
+  if (!payload) {
+    store.state.scanResult = {
+      ok: false,
+      name: 'Forged or invalid ticket',
+      sub: 'Signature verification failed — this ticket may be counterfeit',
+    };
+    navigator.vibrate?.(300);
+    scheduleClear();
+    return;
+  }
 
-    if (invite) {
-      const time = nowHHMM();
-      store.checkInGuest(invite.id, time);
-      store.state.scanResult = { ok: true, name: invite.name };
-      pushHistory(invite.name, nowHHMMSS());
-      scheduleClear();
-      return;
-    }
+  if (payload.partyId !== party.id) {
+    store.state.scanResult = {
+      ok: false,
+      name: payload.guestName ?? 'Unknown guest',
+      sub: 'Ticket belongs to a different party',
+    };
+    navigator.vibrate?.(300);
+    scheduleClear();
+    return;
+  }
+
+  const accepted = party.invites.filter((i) => i.status === 'accepted');
+
+  const alreadyUsed = accepted.find(
+    (i) =>
+      (i.id === payload.ticketId || i.name === payload.guestName) && i.used,
+  );
+  if (alreadyUsed) {
+    store.state.scanResult = {
+      ok: false,
+      name: alreadyUsed.name,
+      sub: `Already scanned at ${alreadyUsed.usedAt ?? '?'} — do not let in again`,
+    };
+    navigator.vibrate?.(300);
+    scheduleClear();
+    return;
+  }
+
+  const invite =
+    accepted.find((i) => i.id === payload.ticketId && !i.used) ??
+    accepted.find((i) => i.name === payload.guestName && !i.used);
+
+  if (invite) {
+    const time = nowHHMM();
+    store.checkInGuest(invite.id, time);
+    store.state.scanResult = { ok: true, name: invite.name };
+    pushHistory(invite.name, nowHHMMSS());
+    navigator.vibrate?.([90, 40, 90]);
+    scheduleClear();
+    return;
   }
 
   store.state.scanResult = {
     ok: false,
-    name: payload?.guestName ?? 'Invalid or already used',
+    name: payload.guestName ?? 'Unknown guest',
+    sub: 'Not found on the accepted guest list',
   };
-  scheduleClear();
-}
-
-// ── Simulate scan ──────────────────────────────────────────────────────────
-function onSimScan(): void {
-  const party = store.activeParty();
-  if (!party) return;
-
-  const pending = party.invites
-    .filter((i) => i.status === 'accepted')
-    .find((i) => !i.used);
-
-  const time = nowHHMMSS();
-
-  if (pending) {
-    store.checkInGuest(pending.id, time.slice(0, 5));
-    store.state.scanResult = { ok: true, name: pending.name };
-    pushHistory(pending.name, time);
-  } else {
-    store.state.scanResult = { ok: false, name: 'Everyone’s in' };
-  }
-
+  navigator.vibrate?.(300);
   scheduleClear();
 }
 
@@ -156,6 +180,66 @@ function partyName() {
 function recentHistory() {
   return store.state.scanHistory.slice(0, 4);
 }
+
+// ── Manual lookup (fallback for visual verification) ───────────────────────
+const manualName = ref('');
+const manualResult = ref<{ invite: Invite; qrCode: string } | null>(null);
+let manualTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(manualName, (value) => {
+  if (manualTimer !== null) clearTimeout(manualTimer);
+  const query = value.trim().toLowerCase();
+  if (!query) {
+    manualResult.value = null;
+    return;
+  }
+  manualTimer = setTimeout(async () => {
+    const party = store.activeParty();
+    if (!party) {
+      manualResult.value = null;
+      return;
+    }
+    const acc = accepted();
+    // Best match: exact name first, otherwise closest case-insensitive include.
+    const invite =
+      acc.find((i) => i.name.toLowerCase() === query) ??
+      acc.find((i) => i.name.toLowerCase().includes(query));
+    if (!invite) {
+      manualResult.value = null;
+      return;
+    }
+    const qrCode = await signTicket(ticketPayload(party, invite.name));
+    // Guard against a stale resolve if the input changed meanwhile.
+    if (manualName.value.trim().toLowerCase() === query) {
+      manualResult.value = { invite, qrCode };
+    }
+  }, 300);
+});
+
+function validateManual(): void {
+  const result = manualResult.value;
+  if (!result) return;
+
+  // Re-check the live invite — it may have been checked in since the lookup.
+  const live = accepted().find((i) => i.id === result.invite.id);
+  if (live?.used) {
+    store.state.scanResult = {
+      ok: false,
+      name: live.name,
+      sub: `Already scanned at ${live.usedAt ?? '?'} — do not let in again`,
+    };
+    navigator.vibrate?.(300);
+    scheduleClear();
+    return;
+  }
+
+  const time = nowHHMM();
+  store.checkInGuest(result.invite.id, time);
+  store.state.scanResult = { ok: true, name: result.invite.name };
+  pushHistory(result.invite.name, nowHHMMSS());
+  navigator.vibrate?.([90, 40, 90]);
+  scheduleClear();
+}
 </script>
 
 <template>
@@ -197,12 +281,6 @@ function recentHistory() {
           </div>
         </div>
         <button
-          @click="
-            () => {
-              store.closeDoor();
-              stopScanner();
-            }
-          "
           style="
             cursor: pointer;
             display: flex;
@@ -214,6 +292,12 @@ function recentHistory() {
             border: 1px solid rgba(255, 255, 255, 0.18);
             background: transparent;
             color: #f2f5fa;
+          "
+          @click="
+            () => {
+              store.closeDoor();
+              stopScanner();
+            }
           "
         >
           <Icon name="x" :size="18" />
@@ -408,28 +492,25 @@ function recentHistory() {
               {{ store.state.scanResult.name }}
             </div>
             <div style="font-size: 12px; color: #e89b9b">
-              No pending ticket found
+              {{ store.state.scanResult.sub ?? 'No pending ticket found' }}
             </div>
           </div>
         </div>
 
-        <!-- Simulate scan button -->
-        <button
-          @click="onSimScan"
+        <!-- Scanning hint -->
+        <div
+          v-if="!store.state.scanResult"
           style="
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 700;
-            padding: 14px 30px;
-            border-radius: 999px;
-            border: none;
-            background: var(--accent);
-            color: var(--on-accent);
-            min-height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #8b96ab;
           "
         >
-          Simulate scan
-        </button>
+          <Icon name="scan" :size="16" />
+          Point a guest's ticket QR at the camera
+        </div>
       </div>
 
       <!-- Recent check-ins -->
@@ -465,6 +546,119 @@ function recentHistory() {
           >
             No check-ins yet
           </div>
+        </div>
+      </div>
+
+      <!-- Manual lookup (fallback) -->
+      <div
+        style="
+          padding: 14px 20px 18px 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        "
+      >
+        <div
+          style="
+            font-size: 10px;
+            color: #5b6a8a;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+            margin-bottom: 8px;
+          "
+        >
+          Manual lookup
+        </div>
+        <input
+          v-model="manualName"
+          type="text"
+          placeholder="Type a guest's name…"
+          style="
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.06);
+            color: #f2f5fa;
+            font-size: 14px;
+            outline: none;
+          "
+        />
+
+        <!-- Match found -->
+        <div
+          v-if="manualResult"
+          style="
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 12px;
+            "
+          >
+            <span style="font-weight: 700; font-size: 14px">
+              {{ manualResult.invite.name }}
+            </span>
+            <button
+              style="
+                cursor: pointer;
+                flex-shrink: 0;
+                padding: 8px 16px;
+                border-radius: 10px;
+                border: none;
+                background: #34d399;
+                color: #06281a;
+                font-weight: 700;
+                font-size: 13px;
+              "
+              @click="validateManual"
+            >
+              Validate
+            </button>
+          </div>
+          <div
+            style="
+              font-size: 10px;
+              color: #5b6a8a;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              font-weight: 700;
+            "
+          >
+            Ticket code (compare with guest's screen)
+          </div>
+          <pre
+            style="
+              margin: 0;
+              padding: 10px 12px;
+              border-radius: 10px;
+              background: #03050a;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              color: #9fb2d6;
+              font-size: 10px;
+              line-height: 1.4;
+              white-space: pre-wrap;
+              word-break: break-all;
+              max-height: 120px;
+              overflow: auto;
+            "
+            >{{ manualResult.qrCode }}</pre
+          >
+        </div>
+
+        <!-- No match -->
+        <div
+          v-else-if="manualName.trim()"
+          style="margin-top: 10px; font-size: 12px; color: #5b6a8a"
+        >
+          No accepted guest matches that name
         </div>
       </div>
     </div>

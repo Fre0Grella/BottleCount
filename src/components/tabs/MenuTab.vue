@@ -1,10 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useStore, SIMPLE } from '../../lib/store';
+import { cocktailRecipe } from '../../lib/catalog';
 import Icon from '../Icon.vue';
 import Slider from '../Slider.vue';
 
 const store = useStore();
+
+// ── Recipe info popovers ──────────────────────────────────────────────────────
+
+const openRecipe = ref<string | null>(null);
+
+function hasRecipe(drink: string): boolean {
+  return (store.state.catalog?.cocktails[drink]?.recipe ?? null) !== null;
+}
+
+function recipeFor(drink: string): { name: string; amount: string }[] {
+  const catalog = store.state.catalog;
+  return catalog ? cocktailRecipe(catalog, drink) : [];
+}
+
+function toggleRecipe(key: string): void {
+  openRecipe.value = openRecipe.value === key ? null : key;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +60,15 @@ const shoppingMap = computed<Record<string, number>>(() => {
     map[item.name] = (map[item.name] ?? 0) + item.quantity;
   }
   return map;
+});
+
+// ── Snacks ────────────────────────────────────────────────────────────────────
+
+const includeSnacks = computed(() => party.value?.includeSnacks ?? true);
+
+const snackNames = computed(() => {
+  const ings = store.state.catalog?.ingredients ?? {};
+  return Object.keys(ings).filter((k) => ings[k]?.type === 'snack');
 });
 
 // ── Expanded state helpers ────────────────────────────────────────────────────
@@ -162,6 +189,120 @@ function toggleSpirit(cat: string, spirit: string): void {
             >{{ Math.round(catData.macro_pct * 100) }}%</span
           >
         </div>
+      </div>
+    </div>
+
+    <!-- ── Snacks toggle card ─────────────────────────────────────────────── -->
+    <div
+      style="
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        padding: var(--card-pad, 16px);
+      "
+      :style="{
+        borderColor: includeSnacks ? 'var(--accent)' : 'var(--border)',
+      }"
+    >
+      <!-- toggle row -->
+      <div
+        style="cursor: pointer; display: flex; align-items: center; gap: 12px"
+        @click="store.toggleSnacks()"
+      >
+        <span
+          style="
+            display: flex;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          "
+          :style="{
+            background: includeSnacks ? 'var(--accent-soft)' : 'var(--track)',
+            color: includeSnacks ? 'var(--accent)' : 'var(--faint)',
+          }"
+        >
+          <Icon name="cart" :size="17" />
+        </span>
+        <div style="flex: 1; min-width: 0">
+          <div
+            style="
+              font-family: var(--font-disp);
+              font-weight: 600;
+              font-size: 16px;
+            "
+          >
+            Add snacks
+          </div>
+          <div style="font-size: 11px; color: var(--faint)">
+            Include nibbles in the shopping list &amp; costs
+          </div>
+        </div>
+        <!-- toggle switch -->
+        <span
+          style="
+            display: flex;
+            align-items: center;
+            width: 42px;
+            height: 24px;
+            border-radius: 999px;
+            padding: 3px;
+            transition: background 0.2s;
+            flex-shrink: 0;
+          "
+          :style="{
+            background: includeSnacks ? 'var(--accent)' : 'var(--track)',
+          }"
+        >
+          <span
+            style="
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              background: #fff;
+              transition: transform 0.2s;
+            "
+            :style="{
+              transform: includeSnacks ? 'translateX(18px)' : 'translateX(0)',
+            }"
+          />
+        </span>
+      </div>
+
+      <!-- snack chips -->
+      <div
+        v-if="includeSnacks && snackNames.length"
+        style="
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 14px;
+          animation: bcFadeUp 0.2s ease both;
+        "
+      >
+        <span
+          v-for="name in snackNames"
+          :key="name"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--dim);
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+          "
+        >
+          {{ name }}
+          <span v-if="shoppingMap[name] != null" style="color: var(--faint)"
+            >· {{ shoppingMap[name] }}</span
+          >
+        </span>
       </div>
     </div>
 
@@ -446,23 +587,78 @@ function toggleSpirit(cat: string, spirit: string): void {
             <div
               v-for="(drinkPct, drink) in spiritData.drinks ?? {}"
               :key="drink"
-              style="display: flex; align-items: center; gap: 10px"
+              style="display: flex; flex-direction: column; gap: 6px"
             >
-              <span
-                style="
-                  font-size: 13px;
-                  width: 100px;
-                  flex-shrink: 0;
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                "
-                >{{ drink }}</span
-              >
+              <!-- name + percent + actions on one line -->
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span
+                  style="
+                    flex: 1;
+                    min-width: 0;
+                    font-size: 13px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                  "
+                  >{{ drink }}</span
+                >
+                <span style="font-size: 12px; font-weight: 600; flex-shrink: 0"
+                  >{{ Math.round((drinkPct as number) * 100) }}%</span
+                >
+                <!-- Recipe info -->
+                <button
+                  v-if="hasRecipe(drink as string)"
+                  title="Show recipe"
+                  style="
+                    cursor: pointer;
+                    display: flex;
+                    width: 26px;
+                    height: 26px;
+                    flex-shrink: 0;
+                    align-items: center;
+                    justify-content: center;
+                    border: none;
+                    background: transparent;
+                    transition: color 0.15s;
+                  "
+                  :style="{
+                    color:
+                      openRecipe === `${cat}:${spirit}:${drink}`
+                        ? 'var(--accent)'
+                        : 'var(--faint)',
+                  }"
+                  @click="toggleRecipe(`${cat}:${spirit}:${drink}`)"
+                >
+                  <Icon name="info" :size="15" />
+                </button>
+                <button
+                  title="Remove cocktail"
+                  style="
+                    cursor: pointer;
+                    display: flex;
+                    width: 26px;
+                    height: 26px;
+                    flex-shrink: 0;
+                    align-items: center;
+                    justify-content: center;
+                    border: none;
+                    background: transparent;
+                    color: var(--faint);
+                    transition: color 0.15s;
+                  "
+                  @click="
+                    store.removeCocktail(cat, spirit as string, drink as string)
+                  "
+                >
+                  <Icon name="x" :size="14" />
+                </button>
+              </div>
+
+              <!-- slider alone, full width under the name -->
               <Slider
                 :model-value="drinkPct as number"
                 :color="color"
-                style="flex: 1; height: 16px"
+                style="height: 22px"
                 @update:model-value="
                   (v) =>
                     store.rebalanceDrink(
@@ -473,35 +669,37 @@ function toggleSpirit(cat: string, spirit: string): void {
                     )
                 "
               />
-              <span
+
+              <!-- Recipe detail -->
+              <div
+                v-if="openRecipe === `${cat}:${spirit}:${drink}`"
                 style="
-                  font-size: 12px;
-                  font-weight: 600;
-                  width: 40px;
-                  text-align: right;
-                "
-                >{{ Math.round((drinkPct as number) * 100) }}%</span
-              >
-              <button
-                title="Remove cocktail"
-                style="
-                  cursor: pointer;
                   display: flex;
-                  width: 22px;
-                  height: 22px;
-                  align-items: center;
-                  justify-content: center;
-                  border: none;
-                  background: transparent;
-                  color: var(--faint);
-                  transition: color 0.15s;
-                "
-                @click="
-                  store.removeCocktail(cat, spirit as string, drink as string)
+                  flex-wrap: wrap;
+                  gap: 6px 8px;
+                  padding: 8px 10px;
+                  border-radius: var(--rs, 10px);
+                  background: var(--surface);
+                  border: 1px solid var(--border);
+                  animation: bcFadeUp 0.2s ease both;
                 "
               >
-                <Icon name="x" :size="13" />
-              </button>
+                <span
+                  v-for="r in recipeFor(drink as string)"
+                  :key="r.name"
+                  style="
+                    display: inline-flex;
+                    align-items: baseline;
+                    gap: 4px;
+                    font-size: 11px;
+                  "
+                >
+                  <span style="color: var(--dim); font-weight: 600">{{
+                    r.name
+                  }}</span>
+                  <span style="color: var(--faint)">{{ r.amount }}</span>
+                </span>
+              </div>
             </div>
 
             <!-- Add cocktail button -->

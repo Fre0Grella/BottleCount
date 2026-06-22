@@ -2,6 +2,7 @@
 import { onMounted, computed } from 'vue';
 import { useStore } from '../lib/store';
 import Icon from './Icon.vue';
+import AppFooter from './AppFooter.vue';
 import HomeScreen from './HomeScreen.vue';
 import PartyHeader from './PartyHeader.vue';
 import KpiBar from './KpiBar.vue';
@@ -15,6 +16,7 @@ import ManageIngredientsModal from './modals/ManageIngredientsModal.vue';
 import ShareModal from './modals/ShareModal.vue';
 import SendTicketModal from './modals/SendTicketModal.vue';
 import TicketModal from './modals/TicketModal.vue';
+import AddGuestModal from './modals/AddGuestModal.vue';
 import DoorScannerModal from './modals/DoorScannerModal.vue';
 
 const store = useStore();
@@ -203,6 +205,8 @@ const tabs = computed(() => {
             <ShoppingTab v-else-if="store.state.tab === 'shop'" />
             <GuestsTab v-else-if="store.state.tab === 'guests'" />
           </div>
+
+          <AppFooter />
         </div>
 
         <!-- modals (self-hide via store flags) -->
@@ -212,6 +216,7 @@ const tabs = computed(() => {
         <ShareModal />
         <SendTicketModal />
         <TicketModal />
+        <AddGuestModal />
         <DoorScannerModal />
       </template>
     </template>

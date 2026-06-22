@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import QRCode from 'qrcode';
 import { useStore } from '../../lib/store';
-import { signTicket } from '../../lib/crypto';
-import type { TicketQRPayload } from '../../lib/types';
+import {
+  ticketCode,
+  ticketPayload,
+  ticketExpiryLabel,
+  ticketQrDataUrl,
+} from '../../lib/ticket';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 
@@ -15,32 +18,16 @@ const qrLoading = ref(false);
 const party = computed(() => store.activeParty());
 const guestName = computed(() => store.state.ticketFor ?? '');
 
-/** FNV-1a 32-bit hash for stable ticket id fallback */
-function fnv1a(str: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h;
-}
-
 const ticketId = computed(() => {
   const p = party.value;
   if (!p || !guestName.value) return '';
-  const h = fnv1a(guestName.value + '·' + String(p.id));
-  return `BC-${p.id}-${(h % 100000).toString().padStart(5, '0')}`;
+  return ticketCode(p, guestName.value);
 });
 
 const ticketExpiry = computed(() => {
   const p = party.value;
   if (!p) return '';
-  const exp = new Date(p.date + 'T12:00');
-  exp.setDate(exp.getDate() + 1);
-  return (
-    exp.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
-    ' 06:00'
-  );
+  return ticketExpiryLabel(p);
 });
 
 async function generateQR(name: string) {
@@ -54,27 +41,7 @@ async function generateQR(name: string) {
   qrDataUrl.value = null;
 
   try {
-    // Find invite by name to get its id; fall back to hash-based id
-    const invite = p.invites.find((i) => i.name === name);
-    const h = fnv1a(name + '·' + String(p.id));
-    const ticketIdNum = invite?.id ?? h % 100000;
-
-    // Build expiry: party date +1 day at 06:00
-    const expDate = new Date(p.date + 'T06:00:00');
-    expDate.setDate(expDate.getDate() + 1);
-
-    const payload: TicketQRPayload = {
-      ticketId: ticketIdNum,
-      partyId: p.id!,
-      guestName: name,
-      expiresAt: expDate.toISOString(),
-    };
-
-    const signed = await signTicket(payload);
-    qrDataUrl.value = await QRCode.toDataURL(signed, {
-      margin: 1,
-      width: 220,
-    });
+    qrDataUrl.value = await ticketQrDataUrl(ticketPayload(p, name));
   } catch {
     qrDataUrl.value = null;
   } finally {

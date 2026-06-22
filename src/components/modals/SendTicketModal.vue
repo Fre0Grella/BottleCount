@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
+import {
+  ticketCode,
+  ticketPayload,
+  ticketQrDataUrl,
+  buildTicketFile,
+  downloadFile,
+} from '../../lib/ticket';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 
 const store = useStore();
 
-const sent = ref(false);
+const status = ref('');
+const working = ref(false);
+const ticketFile = ref<File | null>(null);
 
 const party = computed(() => store.activeParty());
-
 const guestName = computed(() => store.state.sendTicketFor ?? '');
 
 const cover = computed(() => {
@@ -27,24 +35,128 @@ const partyDateShort = computed(() => {
   });
 });
 
-/** FNV-1a 32-bit hash — same algorithm as the prototype */
-function fnv1a(str: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h;
-}
-
-const ticketId = computed(() => {
+const code = computed(() => {
   const p = party.value;
   if (!p || !guestName.value) return '';
-  const h = fnv1a(guestName.value + '·' + String(p.id));
-  return `BC-${p.id}-${(h % 100000).toString().padStart(5, '0')}`;
+  return ticketCode(p, guestName.value);
 });
 
 const initial = computed(() => guestName.value.charAt(0).toUpperCase());
+
+const appUrl =
+  typeof window !== 'undefined'
+    ? window.location.origin + import.meta.env.BASE_URL + 'app'
+    : '';
+
+const shareText = computed(() => {
+  const p = party.value;
+  if (!p) return '';
+  return `🎫 ${guestName.value}, you're on the list for ${p.name} (${partyDateShort.value}). Open your BottleCount ticket: ${appUrl}`;
+});
+
+// Pre-build the branded ticket image when the modal opens so the native
+// share sheet can be invoked synchronously from the user's tap.
+async function prepare(): Promise<void> {
+  const p = party.value;
+  const name = guestName.value;
+  if (!p || !name) {
+    ticketFile.value = null;
+    return;
+  }
+  try {
+    const qr = await ticketQrDataUrl(ticketPayload(p, name));
+    ticketFile.value = await buildTicketFile({
+      partyName: p.name,
+      dateLabel: partyDateShort.value,
+      guestName: name,
+      code: code.value,
+      qrDataUrl: qr,
+      grad: cover.value.grad,
+      emoji: cover.value.emoji,
+    });
+  } catch {
+    ticketFile.value = null;
+  }
+}
+
+watch(
+  () => store.state.sendTicketFor,
+  (val) => {
+    status.value = '';
+    working.value = false;
+    ticketFile.value = null;
+    if (val !== null) void prepare();
+  },
+  { immediate: true },
+);
+
+// ── Send channels ────────────────────────────────────────────────────────────
+
+async function shareNative(): Promise<void> {
+  working.value = true;
+  try {
+    const file = ticketFile.value;
+    if (file && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        title: `Ticket — ${party.value?.name ?? ''}`,
+        text: shareText.value,
+        files: [file],
+      });
+      status.value = `Ticket shared with ${guestName.value}`;
+    } else if (navigator.share) {
+      await navigator.share({
+        title: 'BottleCount ticket',
+        text: shareText.value,
+      });
+      status.value = `Invite shared with ${guestName.value}`;
+    } else if (file) {
+      downloadFile(file);
+      status.value = 'Ticket image saved — attach it in your chat';
+    }
+  } catch {
+    /* user cancelled the share sheet */
+  } finally {
+    working.value = false;
+  }
+}
+
+function saveImage(): void {
+  if (!ticketFile.value) return;
+  downloadFile(ticketFile.value);
+  status.value = 'Ticket image saved to your device';
+}
+
+async function copyLink(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(shareText.value);
+    status.value = 'Invite text copied to clipboard';
+  } catch {
+    status.value = 'Could not access the clipboard';
+  }
+}
+
+function openWhatsApp(): void {
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(shareText.value)}`,
+    '_blank',
+    'noopener',
+  );
+  status.value = `Opening WhatsApp for ${guestName.value}`;
+}
+
+function openEmail(): void {
+  const subject = `Your ticket — ${party.value?.name ?? 'the party'}`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(shareText.value)}`;
+  status.value = 'Opening your email app';
+}
+
+function showQR(): void {
+  const name = guestName.value;
+  store.closeSendTicket();
+  store.openTicket(name);
+}
 
 interface Channel {
   label: string;
@@ -53,39 +165,36 @@ interface Channel {
   onClick: () => void;
 }
 
-const channels = computed((): Channel[] => {
-  const id = ticketId.value.toLowerCase();
-  return [
-    { label: 'WhatsApp', iconName: 'message', color: '#25D366' },
-    { label: 'Email', iconName: 'mail', color: '#60A5FA' },
-    { label: 'Messages', iconName: 'message', color: '#34D399' },
-    { label: 'Copy link', iconName: 'link', color: 'var(--accent)' },
-    { label: 'AirDrop', iconName: 'share', color: '#0EA5E9' },
-    { label: 'QR code', iconName: 'qr', color: '#A78BFA' },
-  ].map((ch) => ({
-    ...ch,
-    onClick: () => {
-      if (ch.label === 'Copy link') {
-        navigator.clipboard
-          ?.writeText(`https://bottlecount.app/t/${id}`)
-          .catch(() => {});
-      }
-      sent.value = true;
-    },
-  }));
-});
+const channels = computed((): Channel[] => [
+  {
+    label: 'Share',
+    iconName: 'share',
+    color: 'var(--accent)',
+    onClick: () => void shareNative(),
+  },
+  {
+    label: 'WhatsApp',
+    iconName: 'message',
+    color: '#25D366',
+    onClick: openWhatsApp,
+  },
+  { label: 'Email', iconName: 'mail', color: '#60A5FA', onClick: openEmail },
+  {
+    label: 'Copy text',
+    iconName: 'link',
+    color: '#34D399',
+    onClick: () => void copyLink(),
+  },
+  { label: 'Save image', iconName: 'qr', color: '#A78BFA', onClick: saveImage },
+  { label: 'Show QR', iconName: 'qr', color: '#F472B6', onClick: showQR },
+]);
 
-function handleClose() {
-  sent.value = false;
+function handleClose(): void {
+  status.value = '';
+  working.value = false;
+  ticketFile.value = null;
   store.closeSendTicket();
 }
-
-watch(
-  () => store.state.sendTicketFor,
-  (val) => {
-    if (val === null) sent.value = false;
-  },
-);
 </script>
 
 <template>
@@ -147,9 +256,9 @@ watch(
         </button>
       </div>
 
-      <!-- Success banner -->
+      <!-- Status banner -->
       <div
-        v-if="sent"
+        v-if="status"
         style="
           display: flex;
           align-items: center;
@@ -165,7 +274,7 @@ watch(
         "
       >
         <Icon name="check" :size="16" />
-        Ticket sent to {{ guestName }}
+        {{ status }}
       </div>
 
       <!-- Ticket preview card -->
@@ -249,7 +358,7 @@ watch(
             font-family: var(--font-mono);
           "
         >
-          {{ ticketId }}
+          {{ code }}
         </div>
       </div>
 
@@ -270,6 +379,7 @@ watch(
         <button
           v-for="ch in channels"
           :key="ch.label"
+          :disabled="working"
           style="
             cursor: pointer;
             display: flex;

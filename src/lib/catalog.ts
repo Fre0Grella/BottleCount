@@ -101,20 +101,23 @@ export async function savePersonalCocktail(
 }
 
 export async function deleteCocktail(name: string): Promise<void> {
+  // Remove any personal override (covers user-created cocktails and personal
+  // edits that shadow a built-in cocktail of the same name).
+  const personal = await getKey<Record<string, Cocktail>>(
+    'personal_cocktails',
+    {},
+  );
+  if (personal[name]) {
+    delete personal[name];
+    await setKey('personal_cocktails', personal);
+  }
+
+  // Hide the built-in entry too, so deleting a default cocktail sticks.
   const defaultCocks = (catalogData as Catalog).cocktails;
   if (defaultCocks[name]) {
-    // Default entry — add to hidden list
     const hidden = await getKey<string[]>('hidden_cocktails', []);
     if (!hidden.includes(name)) hidden.push(name);
     await setKey('hidden_cocktails', hidden);
-  } else {
-    // Personal entry — remove from personal store
-    const personal = await getKey<Record<string, Cocktail>>(
-      'personal_cocktails',
-      {},
-    );
-    delete personal[name];
-    await setKey('personal_cocktails', personal);
   }
 }
 
@@ -145,6 +148,33 @@ export async function setPriceOverride(
       await setKey('personal_ingredients', personal);
     }
   }
+}
+
+// ── Recipe formatting ──────────────────────────────────────────────────────
+
+/** Strip a trailing size suffix (e.g. "Gin 70cl" → "Gin"). */
+function shortName(key: string): string {
+  return key.replace(/\s+\d+(?:cl|ml|L|kg|g)$/i, '').trim();
+}
+
+/**
+ * Human-readable breakdown of a cocktail's recipe, e.g.
+ * `[{ name: 'Gin', amount: '50 ml' }, { name: 'Tonic', amount: '150 ml' }]`.
+ * Returns an empty array for drinks with no catalog recipe (served neat).
+ */
+export function cocktailRecipe(
+  catalog: Catalog,
+  name: string,
+): { name: string; amount: string }[] {
+  const ck = catalog.cocktails[name];
+  if (!ck) return [];
+  return Object.entries(ck.recipe).map(([k, v]) => {
+    const isKg = (v.unit ?? catalog.ingredients[k]?.unit) === 'kg';
+    return {
+      name: shortName(k),
+      amount: `${v.quantity} ${isKg ? 'kg' : 'ml'}`,
+    };
+  });
 }
 
 // ── Default extras ─────────────────────────────────────────────────────────

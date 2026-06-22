@@ -5,14 +5,20 @@ import Icon from '../Icon.vue';
 
 const store = useStore();
 
-const newGuestName = ref('');
+const guestSearch = ref('');
 
 const party = computed(() => store.activeParty());
 const invites = computed(() => party.value?.invites ?? []);
+const filteredInvites = computed(() => {
+  const q = guestSearch.value.trim().toLowerCase();
+  if (!q) return invites.value;
+  return invites.value.filter((i) => i.name.toLowerCase().includes(q));
+});
 
 const accepted = computed(() =>
   invites.value.filter((i) => i.status === 'accepted'),
 );
+const checkedIn = computed(() => accepted.value.filter((i) => i.used).length);
 const pending = computed(() =>
   invites.value.filter((i) => i.status === 'pending'),
 );
@@ -24,14 +30,44 @@ const viral = computed(() => invites.value.filter((i) => i.depth > 0));
 
 const capacity = computed(() => party.value?.settings.guests ?? 1);
 
-const acceptedW = computed(
-  () => `${Math.min(100, (accepted.value.length / capacity.value) * 100)}%`,
+// Optional hard cap. When set, the funnel scales to the cap and a marker shows
+// where the expected headcount sits.
+const hasMax = computed(() => party.value?.settings.max_capacity != null);
+const maxCap = computed(
+  () => party.value?.settings.max_capacity ?? capacity.value,
 );
-const pendingW = computed(() => {
-  const used = (accepted.value.length / capacity.value) * 100;
-  const pct = (pending.value.length / capacity.value) * 100;
-  return `${Math.min(pct, 100 - used)}%`;
+const barScale = computed(() => (hasMax.value ? maxCap.value : capacity.value));
+
+// Confirmed guests up to the expected headcount (healthy / green).
+const acceptedWithinW = computed(() => {
+  const within = Math.min(accepted.value.length, capacity.value);
+  return `${Math.min(100, (within / barScale.value) * 100)}%`;
 });
+// Confirmed guests beyond expected but under the cap (accent / filling up).
+const acceptedOverW = computed(() => {
+  if (!hasMax.value) return '0%';
+  const over = Math.max(
+    0,
+    Math.min(accepted.value.length, maxCap.value) - capacity.value,
+  );
+  return `${Math.min(100, (over / barScale.value) * 100)}%`;
+});
+const pendingW = computed(() => {
+  const usedPct =
+    (Math.min(accepted.value.length, barScale.value) / barScale.value) * 100;
+  const pct = (pending.value.length / barScale.value) * 100;
+  return `${Math.max(0, Math.min(pct, 100 - usedPct))}%`;
+});
+// Position of the "expected headcount" marker along the capped bar.
+const expectedMarkerLeft = computed(
+  () => `${Math.min(100, (capacity.value / barScale.value) * 100)}%`,
+);
+
+const checkInW = computed(() =>
+  accepted.value.length
+    ? `${Math.min(100, (checkedIn.value / accepted.value.length) * 100)}%`
+    : '0%',
+);
 
 const spreadFactor = computed(() => {
   const total = invites.value.length;
@@ -67,14 +103,7 @@ function referrerFirst(referrer: string | null) {
 }
 
 function addGuest() {
-  const name = newGuestName.value.trim();
-  if (!name) return;
-  store.addInvite(name);
-  newGuestName.value = '';
-}
-
-function onKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Enter') addGuest();
+  store.openAddGuest();
 }
 
 const isPhone = computed(() => store.state.device === 'phone');
@@ -321,11 +350,18 @@ const isPhone = computed(() => store.state.device === 'phone');
 
       <!-- funnel bar -->
       <div style="font-size: 11px; color: var(--faint); margin-bottom: 7px">
-        Against {{ capacity }} capacity — solid is confirmed, faded is still
-        maybe
+        <template v-if="hasMax">
+          Filling {{ capacity }} expected toward a {{ maxCap }} cap — green is
+          on target, amber is past expected
+        </template>
+        <template v-else>
+          Against {{ capacity }} capacity — solid is confirmed, faded is still
+          maybe
+        </template>
       </div>
       <div
         style="
+          position: relative;
           display: flex;
           height: 14px;
           border-radius: 999px;
@@ -333,24 +369,53 @@ const isPhone = computed(() => store.state.device === 'phone');
           background: var(--track);
         "
       >
-        <div :style="{ width: acceptedW, background: 'var(--good)' }"></div>
+        <!-- confirmed, within expected -->
+        <div
+          :style="{ width: acceptedWithinW, background: 'var(--good)' }"
+        ></div>
+        <!-- confirmed, past expected but under cap -->
+        <div
+          v-if="hasMax"
+          :style="{ width: acceptedOverW, background: 'var(--accent)' }"
+        ></div>
+        <!-- still maybe -->
         <div
           :style="{
             width: pendingW,
-            background: 'var(--good)',
+            background: hasMax ? 'var(--accent)' : 'var(--good)',
             opacity: '0.32',
           }"
+        ></div>
+        <!-- expected-headcount marker (only when a cap is set) -->
+        <div
+          v-if="hasMax"
+          :style="{ left: expectedMarkerLeft }"
+          style="
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            width: 2px;
+            background: var(--text);
+            opacity: 0.55;
+            transform: translateX(-1px);
+          "
         ></div>
       </div>
       <div
         style="
-          font-size: 11px;
-          color: var(--dim);
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
           margin-top: 6px;
-          font-weight: 600;
         "
       >
-        {{ accepted.length }}/{{ capacity }}
+        <span style="font-size: 11px; color: var(--dim); font-weight: 600">
+          {{ accepted.length }}/{{ hasMax ? maxCap : capacity }}
+          {{ hasMax ? 'to cap' : '' }}
+        </span>
+        <span v-if="hasMax" style="font-size: 11px; color: var(--faint)">
+          {{ capacity }} expected
+        </span>
       </div>
     </div>
 
@@ -610,31 +675,6 @@ const isPhone = computed(() => store.state.device === 'phone');
         on, your guests can forward the invite to their own friends — anyone
         they bring lands in this tier.
       </div>
-
-      <!-- simulate button -->
-      <button
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          width: 100%;
-          margin-top: 10px;
-          padding: 10px;
-          border-radius: var(--rs);
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--dim);
-          font-size: 12px;
-          font-weight: 600;
-          min-height: 40px;
-        "
-        @click="store.simulateSpread()"
-      >
-        <span style="display: flex"><Icon name="zap" :size="14" /></span>
-        Simulate guests forwarding
-      </button>
     </div>
 
     <!-- ── Guest list card ── -->
@@ -687,11 +727,60 @@ const isPhone = computed(() => store.state.device === 'phone');
         </button>
       </div>
 
+      <!-- checked-in progress bar -->
+      <div style="margin-bottom: 14px">
+        <div
+          style="
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 6px;
+          "
+        >
+          <span
+            style="
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              font-size: 11px;
+              font-weight: 600;
+              color: var(--dim);
+            "
+          >
+            <span style="display: flex; color: var(--good)"
+              ><Icon name="check" :size="12"
+            /></span>
+            Checked in
+          </span>
+          <span style="font-size: 11px; font-weight: 700; color: var(--good)">
+            {{ checkedIn }}/{{ accepted.length }}
+          </span>
+        </div>
+        <div
+          style="
+            height: 8px;
+            border-radius: 999px;
+            background: var(--track);
+            overflow: hidden;
+          "
+        >
+          <div
+            :style="{ width: checkInW }"
+            style="
+              height: 100%;
+              border-radius: 999px;
+              background: var(--good);
+              transition: width 0.25s ease;
+            "
+          ></div>
+        </div>
+      </div>
+
       <!-- add row -->
       <div style="display: flex; gap: 8px; margin-bottom: 6px">
         <input
-          v-model="newGuestName"
-          placeholder="Add a guest by name…"
+          v-model="guestSearch"
+          placeholder="Search guests…"
           style="
             flex: 1;
             font-size: 14px;
@@ -703,7 +792,7 @@ const isPhone = computed(() => store.state.device === 'phone');
             min-width: 0;
             font-family: inherit;
           "
-          @keydown="onKeyDown"
+          @keydown.escape="guestSearch = ''"
         />
         <button
           style="
@@ -730,7 +819,7 @@ const isPhone = computed(() => store.state.device === 'phone');
       <!-- invite rows -->
       <div style="display: flex; flex-direction: column">
         <div
-          v-for="inv in invites"
+          v-for="inv in filteredInvites"
           :key="inv.id"
           style="
             display: flex;

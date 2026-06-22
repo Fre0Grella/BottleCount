@@ -71,6 +71,8 @@ export interface PartySettings {
   equipment_cost: number;
   alcohol_ml_per_person: number;
   buffer: number;
+  /** Optional hard headcount cap. `null` when disabled. */
+  max_capacity: number | null;
 }
 
 // ── Calculation output ─────────────────────────────────────────────────────
@@ -130,6 +132,7 @@ export interface Party {
   locks: Record<string, boolean>; // keys 'm:Cat' and 's:Cat:Spirit'
   checked: Record<string, boolean>; // shopping check-off
   allowForward: boolean;
+  includeSnacks: boolean; // include snack items in shopping/costs
   invites: Invite[];
 }
 

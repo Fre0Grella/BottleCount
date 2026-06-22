@@ -74,13 +74,13 @@ function onTime(e: Event): void {
 
 function guestMinus(): void {
   store.update((party) => {
-    party.settings.guests = Math.max(10, party.settings.guests - 5);
+    party.settings.guests = Math.max(1, party.settings.guests - 1);
   });
 }
 
 function guestPlus(): void {
   store.update((party) => {
-    party.settings.guests = Math.min(600, party.settings.guests + 5);
+    party.settings.guests = Math.min(600, party.settings.guests + 1);
   });
 }
 
@@ -88,6 +88,26 @@ function onGuestsSlider(v: number): void {
   store.update((party) => {
     party.settings.guests = v;
   });
+}
+
+function onGuestsInput(e: Event): void {
+  const v = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(v) || v < 1) return;
+  store.update((party) => {
+    party.settings.guests = Math.max(1, Math.min(600, Math.round(v)));
+  });
+}
+
+const maxCapOn = computed(() => p.value?.settings.max_capacity != null);
+
+function onMaxCapSlider(v: number): void {
+  store.setMaxCapacity(v);
+}
+
+function onMaxCapInput(e: Event): void {
+  const v = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(v)) return;
+  store.setMaxCapacity(v);
 }
 
 function pickVibe(ml: number): void {
@@ -580,16 +600,28 @@ const pnlRows = computed(() => {
           −
         </button>
         <div style="flex: 1; text-align: center">
-          <div
+          <input
+            type="number"
+            :value="p.settings.guests"
+            min="1"
+            max="600"
             style="
               font-family: var(--font-disp);
               font-weight: 700;
               font-size: 36px;
               line-height: 1;
+              background: transparent;
+              border: none;
+              color: var(--text);
+              text-align: center;
+              width: 100%;
+              padding: 0;
+              outline: none;
+              appearance: textfield;
+              -moz-appearance: textfield;
             "
-          >
-            {{ p.settings.guests }}
-          </div>
+            @input="onGuestsInput"
+          />
           <div
             style="
               font-size: 11px;
@@ -622,16 +654,140 @@ const pnlRows = computed(() => {
       </div>
 
       <!-- guests slider -->
-      <div style="margin-bottom: 20px">
+      <div style="margin-bottom: 16px">
         <Slider
           :model-value="p.settings.guests"
-          :min="10"
+          :min="1"
           :max="600"
-          :step="5"
+          :step="1"
           color="var(--accent)"
           track-color="var(--track)"
           @update:model-value="onGuestsSlider"
         />
+      </div>
+
+      <!-- max capacity toggle + slider -->
+      <div
+        style="
+          border: 1px solid var(--border);
+          border-radius: var(--rs);
+          background: var(--surface2);
+          padding: 12px 14px;
+          margin-bottom: 20px;
+        "
+        :style="{ borderColor: maxCapOn ? 'var(--accent)' : 'var(--border)' }"
+      >
+        <!-- toggle row -->
+        <div
+          style="cursor: pointer; display: flex; align-items: center; gap: 12px"
+          @click="store.toggleMaxCapacity()"
+        >
+          <span
+            style="
+              display: flex;
+              width: 32px;
+              height: 32px;
+              border-radius: 9px;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+            :style="{
+              background: maxCapOn ? 'var(--accent-soft)' : 'var(--track)',
+              color: maxCapOn ? 'var(--accent)' : 'var(--faint)',
+            }"
+          >
+            <Icon name="users" :size="15" />
+          </span>
+          <div style="flex: 1; min-width: 0">
+            <div style="font-size: 13px; font-weight: 600">
+              Cap the headcount
+            </div>
+            <div style="font-size: 11px; color: var(--faint)">
+              Set a hard limit on how many guests can fit
+            </div>
+          </div>
+          <!-- toggle switch -->
+          <span
+            style="
+              display: flex;
+              align-items: center;
+              width: 42px;
+              height: 24px;
+              border-radius: 999px;
+              padding: 3px;
+              transition: background 0.2s;
+              flex-shrink: 0;
+            "
+            :style="{ background: maxCapOn ? 'var(--accent)' : 'var(--track)' }"
+          >
+            <span
+              style="
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: #fff;
+                transition: transform 0.2s;
+              "
+              :style="{
+                transform: maxCapOn ? 'translateX(18px)' : 'translateX(0)',
+              }"
+            />
+          </span>
+        </div>
+
+        <!-- expanded slider -->
+        <div
+          v-if="maxCapOn"
+          style="margin-top: 14px; animation: bcFadeUp 0.2s ease both"
+        >
+          <div
+            style="
+              display: flex;
+              align-items: baseline;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            "
+          >
+            <span style="font-size: 12px; color: var(--dim); font-weight: 600"
+              >Max capacity</span
+            >
+            <span style="display: flex; align-items: baseline; gap: 4px">
+              <input
+                type="number"
+                :value="p.settings.max_capacity"
+                min="1"
+                max="600"
+                style="
+                  font-family: var(--font-disp);
+                  font-weight: 700;
+                  font-size: 18px;
+                  line-height: 1;
+                  background: transparent;
+                  border: none;
+                  color: var(--accent);
+                  text-align: right;
+                  width: 56px;
+                  padding: 0;
+                  outline: none;
+                  appearance: textfield;
+                  -moz-appearance: textfield;
+                "
+                @input="onMaxCapInput"
+              />
+              <span style="font-size: 11px; color: var(--faint)">guests</span>
+            </span>
+          </div>
+          <Slider
+            :model-value="p.settings.max_capacity ?? p.settings.guests"
+            :min="1"
+            :max="600"
+            :step="1"
+            color="var(--accent)"
+            track-color="var(--track)"
+            @update:model-value="onMaxCapSlider"
+          />
+        </div>
       </div>
 
       <!-- how hard does it go -->

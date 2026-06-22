@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useStore } from '../../lib/store';
-import { savePersonalCocktail } from '../../lib/catalog';
+import { savePersonalCocktail, deleteCocktail } from '../../lib/catalog';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import Slider from '../Slider.vue';
@@ -25,6 +25,7 @@ const spiritShort = computed(() => shortName(spirit.value));
 // ── Builder state ─────────────────────────────────────────────────────────────
 
 interface Builder {
+  editKey: string | null; // set when editing an existing custom cocktail
   name: string;
   mainQty: number;
   spirits: Record<string, number>;
@@ -35,23 +36,30 @@ const builder = ref<Builder | null>(null);
 
 // ── Pick mode data ────────────────────────────────────────────────────────────
 
-const presetCocktails = computed(() => {
+/**
+ * Every cocktail for this spirit — both built-in classics and the user's own.
+ * All of them are editable and deletable; custom ones sort first.
+ */
+const spiritCocktails = computed(() => {
   const catalog = store.state.catalog;
   if (!catalog || !spirit.value) return [];
   const party = store.activeParty();
-  if (!party) return [];
-  const catEntry = party.menu[cat.value];
-  const spiritEntry = catEntry?.spirits[spirit.value];
-  const existing = spiritEntry?.drinks ?? {};
+  const existing = party?.menu[cat.value]?.spirits[spirit.value]?.drinks ?? {};
   return Object.entries(catalog.cocktails)
-    .filter(([k, v]) => v.main_spirit === spirit.value && !existing[k])
+    .filter(([, v]) => v.main_spirit === spirit.value)
     .map(([k, v]) => ({
       key: k,
       name: k,
+      custom: !!v.custom,
+      inMenu: existing[k] !== undefined,
       recipe: Object.keys(v.recipe)
         .map((x) => shortName(x))
         .join(' + '),
-    }));
+    }))
+    .sort((a, b) => {
+      if (a.custom !== b.custom) return a.custom ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 });
 
 // ── Build mode data ───────────────────────────────────────────────────────────
@@ -125,7 +133,40 @@ function pickCocktail(key: string): void {
 }
 
 function openBuilder(): void {
-  builder.value = { name: '', mainQty: 50, spirits: {}, mixers: {} };
+  builder.value = {
+    editKey: null,
+    name: '',
+    mainQty: 50,
+    spirits: {},
+    mixers: {},
+  };
+}
+
+/** Open the builder pre-filled from an existing custom cocktail. */
+function openEditBuilder(key: string): void {
+  const catalog = store.state.catalog;
+  const ck = catalog?.cocktails[key];
+  if (!ck) return;
+  const spirits: Record<string, number> = {};
+  const mixers: Record<string, number> = {};
+  let mainQty = 50;
+  for (const [k, v] of Object.entries(ck.recipe)) {
+    const qty = v.quantity;
+    if (k === spirit.value) {
+      mainQty = qty;
+      continue;
+    }
+    const ing = catalog?.ingredients[k];
+    if (ing?.type === 'spirit') spirits[k] = qty;
+    else mixers[k] = qty;
+  }
+  builder.value = { editKey: key, name: key, mainQty, spirits, mixers };
+}
+
+async function deleteCocktailEntry(key: string): Promise<void> {
+  await deleteCocktail(key);
+  store.removeCocktail(cat.value, spirit.value, key);
+  await store.reloadCatalog();
 }
 
 function backToPick(): void {
@@ -171,6 +212,7 @@ function adjustMixer(key: string, step: number, delta: 1 | -1): void {
 async function saveCocktail(): Promise<void> {
   const b = builder.value;
   if (!b || !b.name.trim()) return;
+  const newName = b.name.trim();
   const recipe: Record<string, { quantity: number }> = {
     [spirit.value]: { quantity: b.mainQty },
   };
@@ -180,13 +222,34 @@ async function saveCocktail(): Promise<void> {
   for (const [k, q] of Object.entries(b.mixers)) {
     recipe[k] = { quantity: q };
   }
-  await savePersonalCocktail(b.name.trim(), {
+
+  await savePersonalCocktail(newName, {
     main_spirit: spirit.value,
     category: cat.value,
     recipe,
   });
-  await store.reloadCatalog();
-  store.addCocktail(cat.value, spirit.value, b.name.trim());
+
+  if (b.editKey) {
+    // Editing an existing custom cocktail.
+    const wasInMenu =
+      store.activeParty()?.menu[cat.value]?.spirits[spirit.value]?.drinks?.[
+        b.editKey
+      ] !== undefined;
+    if (b.editKey !== newName) {
+      // Renamed — drop the old catalog entry and fix any menu reference.
+      await deleteCocktail(b.editKey);
+      if (wasInMenu) {
+        store.renameCocktailInMenu(cat.value, spirit.value, b.editKey, newName);
+      }
+    }
+    await store.reloadCatalog();
+    if (!wasInMenu) store.addCocktail(cat.value, spirit.value, newName);
+  } else {
+    // Brand-new cocktail — add it to the menu.
+    await store.reloadCatalog();
+    store.addCocktail(cat.value, spirit.value, newName);
+  }
+
   store.closeCocktail();
 }
 
@@ -235,7 +298,13 @@ watch(isOpen, (open) => {
             font-size: 17px;
           "
         >
-          {{ builder ? 'Custom cocktail' : 'Add a ' + spiritShort + ' drink' }}
+          {{
+            builder
+              ? builder.editKey
+                ? 'Edit cocktail'
+                : 'Custom cocktail'
+              : 'Add a ' + spiritShort + ' drink'
+          }}
         </div>
         <button
           style="
@@ -259,8 +328,8 @@ watch(isOpen, (open) => {
 
       <!-- PICK MODE -->
       <div v-if="!builder">
-        <!-- Preset cocktails -->
-        <template v-if="presetCocktails.length > 0">
+        <!-- Cocktails for this spirit — classics + your own, all editable -->
+        <template v-if="spiritCocktails.length > 0">
           <div
             style="
               font-size: 12px;
@@ -269,7 +338,7 @@ watch(isOpen, (open) => {
               margin-bottom: 9px;
             "
           >
-            Classics with {{ spiritShort }}
+            Cocktails with {{ spiritShort }}
           </div>
           <div
             style="
@@ -279,47 +348,115 @@ watch(isOpen, (open) => {
               margin-bottom: 16px;
             "
           >
-            <button
-              v-for="pc in presetCocktails"
-              :key="pc.key"
+            <div
+              v-for="cc in spiritCocktails"
+              :key="cc.key"
               style="
-                cursor: pointer;
                 display: flex;
                 align-items: center;
-                gap: 11px;
-                padding: 12px 14px;
+                gap: 9px;
+                padding: 10px 12px;
                 border-radius: var(--rs);
                 border: 1px solid var(--border);
                 background: var(--surface2);
-                color: var(--text);
-                text-align: left;
-                transition: border-color 0.15s;
-              "
-              @click="pickCocktail(pc.key)"
-              @mouseenter="
-                ($event.currentTarget as HTMLElement).style.borderColor =
-                  'var(--accent)'
-              "
-              @mouseleave="
-                ($event.currentTarget as HTMLElement).style.borderColor =
-                  'var(--border)'
               "
             >
               <span style="display: flex; color: var(--accent); flex-shrink: 0">
-                <Icon name="glass" :size="16" />
+                <Icon :name="cc.custom ? 'sparkle' : 'glass'" :size="16" />
               </span>
               <div style="flex: 1; min-width: 0">
-                <div style="font-size: 14px; font-weight: 600">
-                  {{ pc.name }}
+                <div
+                  style="
+                    font-size: 14px;
+                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                  "
+                >
+                  {{ cc.name }}
+                  <span
+                    v-if="cc.inMenu"
+                    style="
+                      font-size: 9px;
+                      font-weight: 700;
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                      padding: 1px 6px;
+                      border-radius: 999px;
+                      background: var(--accent-soft);
+                      color: var(--accent);
+                    "
+                    >on menu</span
+                  >
                 </div>
                 <div style="font-size: 11px; color: var(--faint)">
-                  {{ pc.recipe }}
+                  {{ cc.recipe }}
                 </div>
               </div>
-              <span style="display: flex; color: var(--accent); flex-shrink: 0">
-                <Icon name="plus" :size="16" />
-              </span>
-            </button>
+              <!-- Add to menu (only if not already there) -->
+              <button
+                v-if="!cc.inMenu"
+                title="Add to menu"
+                style="
+                  cursor: pointer;
+                  display: flex;
+                  width: 30px;
+                  height: 30px;
+                  flex-shrink: 0;
+                  align-items: center;
+                  justify-content: center;
+                  border-radius: 8px;
+                  border: 1px solid var(--border);
+                  background: transparent;
+                  color: var(--accent);
+                "
+                @click="pickCocktail(cc.key)"
+              >
+                <Icon name="plus" :size="15" />
+              </button>
+              <!-- Edit -->
+              <button
+                title="Edit recipe"
+                style="
+                  cursor: pointer;
+                  display: flex;
+                  width: 30px;
+                  height: 30px;
+                  flex-shrink: 0;
+                  align-items: center;
+                  justify-content: center;
+                  border-radius: 8px;
+                  border: 1px solid var(--border);
+                  background: transparent;
+                  color: var(--dim);
+                "
+                @click="openEditBuilder(cc.key)"
+              >
+                <Icon name="pencil" :size="15" />
+              </button>
+              <!-- Delete -->
+              <button
+                title="Delete"
+                class="cb-delete-btn"
+                style="
+                  cursor: pointer;
+                  display: flex;
+                  width: 30px;
+                  height: 30px;
+                  flex-shrink: 0;
+                  align-items: center;
+                  justify-content: center;
+                  border-radius: 8px;
+                  border: 1px solid var(--border);
+                  background: transparent;
+                  color: var(--faint);
+                "
+                @click="deleteCocktailEntry(cc.key)"
+              >
+                <Icon name="trash" :size="15" />
+              </button>
+            </div>
           </div>
         </template>
 
@@ -710,10 +847,17 @@ watch(isOpen, (open) => {
             }"
             @click="saveCocktail"
           >
-            Add to menu
+            {{ builder.editKey ? 'Save changes' : 'Add to menu' }}
           </button>
         </div>
       </div>
     </div>
   </Modal>
 </template>
+
+<style scoped>
+.cb-delete-btn:hover {
+  border-color: var(--bad) !important;
+  color: var(--bad) !important;
+}
+</style>

@@ -1,5 +1,11 @@
-import { reactive } from 'vue';
-import type { Party, Catalog, CalculationResult, Invite } from './types';
+import { reactive, toRaw } from 'vue';
+import type {
+  Party,
+  Catalog,
+  CalculationResult,
+  Invite,
+  Settings,
+} from './types';
 import { db } from './db';
 import { loadCatalog, defaultExtras } from './catalog';
 import { calculate } from './core';
@@ -79,8 +85,9 @@ interface StoreState {
   shareOpen: boolean;
   ticketFor: string | null;
   sendTicketFor: string | null;
+  addGuestOpen: boolean;
   doorOpen: boolean;
-  scanResult: { ok: boolean; name: string } | null;
+  scanResult: { ok: boolean; name: string; sub?: string } | null;
   scanHistory: { name: string; time: string }[];
   // ui
   expandedCat: string | null;
@@ -104,6 +111,7 @@ const state = reactive<StoreState>({
   shareOpen: false,
   ticketFor: null,
   sendTicketFor: null,
+  addGuestOpen: false,
   doorOpen: false,
   scanResult: null,
   scanHistory: [],
@@ -131,19 +139,30 @@ function activeParty(): Party | undefined {
 
 async function persistActive(): Promise<void> {
   const p = activeParty();
-  if (p) await db.parties.put(p);
+  if (!p) return;
+  // `p` is a Vue reactive Proxy; IndexedDB's structured-clone step throws
+  // DataCloneError on a Proxy, so hand Dexie the plain underlying object.
+  await db.parties.put(structuredClone(toRaw(p)));
 }
 
 function update(mutator: (p: Party) => void): void {
   const p = activeParty();
   if (!p) return;
   mutator(p);
-  void persistActive();
+  void persistActive().catch((err) => {
+    console.error('Failed to persist party changes', err);
+  });
 }
 
 async function load(): Promise<void> {
   state.catalog = await loadCatalog();
   state.parties = await db.parties.toArray();
+
+  // Backfill fields added after a party was first saved.
+  for (const p of state.parties) {
+    if (p.settings.max_capacity === undefined) p.settings.max_capacity = null;
+    if (p.includeSnacks === undefined) p.includeSnacks = true;
+  }
 
   const savedTheme = localStorage.getItem('bc-theme');
   const theme: 'dark' | 'light' = savedTheme === 'light' ? 'light' : 'dark';
@@ -178,11 +197,13 @@ async function createParty(): Promise<void> {
       equipment_cost: 0,
       alcohol_ml_per_person: 50,
       buffer: 1.1,
+      max_capacity: null,
     },
     menu: defaultMenu,
     locks: {},
     checked: {},
     allowForward: true,
+    includeSnacks: true,
     invites: [],
   };
   const newId = await db.parties.add(newParty);
@@ -272,6 +293,32 @@ function toggleLock(key: string): void {
   });
 }
 
+function toggleSnacks(): void {
+  update((p) => {
+    p.includeSnacks = !(p.includeSnacks ?? true);
+  });
+}
+
+function toggleMaxCapacity(): void {
+  update((p) => {
+    if (p.settings.max_capacity == null) {
+      // Default the cap a little above the expected headcount.
+      p.settings.max_capacity = Math.min(
+        600,
+        Math.max(p.settings.guests + 1, Math.round(p.settings.guests * 1.25)),
+      );
+    } else {
+      p.settings.max_capacity = null;
+    }
+  });
+}
+
+function setMaxCapacity(v: number): void {
+  update((p) => {
+    p.settings.max_capacity = Math.max(1, Math.min(600, Math.round(v)));
+  });
+}
+
 function addBottle(cat: string, ingredientName: string): void {
   update((p) => {
     const catEntry = p.menu[cat];
@@ -330,6 +377,23 @@ function removeCocktail(cat: string, spirit: string, drink: string): void {
   });
 }
 
+/** Rename a cocktail key in the active menu, preserving its share. */
+function renameCocktailInMenu(
+  cat: string,
+  spirit: string,
+  oldName: string,
+  newName: string,
+): void {
+  if (oldName === newName) return;
+  update((p) => {
+    const drinks = p.menu[cat]?.spirits[spirit]?.drinks;
+    if (!drinks || drinks[oldName] === undefined) return;
+    const pct = drinks[oldName];
+    delete drinks[oldName];
+    drinks[newName] = pct;
+  });
+}
+
 // ── Calculation ────────────────────────────────────────────────────────────
 
 const ZERO_RESULT: CalculationResult = {
@@ -343,12 +407,25 @@ const ZERO_RESULT: CalculationResult = {
   break_even: null,
 };
 
+/** Extras for a party — snacks are dropped when the party opts out. */
+function extrasForParty(p: Party): Settings['extras'] {
+  const all = defaultExtras();
+  if (p.includeSnacks ?? true) return all;
+  const cat = state.catalog;
+  const filtered: Settings['extras'] = {};
+  for (const [name, cfg] of Object.entries(all)) {
+    if (cat?.ingredients[name]?.type === 'snack') continue;
+    filtered[name] = cfg;
+  }
+  return filtered;
+}
+
 function calc(): CalculationResult {
   const p = activeParty();
   if (!p || !state.catalog) return ZERO_RESULT;
   const settings = {
     ...p.settings,
-    extras: defaultExtras(),
+    extras: extrasForParty(p),
     menu: p.menu,
   };
   return calculate(settings, state.catalog);
@@ -358,7 +435,7 @@ function calcForParty(p: Party): CalculationResult {
   if (!state.catalog) return ZERO_RESULT;
   const settings = {
     ...p.settings,
-    extras: defaultExtras(),
+    extras: extrasForParty(p),
     menu: p.menu,
   };
   return calculate(settings, state.catalog);
@@ -400,52 +477,6 @@ function setInviteStatus(id: number, status: Invite['status']): void {
         invite.used = false;
         invite.usedAt = undefined;
       }
-    }
-  });
-}
-
-function simulateSpread(): void {
-  const FRIENDS = [
-    'Alex',
-    'Sam',
-    'Jordan',
-    'Mika',
-    'Robin',
-    'Teo',
-    'Lia',
-    'Noa',
-    'Vale',
-    'Kai',
-    'Remy',
-    'Sole',
-    'Gio',
-    'Bea',
-  ];
-  update((p) => {
-    const accepted = p.invites.filter(
-      (i) => i.status === 'accepted' && i.depth < 2,
-    );
-    let nid =
-      p.invites.length > 0 ? Math.max(...p.invites.map((i) => i.id)) + 1 : 1;
-    const senders = accepted.sort(() => Math.random() - 0.5).slice(0, 2);
-    for (const src of senders) {
-      const nm =
-        FRIENDS[Math.floor(Math.random() * FRIENDS.length)] +
-        ' ' +
-        String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
-        '.';
-      p.invites.unshift({
-        id: nid++,
-        name: nm,
-        status: 'pending',
-        depth: Math.min(2, src.depth + 1),
-        referrer: src.name,
-        used: false,
-      });
-    }
-    const pending = p.invites.filter((i) => i.status === 'pending');
-    if (pending.length > 0) {
-      pending[Math.floor(Math.random() * pending.length)].status = 'accepted';
     }
   });
 }
@@ -512,6 +543,13 @@ function closeSendTicket(): void {
   state.sendTicketFor = null;
 }
 
+function openAddGuest(): void {
+  state.addGuestOpen = true;
+}
+function closeAddGuest(): void {
+  state.addGuestOpen = false;
+}
+
 function openDoor(): void {
   state.doorOpen = true;
 }
@@ -543,10 +581,14 @@ export const store = {
   rebalanceSpirit,
   rebalanceDrink,
   toggleLock,
+  toggleSnacks,
+  toggleMaxCapacity,
+  setMaxCapacity,
   addBottle,
   removeBottle,
   addCocktail,
   removeCocktail,
+  renameCocktailInMenu,
   // calculation
   calc,
   calcForParty,
@@ -557,7 +599,6 @@ export const store = {
   // invites
   addInvite,
   setInviteStatus,
-  simulateSpread,
   checkInGuest,
   // shopping
   toggleChecked,
@@ -574,6 +615,8 @@ export const store = {
   closeTicket,
   openSendTicket,
   closeSendTicket,
+  openAddGuest,
+  closeAddGuest,
   openDoor,
   closeDoor,
 };
