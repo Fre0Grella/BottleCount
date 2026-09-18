@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
+import { inviteUrl } from '../../../shared/invites';
 
 const store = useStore();
 
@@ -16,27 +17,35 @@ const cover = computed(() => {
   return COVERS[p.cover] ?? COVERS[0];
 });
 
-// Built from the origin the app is actually served from, so a preview
-// deployment, a self-hosted domain and the hosted app each hand out a link that
-// points back at themselves. The `/i/` route that resolves these is still to
-// come — see docs/adr/0001-cloudflare-tiers.md.
+/**
+ * The host's own link, or '' until the party has been published.
+ *
+ * The slug is the server's, not one derived from the party name: renaming the
+ * party must not change a link already sent, and only the server knows which
+ * slug it handed out. `openShare` publishes on open, so this fills in a moment
+ * after the sheet appears — `publishing` covers the gap.
+ */
+const publication = computed(() => party.value?.publication ?? null);
+
 const inviteLink = computed(() => {
-  const p = party.value;
-  if (!p) return '';
-  const slug =
-    p.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'party';
+  const pub = publication.value;
+  if (!pub) return '';
   const origin =
     typeof window === 'undefined'
       ? 'bottlecount.pages.dev'
       : window.location.host;
-  // BASE_URL, not a bare `/`: a build served under a path prefix would
-  // otherwise hand out links that miss the prefix entirely.
-  const base = import.meta.env.BASE_URL as string;
-  return `${origin}${base}i/${slug}-${p.id}`;
+  return inviteUrl(
+    origin,
+    import.meta.env.BASE_URL as string,
+    pub.slug,
+    pub.rootToken,
+  );
 });
+
+const publishing = computed(() => store.state.publishing);
+const publishFailed = computed(
+  () => !publishing.value && !publication.value && store.state.publishError,
+);
 
 const venueWhere = computed(() => {
   const p = party.value;
@@ -79,9 +88,13 @@ const channels: Channel[] = [
 ].map((ch) => ({
   ...ch,
   onClick: () => {
+    // Nothing to share until the party is published — sharing a blank link is
+    // worse than the button doing nothing for the second it takes.
+    if (!inviteLink.value) return;
     if (ch.label === 'Copy link') {
-      const link = `https://${inviteLink.value}`;
-      navigator.clipboard?.writeText(link).catch(() => {});
+      navigator.clipboard
+        ?.writeText(`https://${inviteLink.value}`)
+        .catch(() => {});
     }
     sent.value = true;
   },
@@ -224,7 +237,11 @@ watch(
             "
           >
             <Icon name="link" :size="12" />
-            {{ inviteLink }}
+            <span v-if="publishing">Creating your link…</span>
+            <span v-else-if="publishFailed" style="color: var(--bad)">
+              Couldn't reach the server — try again in a moment.
+            </span>
+            <span v-else>{{ inviteLink }}</span>
           </div>
         </div>
       </div>

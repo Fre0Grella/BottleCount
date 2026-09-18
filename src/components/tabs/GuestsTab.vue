@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useStore } from '../../lib/store';
 import Icon from '../Icon.vue';
 import ProLock from '../ProLock.vue';
+import type { InviteStatus } from '../../lib/types';
 
 const store = useStore();
 
@@ -16,12 +17,14 @@ const filteredInvites = computed(() => {
   return invites.value.filter((i) => i.name.toLowerCase().includes(q));
 });
 
-const accepted = computed(() =>
-  invites.value.filter((i) => i.status === 'accepted'),
+const confirmed = computed(() =>
+  invites.value.filter((i) => i.status === 'confirmed'),
 );
-const checkedIn = computed(() => accepted.value.filter((i) => i.used).length);
-const pending = computed(() =>
-  invites.value.filter((i) => i.status === 'pending'),
+const checkedIn = computed(() => confirmed.value.filter((i) => i.used).length);
+// Opened the link and stopped there. The funnel's "maybe" column — not people
+// the host invited and is waiting on, but people who looked and did not answer.
+const opened = computed(() =>
+  invites.value.filter((i) => i.status === 'opened'),
 );
 const declined = computed(() =>
   invites.value.filter((i) => i.status === 'declined'),
@@ -40,23 +43,23 @@ const maxCap = computed(
 const barScale = computed(() => (hasMax.value ? maxCap.value : capacity.value));
 
 // Confirmed guests up to the expected headcount (healthy / green).
-const acceptedWithinW = computed(() => {
-  const within = Math.min(accepted.value.length, capacity.value);
+const confirmedWithinW = computed(() => {
+  const within = Math.min(confirmed.value.length, capacity.value);
   return `${Math.min(100, (within / barScale.value) * 100)}%`;
 });
 // Confirmed guests beyond expected but under the cap (accent / filling up).
-const acceptedOverW = computed(() => {
+const confirmedOverW = computed(() => {
   if (!hasMax.value) return '0%';
   const over = Math.max(
     0,
-    Math.min(accepted.value.length, maxCap.value) - capacity.value,
+    Math.min(confirmed.value.length, maxCap.value) - capacity.value,
   );
   return `${Math.min(100, (over / barScale.value) * 100)}%`;
 });
-const pendingW = computed(() => {
+const openedW = computed(() => {
   const usedPct =
-    (Math.min(accepted.value.length, barScale.value) / barScale.value) * 100;
-  const pct = (pending.value.length / barScale.value) * 100;
+    (Math.min(confirmed.value.length, barScale.value) / barScale.value) * 100;
+  const pct = (opened.value.length / barScale.value) * 100;
   return `${Math.max(0, Math.min(pct, 100 - usedPct))}%`;
 });
 // Position of the "expected headcount" marker along the capped bar.
@@ -65,8 +68,8 @@ const expectedMarkerLeft = computed(
 );
 
 const checkInW = computed(() =>
-  accepted.value.length
-    ? `${Math.min(100, (checkedIn.value / accepted.value.length) * 100)}%`
+  confirmed.value.length
+    ? `${Math.min(100, (checkedIn.value / confirmed.value.length) * 100)}%`
     : '0%',
 );
 
@@ -88,9 +91,9 @@ function avatarColor(id: number) {
   return SEG_COLORS[id % 5];
 }
 
-function avatarOpacity(status: 'accepted' | 'pending' | 'declined') {
-  if (status === 'accepted') return 1;
-  if (status === 'pending') return 0.55;
+function avatarOpacity(status: InviteStatus) {
+  if (status === 'confirmed') return 1;
+  if (status === 'opened') return 0.55;
   return 0.35;
 }
 
@@ -108,6 +111,50 @@ function addGuest() {
 }
 
 const isPhone = computed(() => store.state.device === 'phone');
+
+// ── Live funnel ────────────────────────────────────────────────────────────
+
+/**
+ * Guests answer while the host is looking at this tab, so it polls.
+ *
+ * Polling rather than a socket because the whole exchange is two small reads a
+ * minute against a Worker that is already awake — a Durable Object to push
+ * three RSVPs would cost more to run and more to reason about than it saves.
+ * It only runs while this tab is mounted, and only for a published party.
+ */
+const REFRESH_MS = 20_000;
+let timer: ReturnType<typeof setInterval> | null = null;
+
+const published = computed(() => party.value?.publication != null);
+
+function stopPolling(): void {
+  if (timer !== null) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function startPolling(): void {
+  stopPolling();
+  if (!published.value) return;
+  void store.syncFunnel();
+  timer = setInterval(() => void store.syncFunnel(), REFRESH_MS);
+}
+
+onMounted(startPolling);
+onBeforeUnmount(stopPolling);
+
+// Publishing from the share sheet, or switching party, changes what to poll for.
+watch([published, () => party.value?.id], startPolling);
+
+const lastSyncedLabel = computed(() => {
+  const iso = store.state.funnelSyncedAt;
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+});
 </script>
 
 <template>
@@ -172,6 +219,35 @@ const isPhone = computed(() => store.state.device === 'phone');
           >
             RSVP funnel
           </div>
+
+          <!--
+            Only shown once the link is live. Before that the numbers are all
+            zero and a "last updated" stamp would suggest the page is waiting
+            for something that is never coming.
+          -->
+          <span
+            v-if="published && lastSyncedLabel"
+            style="
+              margin-left: auto;
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              font-size: 10.5px;
+              color: var(--faint);
+            "
+          >
+            <span
+              style="
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--good);
+              "
+              :style="{ opacity: store.state.funnelSyncing ? 0.4 : 1 }"
+            ></span>
+            Live · {{ lastSyncedLabel }}
+          </span>
+
           <button
             style="
               margin-left: auto;
@@ -204,11 +280,22 @@ const isPhone = computed(() => store.state.device === 'phone');
             margin-bottom: 13px;
           "
         >
-          Share your invite link — anyone who opens it RSVPs
-          <strong style="color: var(--text); font-weight: 600"
-            >with their own name</strong
-          >
-          and lands in the guest list below. You never type them in.
+          <template v-if="published">
+            Your link is live. Anyone who opens it RSVPs
+            <strong style="color: var(--text); font-weight: 600"
+              >with their own name</strong
+            >
+            and lands in the guest list below — including the ones who look and
+            never answer, which is what <em>Reached</em> counts.
+          </template>
+          <template v-else>
+            Hit
+            <strong style="color: var(--text); font-weight: 600"
+              >Send invite</strong
+            >
+            to create your link. Anyone who opens it RSVPs with their own name
+            and lands in the guest list below. You never type them in.
+          </template>
         </div>
 
         <!-- stat boxes: 2×2 on phone, 1×4 on desktop -->
@@ -285,7 +372,7 @@ const isPhone = computed(() => store.state.device === 'phone');
                 color: var(--good);
               "
             >
-              {{ accepted.length }}
+              {{ confirmed.length }}
             </div>
           </div>
 
@@ -320,7 +407,7 @@ const isPhone = computed(() => store.state.device === 'phone');
                 color: var(--text);
               "
             >
-              {{ pending.length }}
+              {{ opened.length }}
             </div>
           </div>
 
@@ -383,17 +470,17 @@ const isPhone = computed(() => store.state.device === 'phone');
         >
           <!-- confirmed, within expected -->
           <div
-            :style="{ width: acceptedWithinW, background: 'var(--good)' }"
+            :style="{ width: confirmedWithinW, background: 'var(--good)' }"
           ></div>
           <!-- confirmed, past expected but under cap -->
           <div
             v-if="hasMax"
-            :style="{ width: acceptedOverW, background: 'var(--accent)' }"
+            :style="{ width: confirmedOverW, background: 'var(--accent)' }"
           ></div>
           <!-- still maybe -->
           <div
             :style="{
-              width: pendingW,
+              width: openedW,
               background: hasMax ? 'var(--accent)' : 'var(--good)',
               opacity: '0.32',
             }"
@@ -422,7 +509,7 @@ const isPhone = computed(() => store.state.device === 'phone');
           "
         >
           <span style="font-size: 11px; color: var(--dim); font-weight: 600">
-            {{ accepted.length }}/{{ hasMax ? maxCap : capacity }}
+            {{ confirmed.length }}/{{ hasMax ? maxCap : capacity }}
             {{ hasMax ? 'to cap' : '' }}
           </span>
           <span v-if="hasMax" style="font-size: 11px; color: var(--faint)">
@@ -771,7 +858,7 @@ const isPhone = computed(() => store.state.device === 'phone');
             Checked in
           </span>
           <span style="font-size: 11px; font-weight: 700; color: var(--good)">
-            {{ checkedIn }}/{{ accepted.length }}
+            {{ checkedIn }}/{{ confirmed.length }}
           </span>
         </div>
         <div
@@ -866,9 +953,9 @@ const isPhone = computed(() => store.state.device === 'phone');
             :style="{
               background: avatarColor(inv.id),
               opacity:
-                inv.status === 'accepted'
+                inv.status === 'confirmed'
                   ? '1'
-                  : inv.status === 'pending'
+                  : inv.status === 'opened'
                     ? '0.7'
                     : '0.45',
             }"
@@ -914,7 +1001,7 @@ const isPhone = computed(() => store.state.device === 'phone');
 
             <!-- status line -->
             <div
-              v-if="inv.used && inv.status === 'accepted'"
+              v-if="inv.used && inv.status === 'confirmed'"
               style="
                 display: flex;
                 align-items: center;
@@ -931,7 +1018,7 @@ const isPhone = computed(() => store.state.device === 'phone');
               Checked in · {{ inv.usedAt }}
             </div>
             <div
-              v-else-if="inv.status === 'accepted'"
+              v-else-if="inv.status === 'confirmed'"
               style="
                 display: flex;
                 align-items: center;
@@ -948,7 +1035,7 @@ const isPhone = computed(() => store.state.device === 'phone');
               Coming
             </div>
             <div
-              v-else-if="inv.status === 'pending'"
+              v-else-if="inv.status === 'opened'"
               style="
                 display: flex;
                 align-items: center;
@@ -983,8 +1070,8 @@ const isPhone = computed(() => store.state.device === 'phone');
 
           <!-- action buttons -->
           <div style="display: flex; gap: 6px; flex-shrink: 0">
-            <!-- pending: Accept + Decline -->
-            <template v-if="inv.status === 'pending'">
+            <!-- opened, no answer: the host can answer on their behalf -->
+            <template v-if="inv.status === 'opened'">
               <button
                 style="
                   cursor: pointer;
@@ -1000,7 +1087,7 @@ const isPhone = computed(() => store.state.device === 'phone');
                   color: var(--good);
                   min-height: 36px;
                 "
-                @click="store.setInviteStatus(inv.id, 'accepted')"
+                @click="store.setInviteStatus(inv.id, 'confirmed')"
               >
                 <span style="display: flex"
                   ><Icon name="check" :size="13"
@@ -1029,8 +1116,8 @@ const isPhone = computed(() => store.state.device === 'phone');
               </button>
             </template>
 
-            <!-- accepted: Ticket + Send -->
-            <template v-else-if="inv.status === 'accepted'">
+            <!-- confirmed: Ticket + Send -->
+            <template v-else-if="inv.status === 'confirmed'">
               <button
                 style="
                   cursor: pointer;
@@ -1094,7 +1181,7 @@ const isPhone = computed(() => store.state.device === 'phone');
                   color: var(--dim);
                   min-height: 36px;
                 "
-                @click="store.setInviteStatus(inv.id, 'pending')"
+                @click="store.setInviteStatus(inv.id, 'opened')"
               >
                 <span style="display: flex"
                   ><Icon name="arrowL" :size="13"

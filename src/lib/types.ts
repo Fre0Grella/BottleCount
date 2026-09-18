@@ -1,3 +1,12 @@
+import type { InviteStatus } from '../../shared/invites';
+
+/**
+ * Re-exported so components import their types from one place. The states
+ * themselves are the server's — see shared/invites.ts — because a guest's
+ * answer is what sets them.
+ */
+export type { InviteStatus };
+
 // ── Catalog ────────────────────────────────────────────────────────────────
 
 export type IngredientType =
@@ -106,13 +115,31 @@ export interface Venue {
 }
 
 export interface Invite {
+  /**
+   * Stable within this browser. Server-backed invites keep the id they were
+   * first merged under (see `remoteId`), so avatar colours and list keys do not
+   * shuffle every time the funnel refreshes.
+   */
   id: number;
+  /** Empty until they answer — opening a link says nothing about who they are. */
   name: string;
-  status: 'accepted' | 'pending' | 'declined';
+  status: InviteStatus;
+  /** 0 for the host's own link or a hand-typed guest, +1 per forward. */
   depth: number;
+  /** The referrer's display name, or null at depth 0. */
   referrer: string | null;
   used: boolean;
   usedAt?: string;
+  /**
+   * Present only on invites that came from the link. Its absence is what marks
+   * a guest the host typed in themselves, which is a free-tier feature and must
+   * survive a funnel refresh.
+   */
+  remoteId?: string;
+  /** This guest's own forward link token, once they have confirmed. */
+  forwardToken?: string;
+  openedAt?: string;
+  answeredAt?: string;
 }
 
 // ── Tickets ────────────────────────────────────────────────────────────────
@@ -134,6 +161,22 @@ export interface Party {
   allowForward: boolean;
   includeSnacks: boolean; // include snack items in shopping/costs
   invites: Invite[];
+  /**
+   * Set once the host turns the invite link on. Holds what the browser needs to
+   * build links and fetch the funnel; `null` (or absent, on a party saved
+   * before this existed) means the party is local-only.
+   */
+  publication?: PartyPublication | null;
+}
+
+/** The host's half of a published party — see shared/invites.ts. */
+export interface PartyPublication {
+  /** The party's id on the server. */
+  remoteId: string;
+  slug: string;
+  /** The host's own link token. Guests who use it land at depth 0. */
+  rootToken: string;
+  publishedAt: string;
 }
 
 export interface Ticket {

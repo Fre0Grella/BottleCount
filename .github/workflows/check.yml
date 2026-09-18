@@ -31,8 +31,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Backend tests
-        run: npm run backend:test
+      # Frontend unit tests and backend tests both.
+      - name: Tests
+        run: npm test
 
       # Catches the failure mode a typecheck cannot: a build that trips over
       # the shared/ imports crossing the package boundary.

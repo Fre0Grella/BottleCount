@@ -295,7 +295,9 @@ redeems it in the app, which flips their tier to `pro`.
 
 BottleCount stores user data in the browser's IndexedDB through Dexie. Your custom ingredients, cocktails, settings, generated tickets and local app state stay on your device.
 
-On the free tier that is the whole story — there is no account and nothing is uploaded, because there is nowhere to upload it to. Signing in adds an account record (id, email, name, avatar URL, tier) in D1; party data is still local for every tier today, and moving it is the next piece of work ([ADR 0001](docs/adr/0001-cloudflare-tiers.md)).
+On the free tier that is the whole story — there is no account and nothing is uploaded, because there is nowhere to upload it to.
+
+Signing in adds an account record (id, email, name, avatar URL, tier) in D1. Turning on an **invite link** additionally publishes what an invitation card shows — the party's name, date, venue and cover — plus a row per guest who opens it, with the name they give and their answer. Your menu, shopping list, costs and budget are never uploaded on any tier; moving the rest of the party to your account is still to come ([ADR 0001](docs/adr/0001-cloudflare-tiers.md), [ADR 0002](docs/adr/0002-invite-links-and-the-funnel.md)).
 
 Because browser storage is still local storage, export/import backup tools are an important part of the workflow for portability and recovery.
 
@@ -304,6 +306,7 @@ Because browser storage is still local storage, export/import backup tools are a
 ## Architecture decisions
 
 - [ADR 0001 — Cloudflare, and three ways to run BottleCount](docs/adr/0001-cloudflare-tiers.md)
+- [ADR 0002 — Invite links, and what the funnel counts](docs/adr/0002-invite-links-and-the-funnel.md)
 
 The backend has [its own README](backend/README.md) covering routes, local
 setup, deployment and what the tests do and do not cover.

@@ -1,4 +1,5 @@
 import type { Tier } from '../../../../shared/tiers';
+import { fakeInvites, fakeParties } from './fakeInvites';
 import type {
   LicenceKey,
   LicenceRepository,
@@ -85,8 +86,10 @@ export function fakeLicences(seed: LicenceKey[] = []): LicenceRepository {
 export function fakeRepositories(
   users = fakeUsers(),
   licences = fakeLicences(),
+  parties = fakeParties(),
+  invites = fakeInvites(),
 ): Repositories {
-  return { users, licences };
+  return { users, licences, parties, invites };
 }
 
 export function aUser(overrides: Partial<User> = {}): User {

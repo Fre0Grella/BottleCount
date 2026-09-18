@@ -8,6 +8,13 @@ import type {
 } from './types';
 import { db } from './db';
 import { fetchSession, ANONYMOUS_SESSION } from './session';
+import {
+  fetchFunnel,
+  mergeFunnel,
+  publishParty,
+  setRemoteInviteStatus,
+  unpublishParty,
+} from './invites';
 import type { SessionDTO } from '../../shared/session';
 import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
@@ -101,6 +108,12 @@ interface StoreState {
   scanHistory: { name: string; time: string }[];
   /** The feature whose upgrade prompt is open, or null. */
   upgradeFor: Feature | null;
+  /** True while a publish/republish is in flight. */
+  publishing: boolean;
+  /** True while the funnel is being pulled. Never blocks the UI. */
+  funnelSyncing: boolean;
+  funnelSyncedAt: string | null;
+  publishError: string | null;
   // ui
   expandedCat: string | null;
   expandedSpirit: string | null;
@@ -130,6 +143,10 @@ const state = reactive<StoreState>({
   scanResult: null,
   scanHistory: [],
   upgradeFor: null,
+  publishing: false,
+  funnelSyncing: false,
+  funnelSyncedAt: null,
+  publishError: null,
   expandedCat: null,
   expandedSpirit: null,
 });
@@ -215,6 +232,18 @@ async function load(): Promise<void> {
   for (const p of state.parties) {
     if (p.settings.max_capacity === undefined) p.settings.max_capacity = null;
     if (p.includeSnacks === undefined) p.includeSnacks = true;
+    if (p.publication === undefined) p.publication = null;
+
+    // Invite statuses were renamed when guests gained the ability to answer for
+    // themselves: "accepted" became "confirmed", and "pending" — which used to
+    // mean a guest the host had not heard back from — became "opened", which
+    // means someone followed the link and stopped there. Parties saved before
+    // that still hold the old words, and the funnel counts nothing without this.
+    for (const invite of p.invites) {
+      const legacy = invite.status as string;
+      if (legacy === 'accepted') invite.status = 'confirmed';
+      else if (legacy === 'pending') invite.status = 'opened';
+    }
   }
 
   const savedTheme = localStorage.getItem('bc-theme');
@@ -504,8 +533,123 @@ async function reloadCatalog(): Promise<void> {
   state.catalog = await loadCatalog();
 }
 
+// ── Publishing & the funnel ────────────────────────────────────────────────
+
+/**
+ * Turns the invite link on, or refreshes what guests see.
+ *
+ * Called every time the share sheet opens, not only the first time: the host
+ * may have renamed the party or moved the venue since, and the published card
+ * is what guests read. Republishing keeps the slug, so links already sent
+ * survive an edit.
+ */
+async function publishActiveParty(): Promise<boolean> {
+  const p = activeParty();
+  if (!p?.id) return false;
+
+  state.publishing = true;
+  state.publishError = null;
+  try {
+    const result = await publishParty(p);
+    if (!result.ok || !result.value) {
+      state.publishError = result.error ?? 'publish_failed';
+      return false;
+    }
+    const { id, slug, rootToken, publishedAt } = result.value;
+    update((party) => {
+      party.publication = { remoteId: id, slug, rootToken, publishedAt };
+    });
+    return true;
+  } finally {
+    state.publishing = false;
+  }
+}
+
+/**
+ * Turns the link off. The server deletes the party and its invites, so anyone
+ * holding a link gets a 404 from then on.
+ *
+ * Guests already merged into the local list are left alone rather than purged:
+ * the host still has a party to run, and the people who said yes are still
+ * coming. What they lose is the ability to change their answer.
+ */
+async function unpublishActiveParty(): Promise<boolean> {
+  const p = activeParty();
+  if (!p?.id) return false;
+
+  const result = await unpublishParty(p.id);
+  if (!result.ok) {
+    state.publishError = result.error ?? 'unpublish_failed';
+    return false;
+  }
+  update((party) => {
+    party.publication = null;
+  });
+  return true;
+}
+
+/**
+ * Whether a merge produced anything worth persisting.
+ *
+ * Compares only the fields the server owns — a local check-in is not a reason
+ * to think the funnel moved.
+ */
+function sameInvites(before: Invite[], after: Invite[]): boolean {
+  if (before.length !== after.length) return false;
+  return before.every((a, i) => {
+    const b = after[i];
+    return (
+      b !== undefined &&
+      a.id === b.id &&
+      a.remoteId === b.remoteId &&
+      a.name === b.name &&
+      a.status === b.status &&
+      a.depth === b.depth &&
+      a.referrer === b.referrer &&
+      a.forwardToken === b.forwardToken
+    );
+  });
+}
+
+/**
+ * Pulls the funnel and folds it into the party's guest list.
+ *
+ * Silent on failure. This runs on a timer while the guests tab is open, and a
+ * host whose phone dropped off the network should see the list they already
+ * have rather than an error where their party used to be.
+ */
+async function syncFunnel(): Promise<void> {
+  const p = activeParty();
+  if (!p?.id || !p.publication) return;
+
+  state.funnelSyncing = true;
+  try {
+    const result = await fetchFunnel(p.id);
+    if (!result.ok || !result.value) return;
+    const remote = result.value;
+
+    const merged = mergeFunnel(p.invites, remote);
+    // Most polls find nothing new. Committing anyway would write the whole
+    // party to IndexedDB and re-render the guest list every twenty seconds for
+    // as long as the tab is open, so only commit a list that actually differs.
+    if (!sameInvites(p.invites, merged)) {
+      update((party) => {
+        party.invites = merged;
+      });
+    }
+    state.funnelSyncedAt = new Date().toISOString();
+  } finally {
+    state.funnelSyncing = false;
+  }
+}
+
 // ── Invites ────────────────────────────────────────────────────────────────
 
+/**
+ * A guest the host types in. Confirmed on the spot — the host would not be
+ * typing them in otherwise — and deliberately carries no `remoteId`, which is
+ * what keeps a funnel refresh from deleting them.
+ */
 function addInvite(name: string): void {
   update((p) => {
     const maxId =
@@ -513,7 +657,7 @@ function addInvite(name: string): void {
     p.invites.unshift({
       id: maxId + 1,
       name,
-      status: 'accepted',
+      status: 'confirmed',
       depth: 0,
       referrer: null,
       used: false,
@@ -521,17 +665,40 @@ function addInvite(name: string): void {
   });
 }
 
+/**
+ * The host changing someone's state.
+ *
+ * Applied locally first so the button responds immediately, then pushed to the
+ * server for guests who came through the link. Without that push the next poll
+ * would overwrite the host's change with the guest's older answer — the button
+ * would appear to work and then quietly undo itself.
+ *
+ * A failed push is not rolled back: the local list is what the host runs the
+ * door from, and reverting a change they deliberately made because the network
+ * hiccuped is the worse of the two wrong answers. The next successful sync
+ * reconciles it.
+ */
 function setInviteStatus(id: number, status: Invite['status']): void {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return;
+
+  const { remoteId } = invite;
+
   update((p) => {
-    const invite = p.invites.find((i) => i.id === id);
-    if (invite) {
-      invite.status = status;
-      if (status !== 'accepted') {
-        invite.used = false;
-        invite.usedAt = undefined;
-      }
+    const target = p.invites.find((i) => i.id === id);
+    if (!target) return;
+    target.status = status;
+    // Someone who is no longer coming cannot have walked through the door.
+    if (status !== 'confirmed') {
+      target.used = false;
+      target.usedAt = undefined;
     }
   });
+
+  if (remoteId && party.id && party.publication) {
+    void setRemoteInviteStatus(party.id, remoteId, status);
+  }
 }
 
 function checkInGuest(id: number, time: string): void {
@@ -587,6 +754,10 @@ function openShare(): void {
     return;
   }
   state.shareOpen = true;
+  // Not awaited: the sheet opens immediately and shows its own pending state.
+  // Publishing here rather than behind a button is what keeps the card guests
+  // read in step with a party the host has since renamed or moved.
+  void publishActiveParty();
 }
 function closeShare(): void {
   state.shareOpen = false;
@@ -664,6 +835,10 @@ export const store = {
   refreshSession,
   requestUpgrade,
   closeUpgrade,
+  // publishing & funnel
+  publishActiveParty,
+  unpublishActiveParty,
+  syncFunnel,
   // invites
   addInvite,
   setInviteStatus,

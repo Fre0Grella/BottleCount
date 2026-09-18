@@ -8,18 +8,32 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 
 ## What it serves
 
-| Route                       | Auth     | Purpose                                                     |
-| --------------------------- | -------- | ----------------------------------------------------------- |
-| `GET /`                     | —        | Liveness, and which environment answered                    |
-| `GET /auth/google`          | —        | Google OAuth; sets the `session_token` cookie               |
-| `POST /auth/logout`         | —        | Clears it (the cookie is httpOnly, so the page cannot)      |
-| `POST /auth/dev`            | —        | Sign in without Google. **404 unless local or self-hosted** |
-| `GET /api/session`          | optional | Who the caller is and what they may do                      |
-| `POST /api/licences/redeem` | session  | Turns a licence code into `pro`                             |
+| Route                                     | Auth            | Purpose                                                             |
+| ----------------------------------------- | --------------- | ------------------------------------------------------------------- |
+| `GET /`                                   | —               | Liveness, and which environment answered                            |
+| `GET /auth/google`                        | —               | Google OAuth; sets the `session_token` cookie                       |
+| `POST /auth/logout`                       | —               | Clears it (the cookie is httpOnly, so the page cannot)              |
+| `POST /auth/dev`                          | —               | Sign in without Google. **404 unless local or self-hosted**         |
+| `GET /api/session`                        | optional        | Who the caller is and what they may do                              |
+| `POST /api/licences/redeem`               | session         | Turns a licence code into `pro`                                     |
+| `POST /api/parties/publish`               | session + `pro` | Publish or refresh a party's invite card                            |
+| `DELETE /api/parties/:localId/publish`    | session + `pro` | Turn the link off; deletes its invites                              |
+| `GET /api/parties/:localId/invites`       | session + `pro` | The host's RSVP funnel                                              |
+| `PATCH /api/parties/:localId/invites/:id` | session + `pro` | Host overriding a guest's answer                                    |
+| `POST /invite/:slug/open`                 | —               | A guest opened the link. **Writes** — this is what "reached" counts |
+| `POST /invite/:slug/answer`               | —               | A guest's yes or no                                                 |
 
 `/api/session` is the one `/api/*` route served without a session, because the
 free tier _is_ a logged-out browser. The exemption is named explicitly in
 `app.ts` rather than left to mount order.
+
+`/invite/*` is mounted **outside** `/api/*` entirely. Guests have no account —
+being able to RSVP without signing up is most of what an invite link is for — so
+the URL is the only credential those handlers have, and they are written knowing
+it: they return nothing a link holder should not see. They are also the only
+routes that write without an account behind them, so they sit behind a rate
+limit binding keyed on IP
+([ADR 0002](../docs/adr/0002-invite-links-and-the-funnel.md)).
 
 ## Running it locally
 
@@ -97,8 +111,14 @@ database.
 ## What the tests do and do not cover
 
 They run on plain Vitest against in-memory repositories, so they cover routing,
-the `/api/*` guard, tier resolution and the redemption rules. They cannot catch
-a mistake in a SQL statement.
+the `/api/*` guard, tier resolution, the redemption rules, and the whole invite
+flow — depth down a referral chain, capacity refusing a confirmation but never a
+decline, one row per returning browser, owner isolation.
+
+They cannot catch a mistake in a SQL statement, and two of those rules are
+defended _by_ the SQL: the capacity check and the write are one statement, so two
+guests racing for the last place cannot both take it, whereas the fake does the
+check and the write separately. The fakes reproduce the rule, not the atomicity.
 
 Covering that needs `@cloudflare/vitest-pool-workers`, which at the time of
 writing peers on Vitest 4 while this project is on 5. When that clears, the

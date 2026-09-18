@@ -46,7 +46,7 @@ const partyCards = computed<PartyCard[]>(() => {
         })
       : '—';
 
-    const accepted = p.invites.filter((i) => i.status === 'accepted').length;
+    const accepted = p.invites.filter((i) => i.status === 'confirmed').length;
     const r = store.calcForParty(p);
     const avgProfit = (r.profit_min + r.profit_max) / 2;
     const profitColor = avgProfit >= 0 ? 'var(--good)' : 'var(--bad)';

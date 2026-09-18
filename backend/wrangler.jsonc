@@ -18,6 +18,24 @@
           "database_id": "00000000-0000-0000-0000-000000000000",
         },
       ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
       "vars": {
         "FRONTEND_URL": "http://localhost:4321",
         "ENVIRONMENT": "local",
@@ -37,6 +55,24 @@
           "database_id": "",
         },
       ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
       "vars": {
         "FRONTEND_URL": "https://preview.bottlecount.pages.dev",
         "ENVIRONMENT": "preview",
@@ -55,6 +91,24 @@
           "database_id": "",
         },
       ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
       "vars": {
         "FRONTEND_URL": "https://bottlecount.pages.dev",
         "ENVIRONMENT": "production",
@@ -78,6 +132,24 @@
           "database_id": "",
         },
       ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
       "vars": {
         "FRONTEND_URL": "",
         "ENVIRONMENT": "production",

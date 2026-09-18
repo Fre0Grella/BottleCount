@@ -6,7 +6,9 @@ import { repositoriesFor } from './composition';
 import type { Repositories } from './repositories/repositories';
 import auth from './routes/auth';
 import devAuth from './routes/devAuth';
+import invites from './routes/invites';
 import licences from './routes/licences';
+import parties from './routes/parties';
 import session from './routes/session';
 
 export type Bindings = {
@@ -18,6 +20,10 @@ export type Bindings = {
   ENVIRONMENT: string;
   /** "true" on a self-hosted deployment — see shared/tiers.ts. */
   SELF_HOSTED?: string;
+  /** Guards the unauthenticated invite endpoints. Absent locally. */
+  INVITE_RATE_LIMITER?: {
+    limit(o: { key: string }): Promise<{ success: boolean }>;
+  };
 };
 
 export type App = Hono<{ Bindings: Bindings; Variables: AppVariables }>;
@@ -84,6 +90,12 @@ export function createApp(overrides: AppOverrides = {}): App {
   // Does its own optional JWT check — see routes/session.ts.
   app.route('/api/session', session);
   app.route('/api/licences', licences);
+  app.route('/api/parties', parties);
+
+  // Mounted outside /api/* on purpose: guests have no account, and being able
+  // to RSVP without signing up is most of what an invite link is for. The
+  // handlers are written knowing the URL is the only credential.
+  app.route('/invite', invites);
 
   return app;
 }

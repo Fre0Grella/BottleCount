@@ -80,7 +80,7 @@ async function onScanResult(result: { data: string }): Promise<void> {
     return;
   }
 
-  const accepted = party.invites.filter((i) => i.status === 'accepted');
+  const accepted = party.invites.filter((i) => i.status === 'confirmed');
 
   const alreadyUsed = accepted.find(
     (i) =>
@@ -160,7 +160,7 @@ onUnmounted(stopScanner);
 // ── Derived stats ──────────────────────────────────────────────────────────
 function accepted() {
   return (store.activeParty()?.invites ?? []).filter(
-    (i) => i.status === 'accepted',
+    (i) => i.status === 'confirmed',
   );
 }
 
