@@ -7,6 +7,33 @@ import type {
   Settings,
 } from './types';
 import { db } from './db';
+import { fetchSession, ANONYMOUS_SESSION } from './session';
+import {
+  addRemoteGuest,
+  checkInRemote,
+  fetchFunnel,
+  mergeFunnel,
+  setRemoteInviteStatus,
+  undoCheckInRemote,
+} from './invites';
+import {
+  applyDocument,
+  documentOf,
+  closeInviteLink,
+  createCollaboratorInvite,
+  deleteRemoteParty,
+  fetchParty,
+  listMembers,
+  listParties,
+  openInviteLink,
+  removeMember,
+  revokeCollaboratorInvites,
+  storeParty,
+} from './collab';
+import { PartySync } from './sync';
+import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
+import type { SessionDTO } from '../../shared/session';
+import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
 import { calculate } from './core';
 import { rebalance, menuErrorKeys } from './menu';
@@ -71,6 +98,13 @@ export const SIMPLE: string[] = ['Beer', 'Wine'];
 
 interface StoreState {
   ready: boolean;
+  /**
+   * Who the browser is and what it may do. Starts anonymous, so the app is
+   * usable before — and without — an answer from the server.
+   */
+  session: SessionDTO;
+  /** True while the first /api/session call is in flight. */
+  sessionLoading: boolean;
   route: 'home' | 'party';
   activeId: number | null;
   tab: 'plan' | 'menu' | 'shop' | 'guests';
@@ -89,6 +123,24 @@ interface StoreState {
   doorOpen: boolean;
   scanResult: { ok: boolean; name: string; sub?: string } | null;
   scanHistory: { name: string; time: string }[];
+  /** The feature whose upgrade prompt is open, or null. */
+  upgradeFor: Feature | null;
+  /** True while a publish/republish is in flight. */
+  publishing: boolean;
+  /** The active party's co-organisers, when it is on the server. */
+  members: PartyMemberDTO[];
+  /** The caller's role on the active party. Null when it is local-only. */
+  role: PartyRole | null;
+  /** True while local edits are waiting to reach the server. */
+  syncPending: boolean;
+  /** Set when a sync attempt failed. Cleared by the next success. */
+  syncError: string | null;
+  /** The co-organisers sheet. */
+  membersOpen: boolean;
+  /** True while the funnel is being pulled. Never blocks the UI. */
+  funnelSyncing: boolean;
+  funnelSyncedAt: string | null;
+  publishError: string | null;
   // ui
   expandedCat: string | null;
   expandedSpirit: string | null;
@@ -98,6 +150,8 @@ interface StoreState {
 
 const state = reactive<StoreState>({
   ready: false,
+  session: ANONYMOUS_SESSION,
+  sessionLoading: true,
   route: 'home',
   activeId: null,
   tab: 'plan',
@@ -115,6 +169,16 @@ const state = reactive<StoreState>({
   doorOpen: false,
   scanResult: null,
   scanHistory: [],
+  upgradeFor: null,
+  publishing: false,
+  members: [],
+  role: null,
+  syncPending: false,
+  syncError: null,
+  membersOpen: false,
+  funnelSyncing: false,
+  funnelSyncedAt: null,
+  publishError: null,
   expandedCat: null,
   expandedSpirit: null,
 });
@@ -152,16 +216,76 @@ function update(mutator: (p: Party) => void): void {
   void persistActive().catch((err) => {
     console.error('Failed to persist party changes', err);
   });
+  // Every edit goes through here, so this is the one place that has to tell the
+  // sync engine something changed. It diffs against what the server is believed
+  // to hold and sends only that, debounced — see lib/sync.ts.
+  sync?.record(p);
+}
+
+/**
+ * Whether the current session may use a paid feature.
+ *
+ * Every gate in the UI goes through here rather than reading `tier` directly,
+ * so that self-hosting and a future third tier stay a change to
+ * `shared/tiers.ts` instead of a hunt through components.
+ */
+function can(feature: Feature): boolean {
+  return state.session.features[feature] === true;
+}
+
+/** Opens the "this needs BottleCount Pro" prompt for a locked feature. */
+function requestUpgrade(feature: Feature): void {
+  state.upgradeFor = feature;
+}
+
+function closeUpgrade(): void {
+  state.upgradeFor = null;
+}
+
+/**
+ * Re-reads the session. Called on load, and again after signing in or
+ * redeeming a licence, since both change what the app may do.
+ */
+async function refreshSession(): Promise<void> {
+  state.sessionLoading = true;
+  try {
+    state.session = await fetchSession();
+  } finally {
+    state.sessionLoading = false;
+  }
+  // A co-organiser's first sight of a party is here: they accepted an
+  // invitation elsewhere, so it exists for them on the server and nowhere
+  // locally. Failures are silent — the local parties still work.
+  if (state.session.authenticated) {
+    await syncPartyList().catch(() => {});
+  }
 }
 
 async function load(): Promise<void> {
   state.catalog = await loadCatalog();
   state.parties = await db.parties.toArray();
 
+  // Deliberately not awaited: the planner is local-first and must render
+  // without waiting on a network round-trip that may never come back. Paid
+  // features stay locked until it does, which is the correct default.
+  void refreshSession();
+
   // Backfill fields added after a party was first saved.
   for (const p of state.parties) {
     if (p.settings.max_capacity === undefined) p.settings.max_capacity = null;
     if (p.includeSnacks === undefined) p.includeSnacks = true;
+    if (p.publication === undefined) p.publication = null;
+
+    // Invite statuses were renamed when guests gained the ability to answer for
+    // themselves: "accepted" became "confirmed", and "pending" — which used to
+    // mean a guest the host had not heard back from — became "opened", which
+    // means someone followed the link and stopped there. Parties saved before
+    // that still hold the old words, and the funnel counts nothing without this.
+    for (const invite of p.invites) {
+      const legacy = invite.status as string;
+      if (legacy === 'accepted') invite.status = 'confirmed';
+      else if (legacy === 'pending') invite.status = 'opened';
+    }
   }
 
   const savedTheme = localStorage.getItem('bc-theme');
@@ -216,14 +340,32 @@ function openParty(id: number): void {
   state.activeId = id;
   state.route = 'party';
   state.tab = 'plan';
+
+  const party = state.parties.find((p) => p.id === id);
+  const publication = party?.publication;
+  if (party && publication) {
+    startSync(party, publication.version);
+    void pull();
+  }
 }
 
 function closeParty(): void {
+  // Flush before tearing down, or the last edit before navigating home is the
+  // one that never reaches the other organiser.
+  void sync?.flush();
+  stopSync();
   state.route = 'home';
   state.activeId = null;
 }
 
 async function deleteParty(id: number): Promise<void> {
+  const party = state.parties.find((p) => p.id === id);
+  // Deleting a shared party has to reach the server, or the co-organisers keep
+  // it and it reappears here on the next list sync.
+  const remoteId = party?.publication?.remoteId;
+  if (remoteId) await deleteRemoteParty(remoteId);
+  if (state.activeId === id) stopSync();
+
   await db.parties.delete(id);
   const idx = state.parties.findIndex((p) => p.id === id);
   if (idx !== -1) state.parties.splice(idx, 1);
@@ -451,44 +593,512 @@ async function reloadCatalog(): Promise<void> {
   state.catalog = await loadCatalog();
 }
 
+// ── Cloud sync & co-organisers ─────────────────────────────────────────────
+
+/**
+ * The sync engine for whichever party is open, or null.
+ *
+ * One at a time on purpose: only the open party is being edited, and a poll per
+ * party in the list would be a lot of requests to learn nothing.
+ */
+let sync: PartySync | null = null;
+let pullTimer: ReturnType<typeof setInterval> | null = null;
+
+const PULL_MS = 6000;
+
+function stopSync(): void {
+  sync?.stop();
+  sync = null;
+  if (pullTimer !== null) clearInterval(pullTimer);
+  pullTimer = null;
+  state.syncPending = false;
+  state.members = [];
+  state.role = null;
+}
+
+/** Applies a document that arrived from the server to the open party. */
+function adoptDocument(
+  document: Parameters<typeof applyDocument>[1],
+  partyId: number,
+): void {
+  const p = state.parties.find((x) => x.id === partyId);
+  if (!p) return;
+  applyDocument(p, document);
+  void persist(p);
+}
+
+async function persist(p: Party): Promise<void> {
+  await db.parties.put(structuredClone(toRaw(p)));
+}
+
+/**
+ * Starts pushing and pulling for the open party.
+ *
+ * Pulling is a poll rather than a socket: two organisers make a handful of
+ * edits a minute between them, and a Durable Object to push those would cost
+ * more to run and more to reason about than it saves.
+ */
+function startSync(party: Party, version: number): void {
+  stopSync();
+  const publication = party.publication;
+  if (!publication || !party.id) return;
+
+  const localId = party.id;
+  sync = new PartySync(publication.remoteId, documentOf(party), version, {
+    onRemoteDocument: (document) => adoptDocument(document, localId),
+    onVersion: (v) => {
+      state.syncError = null;
+      if (party.publication) party.publication.version = v;
+    },
+    onError: (error) => {
+      state.syncError = error;
+    },
+    onPendingChanged: (pending) => {
+      state.syncPending = pending;
+    },
+  });
+
+  pullTimer = setInterval(() => void pull(), PULL_MS);
+}
+
+/** Pulls the party, so somebody else's edits show up here. */
+async function pull(): Promise<void> {
+  const p = activeParty();
+  const remoteId = p?.publication?.remoteId;
+  if (!p || !remoteId || !sync) return;
+
+  // Don't pull over our own unsent work — the push is about to make this
+  // version stale anyway, and the merge would be doing it twice.
+  if (sync.hasPending) return;
+
+  const result = await fetchParty(remoteId);
+  if (!result.ok || !result.value) return;
+
+  const shared = result.value;
+  state.members = shared.members;
+  state.role = shared.role;
+  // A co-organiser's first pull is where they get the signing key, without
+  // which their scanner rejects every guest.
+  if (p.publication && shared.ticketKey) {
+    p.publication.ticketKey = shared.ticketKey;
+    p.publication.slug = shared.publication?.slug ?? null;
+    p.publication.rootToken = shared.publication?.rootToken ?? null;
+  }
+  if (shared.version !== sync.currentVersion) {
+    sync.adopt(shared.document, shared.version);
+  }
+}
+
+/**
+ * Puts the active party on the server, which is what makes co-organisers and
+ * the invite link possible. Idempotent.
+ */
+async function shareActiveParty(): Promise<boolean> {
+  const p = activeParty();
+  if (!p?.id) return false;
+  if (!can('cloudSync')) {
+    requestUpgrade('cloudSync');
+    return false;
+  }
+
+  state.publishing = true;
+  state.publishError = null;
+  try {
+    const result = await storeParty(p);
+    if (!result.ok || !result.value) {
+      state.publishError = result.error ?? 'share_failed';
+      return false;
+    }
+    const shared = result.value;
+    update((party) => {
+      party.publication = {
+        remoteId: shared.id,
+        version: shared.version,
+        slug: shared.publication?.slug ?? null,
+        rootToken: shared.publication?.rootToken ?? null,
+        ticketKey: shared.ticketKey,
+        publishedAt: shared.updatedAt,
+      };
+    });
+    state.members = shared.members;
+    state.role = shared.role;
+    startSync(p, shared.version);
+    return true;
+  } finally {
+    state.publishing = false;
+  }
+}
+
+/** Opens the guest-facing invite link, storing the party first if need be. */
+async function openPartyInviteLink(): Promise<boolean> {
+  const p = activeParty();
+  if (!p) return false;
+  if (!p.publication && !(await shareActiveParty())) return false;
+
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+
+  state.publishing = true;
+  try {
+    const result = await openInviteLink(remoteId);
+    if (!result.ok || !result.value) {
+      state.publishError = result.error ?? 'publish_failed';
+      return false;
+    }
+    update((party) => {
+      if (!party.publication) return;
+      party.publication.slug = result.value!.slug;
+      party.publication.rootToken = result.value!.rootToken;
+    });
+    return true;
+  } finally {
+    state.publishing = false;
+  }
+}
+
+/** Closes the link. Owner only; the server enforces it too. */
+async function closePartyInviteLink(): Promise<boolean> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+
+  const result = await closeInviteLink(remoteId);
+  if (!result.ok) {
+    state.publishError = result.error ?? 'unpublish_failed';
+    return false;
+  }
+  update((party) => {
+    if (!party.publication) return;
+    party.publication.slug = null;
+    party.publication.rootToken = null;
+  });
+  return true;
+}
+
+/** Stops sharing entirely: the party, its guests and its co-organisers. */
+async function unshareActiveParty(): Promise<boolean> {
+  const p = activeParty();
+  const remoteId = p?.publication?.remoteId;
+  if (!p || !remoteId) return false;
+
+  const result = await deleteRemoteParty(remoteId);
+  if (!result.ok) {
+    state.publishError = result.error ?? 'unshare_failed';
+    return false;
+  }
+  stopSync();
+  update((party) => {
+    party.publication = null;
+  });
+  return true;
+}
+
+// ── Co-organisers ──────────────────────────────────────────────────────────
+
+async function refreshMembers(): Promise<void> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return;
+  const result = await listMembers(remoteId);
+  if (result.ok && result.value) state.members = result.value.members;
+}
+
+/** Mints a link that turns whoever opens it into a co-organiser. */
+async function inviteCoOrganiser(): Promise<string | null> {
+  const p = activeParty();
+  if (!p) return null;
+  if (!p.publication && !(await shareActiveParty())) return null;
+
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return null;
+
+  const result = await createCollaboratorInvite(remoteId);
+  if (!result.ok || !result.value) {
+    state.publishError = result.error ?? 'invite_failed';
+    return null;
+  }
+  return result.value.token;
+}
+
+async function revokeCoOrganiserInvites(): Promise<boolean> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+  const result = await revokeCollaboratorInvites(remoteId);
+  return result.ok;
+}
+
+async function removeCoOrganiser(userId: string): Promise<boolean> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+  const result = await removeMember(remoteId, userId);
+  if (result.ok) await refreshMembers();
+  return result.ok;
+}
+
+function openMembers(): void {
+  if (!can('coOrganizers')) {
+    requestUpgrade('coOrganizers');
+    return;
+  }
+  state.membersOpen = true;
+  void refreshMembers();
+}
+
+function closeMembers(): void {
+  state.membersOpen = false;
+}
+
+/**
+ * Pulls in parties shared with this user that this browser has never seen.
+ *
+ * A co-organiser's first sight of a party is here: they accepted an invitation
+ * on another device (or in another tab), so it exists for them on the server
+ * and nowhere locally.
+ */
+async function syncPartyList(): Promise<void> {
+  if (!can('cloudSync') && !state.session.authenticated) return;
+
+  const listed = await listParties();
+  if (!listed.ok || !listed.value) return;
+
+  for (const summary of listed.value.parties) {
+    const known = state.parties.find(
+      (p) => p.publication?.remoteId === summary.id,
+    );
+    if (known) continue;
+
+    const fetched = await fetchParty(summary.id);
+    if (!fetched.ok || !fetched.value) continue;
+
+    const shared = fetched.value;
+    const party: Party = {
+      name: shared.document.name,
+      date: shared.document.date,
+      createdAt: shared.updatedAt,
+      cover: shared.document.cover,
+      venue: shared.document.venue,
+      settings: shared.document.settings,
+      menu: shared.document.menu as Party['menu'],
+      locks: shared.document.locks,
+      checked: shared.document.checked,
+      allowForward: shared.document.allowForward,
+      includeSnacks: shared.document.includeSnacks,
+      // The guest list is not in the document; it arrives through the funnel.
+      invites: [],
+      publication: {
+        remoteId: shared.id,
+        version: shared.version,
+        slug: shared.publication?.slug ?? null,
+        rootToken: shared.publication?.rootToken ?? null,
+        ticketKey: shared.ticketKey,
+        publishedAt: shared.updatedAt,
+      },
+    };
+    const newId = await db.parties.add(party);
+    party.id = newId as number;
+    state.parties.push(party);
+  }
+}
+
+// ── The funnel ─────────────────────────────────────────────────────────────
+
+/**
+ * Whether a merge produced anything worth persisting.
+ *
+ * Compares only the fields the server owns — a local check-in is not a reason
+ * to think the funnel moved.
+ */
+function sameInvites(before: Invite[], after: Invite[]): boolean {
+  if (before.length !== after.length) return false;
+  return before.every((a, i) => {
+    const b = after[i];
+    return (
+      b !== undefined &&
+      a.id === b.id &&
+      a.remoteId === b.remoteId &&
+      a.name === b.name &&
+      a.status === b.status &&
+      a.depth === b.depth &&
+      a.referrer === b.referrer &&
+      a.forwardToken === b.forwardToken
+    );
+  });
+}
+
+/**
+ * Pulls the funnel and folds it into the party's guest list.
+ *
+ * Silent on failure. This runs on a timer while the guests tab is open, and an
+ * organiser whose phone dropped off the network should see the list they
+ * already have rather than an error where their party used to be.
+ */
+async function syncFunnel(): Promise<void> {
+  const p = activeParty();
+  const remoteId = p?.publication?.remoteId;
+  if (!p || !remoteId) return;
+
+  state.funnelSyncing = true;
+  try {
+    const result = await fetchFunnel(remoteId);
+    if (!result.ok || !result.value) return;
+    const remote = result.value;
+
+    const merged = mergeFunnel(p.invites, remote);
+    // Most polls find nothing new. Committing anyway would write the whole
+    // party to IndexedDB and re-render the guest list every few seconds for as
+    // long as the tab is open, so only commit a list that actually differs.
+    if (!sameInvites(p.invites, merged)) {
+      update((party) => {
+        party.invites = merged;
+      });
+    }
+    state.funnelSyncedAt = new Date().toISOString();
+  } finally {
+    state.funnelSyncing = false;
+  }
+}
+
 // ── Invites ────────────────────────────────────────────────────────────────
 
+/**
+ * A guest the host types in. Confirmed on the spot — the host would not be
+ * typing them in otherwise — and deliberately carries no `remoteId`, which is
+ * what keeps a funnel refresh from deleting them.
+ */
 function addInvite(name: string): void {
+  const remoteId = activeParty()?.publication?.remoteId;
+
   update((p) => {
     const maxId =
       p.invites.length > 0 ? Math.max(...p.invites.map((i) => i.id)) : 0;
     p.invites.unshift({
       id: maxId + 1,
       name,
-      status: 'accepted',
+      status: 'confirmed',
       depth: 0,
       referrer: null,
+      source: 'manual',
       used: false,
     });
   });
+
+  // On a shared party the guest has to exist on the server too, or the
+  // co-organiser never sees them and the other phone on the door cannot check
+  // their ticket. The row appears locally first so the list responds at once;
+  // the next funnel sync replaces it with the server's, carrying the ticket
+  // code only the server can issue.
+  if (remoteId) {
+    void addRemoteGuest(remoteId, name).then((result) => {
+      if (result.ok) void syncFunnel();
+    });
+  }
 }
 
+/**
+ * The host changing someone's state.
+ *
+ * Applied locally first so the button responds immediately, then pushed to the
+ * server for guests who came through the link. Without that push the next poll
+ * would overwrite the host's change with the guest's older answer — the button
+ * would appear to work and then quietly undo itself.
+ *
+ * A failed push is not rolled back: the local list is what the host runs the
+ * door from, and reverting a change they deliberately made because the network
+ * hiccuped is the worse of the two wrong answers. The next successful sync
+ * reconciles it.
+ */
 function setInviteStatus(id: number, status: Invite['status']): void {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return;
+
+  const { remoteId } = invite;
+
   update((p) => {
-    const invite = p.invites.find((i) => i.id === id);
-    if (invite) {
-      invite.status = status;
-      if (status !== 'accepted') {
-        invite.used = false;
-        invite.usedAt = undefined;
-      }
+    const target = p.invites.find((i) => i.id === id);
+    if (!target) return;
+    target.status = status;
+    // Someone who is no longer coming cannot have walked through the door.
+    if (status !== 'confirmed') {
+      target.used = false;
+      target.usedAt = undefined;
     }
   });
+
+  const partyRemoteId = party.publication?.remoteId;
+  if (remoteId && partyRemoteId) {
+    void setRemoteInviteStatus(partyRemoteId, remoteId, status);
+  }
 }
 
-function checkInGuest(id: number, time: string): void {
+/**
+ * Records that a guest walked in.
+ *
+ * On a shared party the server arbitrates, which is what makes "already
+ * scanned" true across every phone on the door. It is applied locally first so
+ * the scanner responds instantly — a door queue does not wait for a round trip
+ * — and reconciled by the answer.
+ *
+ * Returns the time of an *earlier* check-in when the server refuses, so the
+ * scanner can say when they came in rather than only that they did.
+ */
+async function checkInGuest(
+  id: number,
+  time: string,
+): Promise<{ ok: boolean; alreadyAt?: string | null }> {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return { ok: false };
+
+  const remoteId = party.publication?.remoteId;
+  const inviteRemoteId = invite.remoteId;
+
   update((p) => {
-    const invite = p.invites.find((i) => i.id === id);
-    if (invite) {
-      invite.used = true;
-      invite.usedAt = time;
+    const target = p.invites.find((i) => i.id === id);
+    if (target) {
+      target.used = true;
+      target.usedAt = time;
     }
   });
+
+  if (!remoteId || !inviteRemoteId) return { ok: true };
+
+  const result = await checkInRemote(remoteId, inviteRemoteId);
+  if (result.ok) return { ok: true };
+
+  if (result.error === 'already_checked_in') {
+    // Somebody else's phone got there first. Adopt their time — ours was a
+    // guess made a moment ago and theirs is what actually happened.
+    const alreadyAt = result.value?.checkedInAt ?? null;
+    update((p) => {
+      const target = p.invites.find((i) => i.id === id);
+      if (target && alreadyAt) target.usedAt = alreadyAt;
+    });
+    return { ok: false, alreadyAt };
+  }
+
+  // A network failure leaves the local check-in standing: the guest is through
+  // the door either way, and the next sync reconciles it. Refusing them over a
+  // dropped request would be the worse mistake.
+  return { ok: true };
+}
+
+/** Undoes a check-in on every device, for someone waved through by mistake. */
+async function undoCheckIn(id: number): Promise<void> {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return;
+
+  update((p) => {
+    const target = p.invites.find((i) => i.id === id);
+    if (target) {
+      target.used = false;
+      target.usedAt = undefined;
+    }
+  });
+
+  const remoteId = party.publication?.remoteId;
+  if (remoteId && invite.remoteId) {
+    await undoCheckInRemote(remoteId, invite.remoteId);
+  }
 }
 
 // ── Shopping ───────────────────────────────────────────────────────────────
@@ -522,8 +1132,22 @@ function closeIngMgr(): void {
   state.ingMgrOpen = false;
 }
 
+/**
+ * The invite link is the paid feature here, and the share sheet is the only way
+ * to reach it — so the gate lives on the opener rather than inside the modal.
+ * A second caller added later inherits it for free, which a check in the
+ * component would not give us.
+ */
 function openShare(): void {
+  if (!can('inviteLink')) {
+    requestUpgrade('inviteLink');
+    return;
+  }
   state.shareOpen = true;
+  // Not awaited: the sheet opens immediately and shows its own pending state.
+  // Opening the link here rather than behind a separate button is what keeps
+  // the card guests read in step with a party the host has since renamed.
+  void openPartyInviteLink();
 }
 function closeShare(): void {
   state.shareOpen = false;
@@ -596,10 +1220,30 @@ export const store = {
   reloadCatalog,
   // loader
   load,
+  // session & entitlements
+  can,
+  refreshSession,
+  requestUpgrade,
+  closeUpgrade,
+  // sharing, sync & the funnel
+  shareActiveParty,
+  unshareActiveParty,
+  openPartyInviteLink,
+  closePartyInviteLink,
+  syncPartyList,
+  syncFunnel,
+  // co-organisers
+  openMembers,
+  closeMembers,
+  refreshMembers,
+  inviteCoOrganiser,
+  revokeCoOrganiserInvites,
+  removeCoOrganiser,
   // invites
   addInvite,
   setInviteStatus,
   checkInGuest,
+  undoCheckIn,
   // shopping
   toggleChecked,
   // modals

@@ -9,7 +9,16 @@ import vueParser from 'vue-eslint-parser';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', '.astro/**'],
+    // `backend/` carries its own toolchain (Workers globals, its own tsconfig),
+    // so it is linted from inside that package rather than by the frontend's
+    // config. `shared/` is plain TypeScript and stays in scope for both.
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '.astro/**',
+      'backend/**',
+      '.wrangler/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

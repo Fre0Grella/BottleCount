@@ -1,0 +1,34 @@
+---
+import { CANONICAL_ORIGIN } from '../lib/links';
+
+/**
+ * Names the copy of this page that search engines should index.
+ *
+ * The landing page, docs, pricing and the legal pages are built for both the
+ * application host and the documentation host, so each exists at two URLs. This
+ * points both at the application's copy — that domain is the product, and it
+ * serves these pages as well as the app itself.
+ *
+ * On the application build `CANONICAL_ORIGIN` is empty and the page falls back
+ * to `Astro.site`, so it is its own canonical. That is deliberate rather than
+ * omitting the tag: a self-referencing canonical is what stops a URL picking up
+ * a query string or a trailing slash and being treated as a second page.
+ */
+const base = import.meta.env.BASE_URL;
+const origin = CANONICAL_ORIGIN || Astro.site?.origin || '';
+
+// `Astro.url.pathname` carries the base prefix; the canonical target does not
+// use the same one, so strip it. `base.length - 1` keeps the leading slash.
+const pathname = Astro.url.pathname;
+const withoutBase = pathname.startsWith(base)
+  ? pathname.slice(base.length - 1)
+  : pathname;
+
+// Normalise the trailing slash so `/pricing` and `/pricing/` cannot resolve to
+// two different canonicals. The root keeps its slash.
+const path = withoutBase.length > 1 ? withoutBase.replace(/\/$/, '') : '/';
+
+const href = origin ? new URL(path, origin).href : null;
+---
+
+{href && <link rel="canonical" href={href} />}

@@ -1,0 +1,9 @@
+# Normalise line endings on anything committed from here on. It does not
+# rewrite files already stored with CRLF — `git add --renormalize .` does that,
+# in a commit of its own — but it stops new ones joining them.
+* text=auto eol=lf
+
+# Binary-ish assets git should not touch.
+*.png binary
+*.jpg binary
+*.ico binary

@@ -64,7 +64,7 @@ async function prepare(): Promise<void> {
     return;
   }
   try {
-    const qr = await ticketQrDataUrl(ticketPayload(p, name));
+    const qr = await ticketQrDataUrl(p, ticketPayload(p, name));
     ticketFile.value = await buildTicketFile({
       partyName: p.name,
       dateLabel: partyDateShort.value,

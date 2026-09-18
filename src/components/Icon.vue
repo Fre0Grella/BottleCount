@@ -63,6 +63,11 @@ const icons: Record<string, string> = {
     '<path d="M6 3h12"/><path d="M6 21h12"/><path d="M6 3c0 4 6 5 6 9s-6 5-6 9"/><path d="M18 3c0 4-6 5-6 9s6 5 6 9"/>',
   tune: '<path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/>',
   pencil: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  lock: '<rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/>',
+  logout:
+    '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h9"/>',
+  key: '<circle cx="8" cy="14" r="4"/><path d="M11 11l8-8"/><path d="M16.5 5.5l2.5 2.5"/><path d="M14 8l2.5 2.5"/>',
 };
 </script>
 

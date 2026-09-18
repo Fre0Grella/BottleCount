@@ -1,5 +1,7 @@
 ---
 import '../styles/theme.css';
+import Canonical from '../components/Canonical.astro';
+import { APP_URL } from '../lib/links';
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -9,6 +11,7 @@ const base = import.meta.env.BASE_URL;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BottleCount — Throw the party. We'll count the bottles.</title>
+    <Canonical />
     <link rel="icon" href={`${base}faviconDark.svg`} />
     <script is:inline>
       document.documentElement.dataset.theme =
@@ -61,7 +64,7 @@ const base = import.meta.env.BASE_URL;
             </svg>
             Docs
           </a>
-          <a class="btn-accent" href={`${base}app`}>
+          <a class="btn-accent" href={APP_URL}>
             Open app
             <svg
               width="15"
@@ -344,7 +347,7 @@ const base = import.meta.env.BASE_URL;
 
             <!-- CTA buttons -->
             <div class="hero-actions">
-              <a class="btn-accent btn-lg" href={`${base}app`}>
+              <a class="btn-accent btn-lg" href={APP_URL}>
                 Plan a party
                 <svg
                   width="16"
@@ -698,7 +701,7 @@ const base = import.meta.env.BASE_URL;
                 No login needed for the demo — jump in, drag a few sliders,
                 watch the numbers land.
               </p>
-              <a class="btn-dark btn-lg" href={`${base}app`}>
+              <a class="btn-dark btn-lg" href={APP_URL}>
                 Open the console
                 <svg
                   width="16"

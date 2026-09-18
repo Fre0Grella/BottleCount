@@ -1,0 +1,27 @@
+# Cloudflare Pages config for the frontend.
+#
+# The service binding is what makes /api/* and /auth/* same-origin — see
+# functions/_backend.ts. Omit it (or deploy without it) and the app still runs:
+# the proxy answers 501, the frontend reads that as "no backend" and stays on
+# the free, browser-only tier.
+name = "bottlecount"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-03-17"
+
+[[services]]
+binding = "BACKEND"
+service = "bottlecount-backend"
+
+[env.preview.vars]
+PUBLIC_BACKEND = "true"
+
+[[env.preview.services]]
+binding = "BACKEND"
+service = "bottlecount-backend-preview"
+
+[env.production.vars]
+PUBLIC_BACKEND = "true"
+
+[[env.production.services]]
+binding = "BACKEND"
+service = "bottlecount-backend"

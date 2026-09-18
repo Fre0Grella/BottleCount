@@ -2,4 +2,5 @@ node_modules
 dist
 .astro
 coverage
-
+.wrangler
+backend/node_modules

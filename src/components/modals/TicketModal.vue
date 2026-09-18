@@ -41,7 +41,7 @@ async function generateQR(name: string) {
   qrDataUrl.value = null;
 
   try {
-    qrDataUrl.value = await ticketQrDataUrl(ticketPayload(p, name));
+    qrDataUrl.value = await ticketQrDataUrl(p, ticketPayload(p, name));
   } catch {
     qrDataUrl.value = null;
   } finally {

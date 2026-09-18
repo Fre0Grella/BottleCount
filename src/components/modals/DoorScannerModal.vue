@@ -2,8 +2,9 @@
 import { ref, watch, onUnmounted } from 'vue';
 import QrScanner from 'qr-scanner';
 import { useStore } from '../../lib/store';
-import { verifyTicket, signTicket } from '../../lib/crypto';
-import { ticketPayload } from '../../lib/ticket';
+import { verifyTicket } from '../../lib/crypto';
+import { ticketPartyId } from '../../lib/ticket';
+import { isTicketCode, normaliseTicketCode } from '../../../shared/tickets';
 import type { Invite } from '../../lib/types';
 import Icon from '../Icon.vue';
 
@@ -47,6 +48,84 @@ function scheduleClear(): void {
   }, 2000);
 }
 
+// ── Admitting a guest ──────────────────────────────────────────────────────
+
+/**
+ * Resolves a ticket to a guest and lets them in, or says why not.
+ *
+ * Shared by the camera and the typed-code path, because they are the same
+ * question asked two ways — and a scanner with a dead camera should not take a
+ * different route through the rules than one that works.
+ */
+async function admit(
+  invite: Invite | undefined,
+  fallbackName: string,
+): Promise<void> {
+  if (!invite) {
+    reject(fallbackName, 'Not found on the confirmed guest list');
+    return;
+  }
+
+  if (invite.status !== 'confirmed') {
+    reject(invite.name, "They haven't confirmed they're coming");
+    return;
+  }
+
+  if (invite.used) {
+    reject(
+      invite.name,
+      `Already scanned at ${formatSeen(invite.usedAt)} — do not let in again`,
+    );
+    return;
+  }
+
+  const time = nowHHMM();
+  const result = await store.checkInGuest(invite.id, time);
+
+  if (!result.ok) {
+    // The other phone on the door got there first. This is the case a
+    // device-local tally could never catch.
+    reject(
+      invite.name,
+      `Already scanned at ${formatSeen(result.alreadyAt)} — do not let in again`,
+    );
+    return;
+  }
+
+  store.state.scanResult = { ok: true, name: invite.name };
+  pushHistory(invite.name, nowHHMMSS());
+  navigator.vibrate?.([90, 40, 90]);
+  scheduleClear();
+}
+
+function reject(name: string, sub: string): void {
+  store.state.scanResult = { ok: false, name, sub };
+  navigator.vibrate?.(300);
+  scheduleClear();
+}
+
+/** Check-in times are ISO from the server and HH:MM from this device. */
+function formatSeen(value: string | null | undefined): string {
+  if (!value) return '?';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+}
+
+/** Finds the guest a ticket names, by its code and then by name. */
+function findByCode(code: string, name?: string): Invite | undefined {
+  const party = store.activeParty();
+  if (!party) return undefined;
+  return (
+    party.invites.find((i) => i.ticketCode === code) ??
+    (name ? party.invites.find((i) => i.name === name) : undefined)
+  );
+}
+
 // ── Real scan callback ─────────────────────────────────────────────────────
 async function onScanResult(result: { data: string }): Promise<void> {
   const now = Date.now();
@@ -56,68 +135,76 @@ async function onScanResult(result: { data: string }): Promise<void> {
   const party = store.activeParty();
   if (!party) return;
 
-  const payload = await verifyTicket(result.data);
+  const check = await verifyTicket(party, result.data);
 
-  if (!payload) {
-    store.state.scanResult = {
-      ok: false,
-      name: 'Forged or invalid ticket',
-      sub: 'Signature verification failed — this ticket may be counterfeit',
-    };
-    navigator.vibrate?.(300);
-    scheduleClear();
+  if (!check.ok) {
+    reject(
+      'Forged or invalid ticket',
+      check.reason === 'malformed'
+        ? "That QR isn't a BottleCount ticket"
+        : 'Signature check failed — this ticket may be counterfeit',
+    );
     return;
   }
 
-  if (payload.partyId !== party.id) {
-    store.state.scanResult = {
-      ok: false,
-      name: payload.guestName ?? 'Unknown guest',
-      sub: 'Ticket belongs to a different party',
-    };
-    navigator.vibrate?.(300);
-    scheduleClear();
+  const { payload } = check;
+
+  if (payload.partyId !== ticketPartyId(party)) {
+    reject(payload.guestName || 'Unknown guest', 'Ticket is for another party');
     return;
   }
 
-  const accepted = party.invites.filter((i) => i.status === 'accepted');
-
-  const alreadyUsed = accepted.find(
-    (i) =>
-      (i.id === payload.ticketId || i.name === payload.guestName) && i.used,
-  );
-  if (alreadyUsed) {
-    store.state.scanResult = {
-      ok: false,
-      name: alreadyUsed.name,
-      sub: `Already scanned at ${alreadyUsed.usedAt ?? '?'} — do not let in again`,
-    };
-    navigator.vibrate?.(300);
-    scheduleClear();
+  if (new Date(payload.expiresAt).getTime() < Date.now()) {
+    reject(payload.guestName || 'Unknown guest', 'This ticket has expired');
     return;
   }
 
-  const invite =
-    accepted.find((i) => i.id === payload.ticketId && !i.used) ??
-    accepted.find((i) => i.name === payload.guestName && !i.used);
+  await admit(findByCode(payload.code, payload.guestName), payload.guestName);
+}
 
-  if (invite) {
-    const time = nowHHMM();
-    store.checkInGuest(invite.id, time);
-    store.state.scanResult = { ok: true, name: invite.name };
-    pushHistory(invite.name, nowHHMMSS());
-    navigator.vibrate?.([90, 40, 90]);
-    scheduleClear();
+// ── Typed code ─────────────────────────────────────────────────────────────
+
+const manualCode = ref('');
+const manualName = ref('');
+const manualBusy = ref(false);
+
+/**
+ * Checking a ticket by hand, when the QR will not scan or a guest has only the
+ * code from their message.
+ *
+ * The code alone is not enough: five characters are short, and a guest who
+ * over-hears another's could walk in on it. Requiring the name as well means
+ * the person at the door is checking something the code does not carry.
+ */
+async function verifyManually(): Promise<void> {
+  const code = normaliseTicketCode(manualCode.value);
+  const name = manualName.value.trim();
+
+  if (!isTicketCode(code)) {
+    reject('Invalid code', 'A ticket code is five letters and numbers');
+    return;
+  }
+  if (!name) {
+    reject('Name needed', "Type the guest's name as well as the code");
     return;
   }
 
-  store.state.scanResult = {
-    ok: false,
-    name: payload.guestName ?? 'Unknown guest',
-    sub: 'Not found on the accepted guest list',
-  };
-  navigator.vibrate?.(300);
-  scheduleClear();
+  manualBusy.value = true;
+  const invite = findByCode(code);
+
+  if (!invite) {
+    reject('Unknown code', 'No ticket on this party has that code');
+  } else if (invite.name.trim().toLowerCase() !== name.toLowerCase()) {
+    // The code resolved, but to somebody else. Say so without naming them —
+    // that would hand a stranger a real guest's name.
+    reject('Name does not match', 'That code belongs to a different guest');
+  } else {
+    await admit(invite, name);
+    manualCode.value = '';
+    manualName.value = '';
+  }
+
+  manualBusy.value = false;
 }
 
 // ── Camera lifecycle ───────────────────────────────────────────────────────
@@ -160,7 +247,7 @@ onUnmounted(stopScanner);
 // ── Derived stats ──────────────────────────────────────────────────────────
 function accepted() {
   return (store.activeParty()?.invites ?? []).filter(
-    (i) => i.status === 'accepted',
+    (i) => i.status === 'confirmed',
   );
 }
 
@@ -179,66 +266,6 @@ function partyName() {
 
 function recentHistory() {
   return store.state.scanHistory.slice(0, 4);
-}
-
-// ── Manual lookup (fallback for visual verification) ───────────────────────
-const manualName = ref('');
-const manualResult = ref<{ invite: Invite; qrCode: string } | null>(null);
-let manualTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch(manualName, (value) => {
-  if (manualTimer !== null) clearTimeout(manualTimer);
-  const query = value.trim().toLowerCase();
-  if (!query) {
-    manualResult.value = null;
-    return;
-  }
-  manualTimer = setTimeout(async () => {
-    const party = store.activeParty();
-    if (!party) {
-      manualResult.value = null;
-      return;
-    }
-    const acc = accepted();
-    // Best match: exact name first, otherwise closest case-insensitive include.
-    const invite =
-      acc.find((i) => i.name.toLowerCase() === query) ??
-      acc.find((i) => i.name.toLowerCase().includes(query));
-    if (!invite) {
-      manualResult.value = null;
-      return;
-    }
-    const qrCode = await signTicket(ticketPayload(party, invite.name));
-    // Guard against a stale resolve if the input changed meanwhile.
-    if (manualName.value.trim().toLowerCase() === query) {
-      manualResult.value = { invite, qrCode };
-    }
-  }, 300);
-});
-
-function validateManual(): void {
-  const result = manualResult.value;
-  if (!result) return;
-
-  // Re-check the live invite — it may have been checked in since the lookup.
-  const live = accepted().find((i) => i.id === result.invite.id);
-  if (live?.used) {
-    store.state.scanResult = {
-      ok: false,
-      name: live.name,
-      sub: `Already scanned at ${live.usedAt ?? '?'} — do not let in again`,
-    };
-    navigator.vibrate?.(300);
-    scheduleClear();
-    return;
-  }
-
-  const time = nowHHMM();
-  store.checkInGuest(result.invite.id, time);
-  store.state.scanResult = { ok: true, name: result.invite.name };
-  pushHistory(result.invite.name, nowHHMMSS());
-  navigator.vibrate?.([90, 40, 90]);
-  scheduleClear();
 }
 </script>
 
@@ -549,7 +576,7 @@ function validateManual(): void {
         </div>
       </div>
 
-      <!-- Manual lookup (fallback) -->
+      <!-- Check a ticket by hand -->
       <div
         style="
           padding: 14px 20px 18px 20px;
@@ -563,103 +590,86 @@ function validateManual(): void {
             text-transform: uppercase;
             letter-spacing: 0.1em;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
           "
         >
-          Manual lookup
+          Check by code
         </div>
-        <input
-          v-model="manualName"
-          type="text"
-          placeholder="Type a guest's name…"
-          style="
-            width: 100%;
-            box-sizing: border-box;
-            padding: 10px 12px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            background: rgba(255, 255, 255, 0.06);
-            color: #f2f5fa;
-            font-size: 14px;
-            outline: none;
-          "
-        />
+        <div style="font-size: 12px; color: #5b6a8a; margin-bottom: 9px">
+          When the QR won't scan. Both the code and the name have to match.
+        </div>
 
-        <!-- Match found -->
-        <div
-          v-if="manualResult"
-          style="
-            margin-top: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-          "
-        >
-          <div
+        <div style="display: flex; gap: 8px; margin-bottom: 8px">
+          <input
+            v-model="manualCode"
+            type="text"
+            inputmode="latin"
+            autocapitalize="characters"
+            spellcheck="false"
+            maxlength="7"
+            placeholder="AB23C"
             style="
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 12px;
-            "
-          >
-            <span style="font-weight: 700; font-size: 14px">
-              {{ manualResult.invite.name }}
-            </span>
-            <button
-              style="
-                cursor: pointer;
-                flex-shrink: 0;
-                padding: 8px 16px;
-                border-radius: 10px;
-                border: none;
-                background: #34d399;
-                color: #06281a;
-                font-weight: 700;
-                font-size: 13px;
-              "
-              @click="validateManual"
-            >
-              Validate
-            </button>
-          </div>
-          <div
-            style="
-              font-size: 10px;
-              color: #5b6a8a;
-              text-transform: uppercase;
-              letter-spacing: 0.08em;
-              font-weight: 700;
-            "
-          >
-            Ticket code (compare with guest's screen)
-          </div>
-          <pre
-            style="
-              margin: 0;
+              width: 40%;
+              box-sizing: border-box;
               padding: 10px 12px;
               border-radius: 10px;
-              background: #03050a;
-              border: 1px solid rgba(255, 255, 255, 0.1);
-              color: #9fb2d6;
-              font-size: 10px;
-              line-height: 1.4;
-              white-space: pre-wrap;
-              word-break: break-all;
-              max-height: 120px;
-              overflow: auto;
+              border: 1px solid rgba(255, 255, 255, 0.16);
+              background: rgba(255, 255, 255, 0.06);
+              color: #f2f5fa;
+              font-size: 15px;
+              font-family: monospace;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+              outline: none;
             "
-            >{{ manualResult.qrCode }}</pre
-          >
+          />
+          <input
+            v-model="manualName"
+            type="text"
+            placeholder="Guest's name"
+            style="
+              flex: 1;
+              min-width: 0;
+              box-sizing: border-box;
+              padding: 10px 12px;
+              border-radius: 10px;
+              border: 1px solid rgba(255, 255, 255, 0.16);
+              background: rgba(255, 255, 255, 0.06);
+              color: #f2f5fa;
+              font-size: 14px;
+              outline: none;
+            "
+            @keyup.enter="verifyManually"
+          />
         </div>
 
-        <!-- No match -->
-        <div
-          v-else-if="manualName.trim()"
-          style="margin-top: 10px; font-size: 12px; color: #5b6a8a"
+        <button
+          :disabled="manualBusy || !manualCode.trim() || !manualName.trim()"
+          style="
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 12px 16px;
+            border-radius: 999px;
+            border: none;
+            background: #ff7a3d;
+            color: #17202e;
+            min-height: 44px;
+          "
+          :style="{
+            opacity:
+              manualBusy || !manualCode.trim() || !manualName.trim() ? 0.5 : 1,
+          }"
+          @click="verifyManually"
         >
-          No accepted guest matches that name
-        </div>
+          <Icon name="check" :size="15" />
+          {{ manualBusy ? 'Checking…' : 'Let them in' }}
+        </button>
       </div>
     </div>
   </Teleport>

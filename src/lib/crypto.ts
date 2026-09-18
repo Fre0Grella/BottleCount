@@ -1,83 +1,133 @@
 import { getKey, setKey } from './db';
-import type { TicketQRPayload } from './types';
+import type { TicketQRPayload } from '../../shared/tickets';
+import type { Party } from './types';
 
-// The HMAC key is persisted as a JWK (plain JSON), NOT as a CryptoKey object.
-// IndexedDB's structured-clone algorithm cannot serialise CryptoKey instances,
-// so storing one directly would throw a DataCloneError.  Always call
-// crypto.subtle.exportKey("jwk", key) before writing to IndexedDB, and
-// crypto.subtle.importKey("jwk", ...) when reading it back.
-async function getOrCreateKey(): Promise<CryptoKey> {
-  const stored = await getKey<JsonWebKey | null>('hmac_key', null);
+/**
+ * Signing and checking tickets.
+ *
+ * The key is per *party*, not per device. It used to be per device, generated
+ * into whichever browser first issued a ticket — which meant a co-organiser's
+ * phone could not verify anything the owner's phone had produced. It did not
+ * miscount guests; it rejected all of them.
+ *
+ * So a shared party carries its key on the server (`SharedPartyDTO.ticketKey`),
+ * every member is handed the same one, and the door verifies offline with it
+ * once it has been fetched — which matters, because doors are in basements.
+ * A local-only party still uses a device key, because there is no server to
+ * hold one and nobody else to agree with.
+ *
+ * Keys are persisted as JWKs, never as CryptoKey objects: IndexedDB's
+ * structured-clone step throws DataCloneError on a CryptoKey.
+ */
 
-  if (stored) {
-    return crypto.subtle.importKey(
-      'jwk',
-      stored,
-      { name: 'HMAC', hash: 'SHA-256' },
-      true,
-      ['sign', 'verify'],
-    );
-  }
-
-  const key = await crypto.subtle.generateKey(
+async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'jwk',
+    jwk,
     { name: 'HMAC', hash: 'SHA-256' },
     true,
     ['sign', 'verify'],
   );
+}
 
-  const jwk: JsonWebKey = await crypto.subtle.exportKey('jwk', key);
-  await setKey('hmac_key', jwk);
+/** The fallback key for a party that lives only in this browser. */
+async function deviceKey(): Promise<CryptoKey> {
+  const stored = await getKey<JsonWebKey | null>('hmac_key', null);
+  if (stored) return importKey(stored);
+
+  const key = (await crypto.subtle.generateKey(
+    { name: 'HMAC', hash: 'SHA-256' },
+    true,
+    ['sign', 'verify'],
+  )) as CryptoKey;
+
+  await setKey('hmac_key', await crypto.subtle.exportKey('jwk', key));
   return key;
 }
 
 /**
- * Called after a Google Sync pull — adopts the shared key from the sheet
- * so all devices sign/verify with the same secret.
- * Returns true if the key actually changed (caller should regenerate QR codes).
+ * The key a party's tickets are signed with.
+ *
+ * The party's own when it has one — every organiser holds the same — and this
+ * browser's otherwise.
  */
-export async function adoptRemoteKey(jwk: JsonWebKey): Promise<boolean> {
-  const local = await getKey<JsonWebKey | null>('hmac_key', null);
-  // Compare by the key material ("k" field in HMAC JWK)
-  if (local?.k && local.k === jwk.k) return false;
-  await setKey('hmac_key', jwk);
-  return true;
+async function keyFor(party: Party): Promise<CryptoKey> {
+  const jwk = party.publication?.ticketKey;
+  return jwk ? importKey(jwk) : deviceKey();
 }
+
+/** What a ticket is signed over. Order is fixed; JSON key order is not. */
+function canonical(payload: TicketQRPayload): string {
+  return JSON.stringify([
+    payload.code,
+    payload.partyId,
+    payload.guestName,
+    payload.expiresAt,
+  ]);
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+export async function signTicket(
+  party: Party,
+  payload: TicketQRPayload,
+): Promise<string> {
+  const key = await keyFor(party);
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(canonical(payload)),
+  );
+  const payloadB64 = btoa(JSON.stringify(payload));
+  return `${payloadB64}.${toBase64(new Uint8Array(signature))}`;
+}
+
+export type TicketCheck =
+  | { ok: true; payload: TicketQRPayload }
+  | { ok: false; reason: 'malformed' | 'bad_signature' };
 
 /**
- * Export the current local key as a JWK so it can be pushed to the sheet.
+ * Checks a scanned string's signature and nothing else.
+ *
+ * Whether the guest is actually coming, and whether they already walked in, are
+ * questions about the guest list rather than the signature — the door answers
+ * those separately, because the answers differ per party and per moment while
+ * this one never does.
  */
-export async function exportLocalKeyJwk(): Promise<JsonWebKey> {
-  const key = await getOrCreateKey();
-  return crypto.subtle.exportKey('jwk', key);
-}
-
-export async function signTicket(payload: TicketQRPayload): Promise<string> {
-  const key = await getOrCreateKey();
-  const encoded = new TextEncoder().encode(JSON.stringify(payload));
-  const sig = await crypto.subtle.sign('HMAC', key, encoded);
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
-  const payB64 = btoa(JSON.stringify(payload));
-  return `${payB64}.${sigB64}`;
-}
-
 export async function verifyTicket(
+  party: Party,
   qrString: string,
-): Promise<TicketQRPayload | null> {
-  const [payB64, sigB64] = qrString.split('.');
-  if (!payB64 || !sigB64) return null;
+): Promise<TicketCheck> {
+  const [payloadB64, signatureB64] = qrString.split('.');
+  if (!payloadB64 || !signatureB64) return { ok: false, reason: 'malformed' };
 
   try {
-    const key = await getOrCreateKey();
-    const payload = JSON.parse(atob(payB64)) as TicketQRPayload;
-    const sig = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+    const payload = JSON.parse(atob(payloadB64)) as TicketQRPayload;
+    if (
+      typeof payload.code !== 'string' ||
+      typeof payload.guestName !== 'string'
+    ) {
+      return { ok: false, reason: 'malformed' };
+    }
+
+    const key = await keyFor(party);
+    const signature = Uint8Array.from(atob(signatureB64), (c) =>
+      c.charCodeAt(0),
+    );
     const valid = await crypto.subtle.verify(
       'HMAC',
       key,
-      sig,
-      new TextEncoder().encode(JSON.stringify(payload)),
+      signature,
+      new TextEncoder().encode(canonical(payload)),
     );
-    return valid ? payload : null;
+    return valid
+      ? { ok: true, payload }
+      : { ok: false, reason: 'bad_signature' };
   } catch {
-    return null;
+    return { ok: false, reason: 'malformed' };
   }
 }
