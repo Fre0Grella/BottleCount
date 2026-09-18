@@ -56,3 +56,18 @@ jobs:
             fi
           done
           exit $failed
+
+      # These pages exist on both hosts. Without a canonical they are duplicate
+      # content on two domains, and a missing one fails silently — nothing in
+      # the build or the browser complains.
+      - name: Documentation pages must point their canonical at the app
+        run: |
+          failed=0
+          while IFS= read -r page; do
+            if ! grep -q '<link rel="canonical" href="https://bottlecount.pages.dev' "$page"; then
+              echo "::error::$page has no canonical pointing at the application host"
+              failed=1
+            fi
+          done < <(find dist -name '*.html')
+          exit $failed
+        shell: bash

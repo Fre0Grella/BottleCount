@@ -31,7 +31,8 @@ const base = process.env.BASE_PATH ?? (isDocs ? '/BottleCount/' : '/');
  * Publishing them to a host with no backend produces a site that looks like the
  * product and then fails halfway through it, which is worse than not being
  * there at all. Links to the app in the documentation point at the real one
- * instead (`PUBLIC_APP_URL`).
+ * instead, and those pages carry a canonical link to it — both from
+ * `PUBLIC_APP_ORIGIN` (see `src/lib/links.ts`).
  */
 const APP_ROUTES = ['app', 'auth', 'i'];
 

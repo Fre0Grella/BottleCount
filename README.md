@@ -253,18 +253,25 @@ Worker.
 
 ### GitHub Pages (the documentation)
 
-Push to `main` and `.github/workflows/deploy.yml` builds the same source with
-`BUILD_TARGET=docs`, which publishes the landing page, docs, pricing and legal
-pages under `/BottleCount/` — and **leaves the application out**. `/app`,
-`/auth` and `/i` are deleted from that build, because each needs the Worker and
-there is none behind GitHub Pages; a copy of the product that looks real and
-fails at sign-in is worse than no copy. Links to the app from the docs point at
-the Cloudflare deployment via `PUBLIC_APP_URL`.
+Push to `main` and `.github/workflows/deploy.yml` runs `npm run build:docs`,
+which publishes the landing page, docs, pricing and legal pages under
+`/BottleCount/` — and **leaves the application out**. `/app`, `/auth` and `/i`
+are deleted from that build, because each needs the Worker and there is none
+behind GitHub Pages; a copy of the product that looks real and fails at sign-in
+is worse than no copy.
 
-Build it locally the same way:
+Those five pages are built for both hosts, so each carries a
+`<link rel="canonical">` pointing at the Cloudflare copy — that domain is the
+product, and it serves these pages as well as the app. Links to the app from
+the docs point there too. Both come from one setting, `PUBLIC_APP_ORIGIN`
+([`src/lib/links.ts`](src/lib/links.ts)); a separate canonical origin and app
+URL would be two settings obliged to name the same host.
+
+The build settings live in the npm script, not the workflow, so this produces
+exactly what CI publishes:
 
 ```bash
-BUILD_TARGET=docs BASE_PATH=/BottleCount/ npm run build
+npm run build:docs
 ```
 
 ---

@@ -18,7 +18,7 @@
     "typecheck": "astro check && npm --prefix backend run typecheck",
     "install:all": "npm install && npm --prefix backend install",
     "test:frontend": "vitest run",
-    "build:docs": "BUILD_TARGET=docs BASE_PATH=/BottleCount/ astro build"
+    "build:docs": "BUILD_TARGET=docs BASE_PATH=/BottleCount/ SITE=https://fre0grella.github.io PUBLIC_APP_ORIGIN=https://bottlecount.pages.dev astro build"
   },
   "engines": {
     "node": ">=22.12.0"

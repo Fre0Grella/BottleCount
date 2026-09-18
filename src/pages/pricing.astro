@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import Canonical from '../components/Canonical.astro';
 import NavBar from '../components/NavBar.astro';
 import Footer from '../components/Footer.astro';
 import { APP_URL } from '../lib/links';
@@ -83,6 +84,7 @@ const plans = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pricing · BottleCount</title>
+    <Canonical />
     <meta
       name="description"
       content="BottleCount runs free in your browser, hosted for a one-time payment, or self-hosted on your own Cloudflare account."
@@ -174,9 +176,7 @@ const plans = [
       </section>
     </main>
     <Footer />
-  </body>
-
-  <style>
+  </body><style>
     .pricing-head {
       max-width: 60ch;
       margin: 0 auto var(--space-6) auto;
