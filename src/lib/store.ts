@@ -7,6 +7,9 @@ import type {
   Settings,
 } from './types';
 import { db } from './db';
+import { fetchSession, ANONYMOUS_SESSION } from './session';
+import type { SessionDTO } from '../../shared/session';
+import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
 import { calculate } from './core';
 import { rebalance, menuErrorKeys } from './menu';
@@ -71,6 +74,13 @@ export const SIMPLE: string[] = ['Beer', 'Wine'];
 
 interface StoreState {
   ready: boolean;
+  /**
+   * Who the browser is and what it may do. Starts anonymous, so the app is
+   * usable before — and without — an answer from the server.
+   */
+  session: SessionDTO;
+  /** True while the first /api/session call is in flight. */
+  sessionLoading: boolean;
   route: 'home' | 'party';
   activeId: number | null;
   tab: 'plan' | 'menu' | 'shop' | 'guests';
@@ -89,6 +99,8 @@ interface StoreState {
   doorOpen: boolean;
   scanResult: { ok: boolean; name: string; sub?: string } | null;
   scanHistory: { name: string; time: string }[];
+  /** The feature whose upgrade prompt is open, or null. */
+  upgradeFor: Feature | null;
   // ui
   expandedCat: string | null;
   expandedSpirit: string | null;
@@ -98,6 +110,8 @@ interface StoreState {
 
 const state = reactive<StoreState>({
   ready: false,
+  session: ANONYMOUS_SESSION,
+  sessionLoading: true,
   route: 'home',
   activeId: null,
   tab: 'plan',
@@ -115,6 +129,7 @@ const state = reactive<StoreState>({
   doorOpen: false,
   scanResult: null,
   scanHistory: [],
+  upgradeFor: null,
   expandedCat: null,
   expandedSpirit: null,
 });
@@ -154,9 +169,47 @@ function update(mutator: (p: Party) => void): void {
   });
 }
 
+/**
+ * Whether the current session may use a paid feature.
+ *
+ * Every gate in the UI goes through here rather than reading `tier` directly,
+ * so that self-hosting and a future third tier stay a change to
+ * `shared/tiers.ts` instead of a hunt through components.
+ */
+function can(feature: Feature): boolean {
+  return state.session.features[feature] === true;
+}
+
+/** Opens the "this needs BottleCount Pro" prompt for a locked feature. */
+function requestUpgrade(feature: Feature): void {
+  state.upgradeFor = feature;
+}
+
+function closeUpgrade(): void {
+  state.upgradeFor = null;
+}
+
+/**
+ * Re-reads the session. Called on load, and again after signing in or
+ * redeeming a licence, since both change what the app may do.
+ */
+async function refreshSession(): Promise<void> {
+  state.sessionLoading = true;
+  try {
+    state.session = await fetchSession();
+  } finally {
+    state.sessionLoading = false;
+  }
+}
+
 async function load(): Promise<void> {
   state.catalog = await loadCatalog();
   state.parties = await db.parties.toArray();
+
+  // Deliberately not awaited: the planner is local-first and must render
+  // without waiting on a network round-trip that may never come back. Paid
+  // features stay locked until it does, which is the correct default.
+  void refreshSession();
 
   // Backfill fields added after a party was first saved.
   for (const p of state.parties) {
@@ -522,7 +575,17 @@ function closeIngMgr(): void {
   state.ingMgrOpen = false;
 }
 
+/**
+ * The invite link is the paid feature here, and the share sheet is the only way
+ * to reach it — so the gate lives on the opener rather than inside the modal.
+ * A second caller added later inherits it for free, which a check in the
+ * component would not give us.
+ */
 function openShare(): void {
+  if (!can('inviteLink')) {
+    requestUpgrade('inviteLink');
+    return;
+  }
   state.shareOpen = true;
 }
 function closeShare(): void {
@@ -596,6 +659,11 @@ export const store = {
   reloadCatalog,
   // loader
   load,
+  // session & entitlements
+  can,
+  refreshSession,
+  requestUpgrade,
+  closeUpgrade,
   // invites
   addInvite,
   setInviteStatus,

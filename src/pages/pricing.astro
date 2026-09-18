@@ -1,0 +1,296 @@
+---
+import '../styles/global.css';
+import NavBar from '../components/NavBar.astro';
+import Footer from '../components/Footer.astro';
+const base = import.meta.env.BASE_URL;
+
+// The three ways to run BottleCount. Everything in `planning` is unconditional;
+// the paid line is drawn at the features that need a server to exist at all.
+// Keep this table in step with shared/tiers.ts — it is the sales copy for the
+// same decisions that file encodes.
+const plans = [
+  {
+    key: 'browser',
+    name: 'Browser',
+    price: 'Free',
+    priceNote: 'no account, forever',
+    pitch:
+      'The whole planner, running entirely in your browser. Nothing is uploaded, because there is nowhere to upload it to.',
+    cta: { label: 'Open the app', href: `${base}app` },
+    featured: false,
+    has: [
+      'Auto-balancing drink menu',
+      'Shopping list with price ranges',
+      'Live budget and break-even',
+      'Custom ingredients and cocktails',
+      'Guest list you type yourself',
+      'Signed QR tickets',
+      'Door scanner on one device',
+    ],
+    hasnt: [
+      'Shareable invite link',
+      'RSVP funnel and spread view',
+      'Co-organisers',
+      'Sync across your devices',
+    ],
+  },
+  {
+    key: 'hosted',
+    name: 'Hosted',
+    price: '€29',
+    priceNote: 'one payment, no subscription',
+    pitch:
+      'Everything above, plus the parts that need a server: links other people can open, a party two of you can run, and your data on more than one device.',
+    cta: { label: 'Sign in to get started', href: '/auth/google' },
+    featured: true,
+    has: [
+      'Everything in Browser',
+      'Shareable invite link — guests add themselves',
+      'RSVP funnel and friends-of-friends spread',
+      'Co-organisers on the same party',
+      'Your parties on every device you sign in on',
+      'Several phones scanning the same door',
+    ],
+    hasnt: [],
+  },
+  {
+    key: 'selfhost',
+    name: 'Self-hosted',
+    price: 'Free',
+    priceNote: 'your Cloudflare account',
+    pitch:
+      'The same code, deployed to your own Cloudflare account. Every paid feature is on, because there is nobody to pay — you are running the server.',
+    cta: {
+      label: 'Read the setup guide',
+      href: 'https://github.com/Fre0Grella/BottleCount#self-hosting',
+    },
+    featured: false,
+    has: [
+      'Everything in Hosted',
+      'Your own D1 database',
+      'Sign in without a Google client, if you prefer',
+      'Free tier of Cloudflare is enough for a party',
+    ],
+    hasnt: ['Support from us', 'Updates unless you deploy them'],
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pricing · BottleCount</title>
+    <meta
+      name="description"
+      content="BottleCount runs free in your browser, hosted for a one-time payment, or self-hosted on your own Cloudflare account."
+    />
+    <link rel="icon" href={`${base}faviconDark.svg`} />
+  </head>
+  <body>
+    <NavBar active="pricing" />
+    <main class="page">
+      <header class="pricing-head">
+        <h1>Three ways to run it</h1>
+        <p>
+          The planning side is free and always will be — it never needed a
+          server. What you pay for is the part that does: a link your guests can
+          open, a party two people can run, and your data somewhere other than
+          one browser. If you would rather run that server yourself, the code is
+          the same and it costs nothing.
+        </p>
+      </header>
+
+      <div class="plans">
+        {
+          plans.map((plan) => (
+            <section class={`plan${plan.featured ? ' plan--featured' : ''}`}>
+              {plan.featured && <div class="plan-flag">Most complete</div>}
+              <h2 class="plan-name">{plan.name}</h2>
+              <div class="plan-price">{plan.price}</div>
+              <div class="plan-price-note">{plan.priceNote}</div>
+              <p class="plan-pitch">{plan.pitch}</p>
+              <a
+                class={`btn ${plan.featured ? 'btn-primary' : 'btn-ghost'} btn-full`}
+                href={plan.cta.href}
+              >
+                {plan.cta.label}
+              </a>
+              <ul class="plan-list">
+                {plan.has.map((item) => (
+                  <li class="plan-has">{item}</li>
+                ))}
+                {plan.hasnt.map((item) => (
+                  <li class="plan-hasnt">{item}</li>
+                ))}
+              </ul>
+            </section>
+          ))
+        }
+      </div>
+
+      <section class="pricing-faq">
+        <h2>Questions people actually ask</h2>
+
+        <h3>Is the free tier a trial?</h3>
+        <p>
+          No. It has no expiry, no account and no card. If planning a party in
+          one browser is all you need, that is the finished product and you are
+          done.
+        </p>
+
+        <h3>What does "one payment" mean?</h3>
+        <p>
+          You pay once and the features stay on. There is no renewal to forget
+          and nothing to cancel.
+        </p>
+
+        <h3>What happens to my existing parties if I sign in?</h3>
+        <p>
+          Nothing, for now. Parties still live in your browser on every plan;
+          moving them to your account is the next thing being built, and it will
+          import what you already have rather than start you over.
+        </p>
+
+        <h3>Why is self-hosting free when hosting costs money?</h3>
+        <p>
+          Because hosting is the thing being sold, not the software. Running the
+          Worker, the database and the door-scanner sync is what the payment
+          covers. Do that yourself and there is nothing left to charge for.
+        </p>
+      </section>
+    </main>
+    <Footer />
+  </body>
+
+  <style>
+    .pricing-head {
+      max-width: 60ch;
+      margin: 0 auto var(--space-6) auto;
+      text-align: center;
+    }
+    .pricing-head h1 {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: clamp(1.9rem, 5vw, 2.6rem);
+      letter-spacing: -0.02em;
+      margin: 0 0 var(--space-4) 0;
+    }
+    .pricing-head p {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: var(--space-4);
+      align-items: start;
+      margin-bottom: var(--space-6);
+    }
+
+    .plan {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--surface-3);
+      border-radius: 16px;
+      padding: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    .plan--featured {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-ambient);
+    }
+    .plan-flag {
+      position: absolute;
+      top: -11px;
+      left: var(--space-5);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: oklch(20% 0.04 55);
+    }
+    .plan-name {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 1.05rem;
+      margin: 0;
+    }
+    .plan-price {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 2.1rem;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .plan-price-note {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: calc(-1 * var(--space-2));
+    }
+    .plan-pitch {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.65;
+      margin: 0;
+      flex: 1;
+    }
+
+    .plan-list {
+      list-style: none;
+      padding: 0;
+      margin: var(--space-2) 0 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      font-size: 0.85rem;
+    }
+    .plan-list li {
+      padding-left: 1.4rem;
+      position: relative;
+      line-height: 1.5;
+    }
+    .plan-has::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: 700;
+    }
+    .plan-hasnt {
+      color: var(--muted);
+    }
+    .plan-hasnt::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: var(--surface-4);
+      font-weight: 700;
+    }
+
+    .pricing-faq {
+      max-width: 62ch;
+      margin: 0 auto;
+    }
+    .pricing-faq h2 {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 1.3rem;
+      margin: 0 0 var(--space-4) 0;
+    }
+    .pricing-faq h3 {
+      font-size: 0.98rem;
+      margin: var(--space-5) 0 var(--space-2) 0;
+    }
+    .pricing-faq p {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 0;
+    }
+  </style>
+</html>

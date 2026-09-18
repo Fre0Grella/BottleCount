@@ -16,6 +16,10 @@ const cover = computed(() => {
   return COVERS[p.cover] ?? COVERS[0];
 });
 
+// Built from the origin the app is actually served from, so a preview
+// deployment, a self-hosted domain and the hosted app each hand out a link that
+// points back at themselves. The `/i/` route that resolves these is still to
+// come — see docs/adr/0001-cloudflare-tiers.md.
 const inviteLink = computed(() => {
   const p = party.value;
   if (!p) return '';
@@ -24,7 +28,14 @@ const inviteLink = computed(() => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'party';
-  return `bottlecount.app/i/${slug}-${p.id}`;
+  const origin =
+    typeof window === 'undefined'
+      ? 'bottlecount.pages.dev'
+      : window.location.host;
+  // BASE_URL, not a bare `/`: a build served under a path prefix would
+  // otherwise hand out links that miss the prefix entirely.
+  const base = import.meta.env.BASE_URL as string;
+  return `${origin}${base}i/${slug}-${p.id}`;
 });
 
 const venueWhere = computed(() => {

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useStore, COVERS } from '../lib/store';
 import Icon from './Icon.vue';
 import AppFooter from './AppFooter.vue';
+import AccountButton from './AccountButton.vue';
 import type { Party } from '../lib/types';
 
 const store = useStore();
@@ -142,6 +143,7 @@ async function handleDelete(e: Event, id: number): Promise<void> {
         </span>
       </a>
       <div style="display: flex; align-items: center; gap: 8px">
+        <AccountButton />
         <a
           :href="`${base}docs`"
           style="

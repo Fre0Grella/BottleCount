@@ -1,23 +1,52 @@
 # 🍾 BottleCount
 
-Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, cost range, break-even point, and optional QR-based ticket workflow in a fully static web app.
+Plan your party like an engineer. Configure drinks, cocktail recipes, and headcount — get a precise shopping list, cost range, break-even point, and a QR-based ticket workflow.
+
+Run it free in your browser with no account, pay once for the hosted version, or deploy it to your own Cloudflare account for nothing. See [Pricing](#how-to-run-it).
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Astro](https://img.shields.io/badge/Astro-5.x-BC52EE?logo=astro&logoColor=white)](https://astro.build/)
 [![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![Hono](https://img.shields.io/badge/Hono-Workers-E36002?logo=hono&logoColor=white)](https://hono.dev/)
 [![Dexie](https://img.shields.io/badge/Dexie-IndexedDB-F7DF1E?logo=javascript&logoColor=black)](https://dexie.org/)
-[![GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-222222?logo=githubpages&logoColor=white)](https://pages.github.com/)
+[![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/pages/)
 [![License: PolyForm NC](https://img.shields.io/badge/License-PolyForm_NC-3db077)](LICENSE)
 
-**Live:** https://fre0grella.github.io/BottleCount
+**App:** https://bottlecount.pages.dev · **Docs:** https://fre0grella.github.io/BottleCount
 
 ---
 
 ## What It Does
 
-BottleCount helps you plan ticketed parties without spreadsheets, guesswork, or backend infrastructure. You define **who's coming**, **what they're drinking**, **how strong the event should be**, and **what things cost** — the app calculates the shopping list and the economics from your menu structure.
+BottleCount helps you plan ticketed parties without spreadsheets or guesswork. You define **who's coming**, **what they're drinking**, **how strong the event should be**, and **what things cost** — the app calculates the shopping list and the economics from your menu structure.
 
-The current version is designed as a **static, offline-first tool**: presets ship with the app, your customizations live in the browser, and optional ticket validation can sync through your own Google Sheet setup when you need multiple scanners.
+The planning side needs no server and never will: presets ship with the app, your customizations live in the browser, and it works offline. What a server buys you is the part that is inherently shared — a link your guests can open, a party two people can run, and your data on more than one device.
+
+---
+
+## How to run it
+
+|                                  | Browser           | Hosted         | Self-hosted                |
+| -------------------------------- | ----------------- | -------------- | -------------------------- |
+| **Price**                        | free, forever     | one payment    | free                       |
+| **Account**                      | none              | Google sign-in | Google, or a local sign-in |
+| **Your data**                    | this browser only | your account   | your Cloudflare account    |
+| Menu, shopping list, budget      | ✅                | ✅             | ✅                         |
+| Custom ingredients and cocktails | ✅                | ✅             | ✅                         |
+| Guest list you type yourself     | ✅                | ✅             | ✅                         |
+| Signed QR tickets, one scanner   | ✅                | ✅             | ✅                         |
+| Shareable invite link            | —                 | ✅             | ✅                         |
+| RSVP funnel and spread view      | —                 | ✅             | ✅                         |
+| Co-organisers on one party       | —                 | ✅             | ✅                         |
+| Sync across devices              | —                 | ✅             | ✅                         |
+| Several phones on the door       | —                 | ✅             | ✅                         |
+
+The free tier is not a trial: no expiry, no account, no card. If planning a party
+in one browser is all you need, that is the finished product.
+
+Self-hosting is free because hosting is the thing being sold, not the software.
+Run the Worker yourself and there is nothing left to charge for — see
+[Self-hosting](#self-hosting).
 
 ---
 
@@ -56,11 +85,12 @@ Alcohol intensity presets still map to pure alcohol targets per person: 🌿 Sof
 
 - Generate signed QR tickets in the browser.
 - Validate tickets locally with HMAC verification and expiry checks.
-- Optional multi-scanner validation through a **user-owned Google Sheet + Apps Script** setup.
+- Multi-scanner check-in on the hosted and self-hosted tiers, where several
+  phones on the door can agree on who has already walked in.
 
-### 📱 Offline-First UX
+### 📱 Offline-First Planning
 
-- Static site deployable on GitHub Pages, with no owned backend.
+- The planner runs entirely client-side and keeps working with no network.
 - Browser storage keeps your custom catalog, settings, and tickets on-device.
 - Export/import backup flow is recommended for portability and recovery.
 
@@ -68,19 +98,48 @@ Alcohol intensity presets still map to pure alcohol targets per person: 🌿 Sof
 
 ## Tech Stack
 
-BottleCount is a **100% static site** with a TypeScript-first frontend architecture.
+TypeScript everywhere, and a frontend that still runs with the backend switched off.
 
-| Layer          | Technology                            |
-| -------------- | ------------------------------------- |
-| Language       | TypeScript (strict)                   |
-| Framework      | Astro + Vue 3                         |
-| Build          | Vite via Astro                        |
-| Client storage | Dexie.js on IndexedDB                 |
-| Crypto         | Web Crypto API (HMAC-SHA256)          |
-| QR generation  | `qrcode`                              |
-| QR scanning    | `nimiq/qr-scanner`                    |
-| Optional sync  | User-owned Google Sheet + Apps Script |
-| Deploy         | GitHub Pages via `withastro/action`   |
+| Layer          | Technology                                     |
+| -------------- | ---------------------------------------------- |
+| Language       | TypeScript (strict)                            |
+| Frontend       | Astro + Vue 3, built with Vite                 |
+| Client storage | Dexie.js on IndexedDB                          |
+| Crypto         | Web Crypto API (HMAC-SHA256)                   |
+| QR generation  | `qrcode`                                       |
+| QR scanning    | `nimiq/qr-scanner`                             |
+| API            | Hono on Cloudflare Workers                     |
+| Database       | Cloudflare D1                                  |
+| Auth           | Google OAuth → HS256 JWT in an httpOnly cookie |
+| Frontend host  | Cloudflare Pages (docs on GitHub Pages)        |
+
+### How the pieces fit
+
+```
+browser ──▶ Cloudflare Pages ──┬──▶ static Astro build
+                               │
+                               └──▶ Pages Function (functions/)
+                                        │  service binding, same origin
+                                        ▼
+                                  Hono Worker ──▶ D1
+```
+
+`/api/*` and `/auth/*` are forwarded to the Worker over a **service binding**,
+not a public URL. That is an internal dispatch, so the browser only ever talks
+to one origin: the session cookie is first-party and no CORS preflight sits
+between a user and signing in.
+
+Remove the binding — or deploy the static build anywhere else, as the GitHub
+Pages job does — and the app degrades cleanly to the free browser-only tier
+instead of failing. That is deliberate, and
+[`src/lib/session.ts`](src/lib/session.ts) is where it is enforced.
+
+### One table decides what is locked
+
+[`shared/tiers.ts`](shared/tiers.ts) is imported by both the Worker and the
+frontend. A capability the UI hides but the API still serves is a paywall that
+leaks; one the API refuses but the UI offers is a bug report. Both sides reading
+the same table is the only version of this that stays honest.
 
 ---
 
@@ -121,40 +180,133 @@ N\_{\text{be}} = \left\lceil \frac{\text{fixed costs}}{\text{ticket price} - \te
 ```bash
 git clone https://github.com/fre0grella/BottleCount
 cd BottleCount
-npm install
+npm run install:all
+```
+
+**Frontend only** — the free tier, and all you need for anything on the planning
+side:
+
+```bash
 npm run dev
 ```
 
-Open the local Astro dev server shown in the terminal.
+**With the backend**, in a second terminal:
+
+```bash
+cp backend/.dev.vars.example backend/.dev.vars   # set JWT_SECRET to anything
+npm --prefix backend run db:init:local           # apply migrations to local D1
+npm run backend:dev                              # wrangler dev --env local
+```
+
+The `local` Worker environment sets `SELF_HOSTED=true`, so you can sign in
+without registering a Google OAuth client:
+
+```bash
+curl -X POST http://localhost:8787/auth/dev \
+  -H 'content-type: application/json' \
+  -d '{"email":"you@example.com"}' -c cookies.txt
+```
+
+Checks, all of which CI runs:
+
+```bash
+npm run lint
+npm run typecheck     # astro check + backend tsc
+npm test              # backend route and tier tests
+npm run build
+```
 
 ---
 
-## Deploy to GitHub Pages
+## Deploying
 
-1. Push to `main`.
-2. In GitHub repo settings, set Pages source to **GitHub Actions**.
-3. The workflow in `.github/workflows/deploy.yml` deploys the site automatically through `withastro/action`.
+### Cloudflare (the app)
+
+One-time setup:
+
+```bash
+npx wrangler d1 create db                # paste the id into backend/wrangler.jsonc
+cd backend
+npx wrangler secret put JWT_SECRET --env production
+npx wrangler secret put GOOGLE_CLIENT_SECRET --env production
+npm run db:migrate:remote
+npm run deploy:production                # the Worker must exist before Pages
+```
+
+Then create a Pages project named `bottlecount` pointing at this repository, and
+add the service binding in `wrangler.toml` (`BACKEND` → `bottlecount-backend`).
+Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets and
+`.github/workflows/deploy-cloudflare.yml` takes over from there. Without those
+secrets the workflow skips rather than failing, so a fork stays green.
+
+Your Google OAuth client's authorised redirect URI is `<FRONTEND_URL>/auth/google`
+— the **frontend** origin, because the Pages Function proxies it back to the
+Worker.
+
+### GitHub Pages (the docs)
+
+Push to `main` and `.github/workflows/deploy.yml` builds the same source with
+`BASE_PATH=/BottleCount/`. There is no backend behind that deployment, which is
+fine: the app settles on the free browser-only tier.
 
 ---
 
-## Google Sheet Setup
+## Self-hosting
 
-For multi-device ticket validation at the door, each organizer can connect their own Google Sheet rather than relying on a shared backend.
+Every paid feature is on, and it costs nothing beyond a Cloudflare account —
+the free plan is more than enough for a party.
 
-1. Create a Google Sheet with columns `ticketId`, `used`, and `usedAt`.
-2. Open **Extensions → Apps Script** and paste `apps-script/validate.gs`.
-3. Add a script property named `TOKEN`, then deploy the script as a web app.
-4. Paste the Apps Script URL and token into the app's scanner configuration panel.
+```bash
+git clone https://github.com/fre0grella/BottleCount
+cd BottleCount && npm run install:all
 
-This keeps the static-site architecture intact while allowing atomic ticket validation across multiple scanners.
+npx wrangler d1 create db          # paste the id into the `selfhosted` env
+cd backend
+# in wrangler.jsonc, set env.selfhosted.vars.FRONTEND_URL to your Pages domain
+npx wrangler secret put JWT_SECRET --env selfhosted
+npm run db:migrate:remote
+npx wrangler deploy --env selfhosted
+```
+
+Then deploy the frontend to Pages (`npm run build && npx wrangler pages deploy dist`)
+and bind `BACKEND` to your Worker.
+
+`SELF_HOSTED=true` promotes every **signed-in** user to the full feature set. It
+does not promote anonymous visitors: co-organisers and the invite funnel need to
+know who is who even when the server is yours. `POST /auth/dev` lets you sign in
+without a Google client if you would rather not register one.
+
+---
+
+## Issuing licences
+
+Until a checkout provider is wired up, fulfilment on the hosted tier is manual:
+
+```bash
+npm --prefix backend run licence:issue -- --env production --note "ko-fi #128"
+```
+
+It prints a code like `BC-7K2M-QP4X-9DNR` and inserts it into D1. The buyer
+redeems it in the app, which flips their tier to `pro`.
 
 ---
 
 ## Data, Persistence & Privacy
 
-BottleCount stores user data in the browser's IndexedDB through Dexie. That means your custom ingredients, cocktails, settings, generated tickets, and local app state stay on your device unless you explicitly use the optional Google Sheet flow.
+BottleCount stores user data in the browser's IndexedDB through Dexie. Your custom ingredients, cocktails, settings, generated tickets and local app state stay on your device.
+
+On the free tier that is the whole story — there is no account and nothing is uploaded, because there is nowhere to upload it to. Signing in adds an account record (id, email, name, avatar URL, tier) in D1; party data is still local for every tier today, and moving it is the next piece of work ([ADR 0001](docs/adr/0001-cloudflare-tiers.md)).
 
 Because browser storage is still local storage, export/import backup tools are an important part of the workflow for portability and recovery.
+
+---
+
+## Architecture decisions
+
+- [ADR 0001 — Cloudflare, and three ways to run BottleCount](docs/adr/0001-cloudflare-tiers.md)
+
+The backend has [its own README](backend/README.md) covering routes, local
+setup, deployment and what the tests do and do not cover.
 
 ---
 

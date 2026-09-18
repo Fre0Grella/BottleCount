@@ -1,0 +1,11 @@
+# Copy to backend/.dev.vars for `wrangler dev --env local`.
+# Secrets only — anything non-secret belongs in wrangler.jsonc `vars`.
+
+# Signs the session cookie. Any long random string locally; in production set it
+# with `wrangler secret put JWT_SECRET --env production`.
+JWT_SECRET="dev-only-change-me"
+
+# Optional locally: without them /auth/google returns 500 and you sign in with
+# POST /auth/dev instead.
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""

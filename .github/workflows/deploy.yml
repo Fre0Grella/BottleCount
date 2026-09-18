@@ -1,4 +1,14 @@
-name: Deploy to GitHub Pages
+# GitHub Pages — documentation and the public showcase.
+#
+# The app's home is Cloudflare Pages (see deploy-cloudflare.yml). This build is
+# the same source served under the repository's path prefix, which is why
+# BASE_PATH is set here and defaults to "/" everywhere else: hard-coding either
+# root in astro.config.mjs would break the other host.
+#
+# There is no backend behind this deployment, and that is fine by design — the
+# Pages Functions proxy is absent, /api/session is unreachable, and the app
+# settles on the free, browser-only tier.
+name: Deploy docs to GitHub Pages
 
 on:
   push:
@@ -23,6 +33,9 @@ jobs:
         with:
           package-manager: 'npm'
           node-version: 22
+        env:
+          BASE_PATH: /BottleCount/
+          SITE: https://fre0grella.github.io
 
   deploy:
     needs: build
