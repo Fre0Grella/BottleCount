@@ -1,5 +1,6 @@
 ---
 import '../styles/theme.css';
+import { APP_URL } from '../lib/links';
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -54,7 +55,7 @@ const base = import.meta.env.BASE_URL;
         </span>
         Documentation
       </div>
-      <a href={`${base}app`} class="open-app-btn">Open app</a>
+      <a href={APP_URL} class="open-app-btn">Open app</a>
     </header>
 
     <!-- Main content -->

@@ -9,9 +9,9 @@ const store = useStore();
 const session = computed(() => store.state.session);
 
 /**
- * With no backend there is no account to have, so the control hides rather than
- * offering a sign-in that cannot work. That is the GitHub Pages build and any
- * Pages deployment without the service binding.
+ * With no server reachable there is no account to have, so the control hides
+ * rather than offering a sign-in that cannot work — a Worker that is down, or a
+ * self-hosted Pages project with no service binding.
  */
 const visible = computed(
   () => session.value.backendAvailable && !store.state.sessionLoading,

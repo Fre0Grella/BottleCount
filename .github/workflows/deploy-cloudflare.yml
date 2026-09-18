@@ -76,8 +76,9 @@ jobs:
 
       - run: npm ci
 
-      # No BASE_PATH: Cloudflare serves the app at the root, which is the
-      # default in astro.config.mjs.
+      # No BUILD_TARGET and no BASE_PATH: this is the application build, served
+      # at the root, and it is the default in astro.config.mjs. It carries
+      # everything — the free tier and the paid one both run from here.
       - run: npm run build
 
       - name: Deploy Pages

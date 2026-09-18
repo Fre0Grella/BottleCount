@@ -96,9 +96,9 @@ door scanner and the KPI bar did not need to learn about a second source.
   longer change their answer.
 - **`/i/<slug>` needs a Pages Function.** Slugs are minted at runtime, so
   `getStaticPaths` cannot know them; `functions/i/[[slug]].ts` rewrites the whole
-  space onto one built page, which reads the slug off the URL. Invite links
-  therefore do not work on a static-only host — which is moot, since they are a
-  paid feature and that host has no backend.
+  space onto one built page, which reads the slug off the URL. It therefore only
+  works on Cloudflare, which is where the application lives — the documentation
+  build has no `/i` in it at all.
 - **Check-in state is still local.** The server has no idea the door scanner
   exists, so `mergeFunnel` carries `used`/`usedAt` across refreshes rather than
   letting the server blank them. Multi-device scanning (`doorScannerSync`) is

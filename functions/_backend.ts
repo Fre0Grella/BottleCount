@@ -23,9 +23,10 @@ export async function proxyToBackend({
   request,
   env,
 }: ProxyContext): Promise<Response> {
-  // A Pages deployment with no service binding is the browser-only build: the
-  // free tier works entirely client-side, so say so in the shape the frontend
-  // already handles instead of failing the request.
+  // A Pages deployment with no service binding — a self-hoster who has not
+  // wired the Worker up yet. The free tier is entirely client-side, so answer
+  // in the shape the frontend already handles and let the planner carry on,
+  // rather than failing the request.
   if (!env.BACKEND) {
     return Response.json(
       { error: 'backend_unavailable' },

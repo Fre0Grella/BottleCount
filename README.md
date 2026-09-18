@@ -12,7 +12,8 @@ Run it free in your browser with no account, pay once for the hosted version, or
 [![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/pages/)
 [![License: PolyForm NC](https://img.shields.io/badge/License-PolyForm_NC-3db077)](LICENSE)
 
-**App:** https://bottlecount.pages.dev · **Docs:** https://fre0grella.github.io/BottleCount
+**App:** https://bottlecount.pages.dev — the product, free and paid tiers alike
+**Docs:** https://fre0grella.github.io/BottleCount — documentation only, no app
 
 ---
 
@@ -129,10 +130,17 @@ not a public URL. That is an internal dispatch, so the browser only ever talks
 to one origin: the session cookie is first-party and no CORS preflight sits
 between a user and signing in.
 
-Remove the binding — or deploy the static build anywhere else, as the GitHub
-Pages job does — and the app degrades cleanly to the free browser-only tier
-instead of failing. That is deliberate, and
-[`src/lib/session.ts`](src/lib/session.ts) is where it is enforced.
+Both tiers are served from here. The free tier is not a different deployment —
+it is the same app with nobody signed in, which is why `GET /api/session`
+answers anonymous callers instead of rejecting them.
+
+If the Worker is unreachable — it is down, or a self-hoster has not wired the
+service binding up yet — the app degrades cleanly to the free tier instead of
+failing. That is deliberate, and [`src/lib/session.ts`](src/lib/session.ts) is
+where it is enforced.
+
+The documentation site on GitHub Pages is a separate build that contains no
+application at all; see [Deploying](#deploying).
 
 ### One table decides what is locked
 
@@ -243,11 +251,21 @@ Your Google OAuth client's authorised redirect URI is `<FRONTEND_URL>/auth/googl
 — the **frontend** origin, because the Pages Function proxies it back to the
 Worker.
 
-### GitHub Pages (the docs)
+### GitHub Pages (the documentation)
 
 Push to `main` and `.github/workflows/deploy.yml` builds the same source with
-`BASE_PATH=/BottleCount/`. There is no backend behind that deployment, which is
-fine: the app settles on the free browser-only tier.
+`BUILD_TARGET=docs`, which publishes the landing page, docs, pricing and legal
+pages under `/BottleCount/` — and **leaves the application out**. `/app`,
+`/auth` and `/i` are deleted from that build, because each needs the Worker and
+there is none behind GitHub Pages; a copy of the product that looks real and
+fails at sign-in is worse than no copy. Links to the app from the docs point at
+the Cloudflare deployment via `PUBLIC_APP_URL`.
+
+Build it locally the same way:
+
+```bash
+BUILD_TARGET=docs BASE_PATH=/BottleCount/ npm run build
+```
 
 ---
 

@@ -37,5 +37,22 @@ jobs:
 
       # Catches the failure mode a typecheck cannot: a build that trips over
       # the shared/ imports crossing the package boundary.
-      - name: Build frontend
+      - name: Build the application
         run: npm run build
+
+      - name: Build the documentation
+        run: npm run build:docs
+
+      # The documentation site has no Worker behind it, so shipping /app,
+      # /auth or /i there would publish a copy of the product that looks real
+      # and fails at sign-in. astro.config.mjs strips them; this checks it.
+      - name: Documentation build must contain no application
+        run: |
+          failed=0
+          for route in app auth i; do
+            if [ -e "dist/$route" ]; then
+              echo "::error::dist/$route is in the documentation build — it needs the Worker, and GitHub Pages has none"
+              failed=1
+            fi
+          done
+          exit $failed

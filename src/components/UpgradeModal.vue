@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useStore } from '../lib/store';
 import { redeemLicence } from '../lib/session';
 import type { Feature } from '../../shared/tiers';
+import { APP_URL } from '../lib/links';
 import Modal from './Modal.vue';
 import Icon from './Icon.vue';
 
@@ -122,15 +123,29 @@ watch(feature, (f) => {
         {{ copy.body }}
       </p>
 
+      <p
+        v-if="!session.backendAvailable"
+        style="
+          font-size: 12.5px;
+          line-height: 1.6;
+          color: var(--dim);
+          margin: -8px 0 16px 0;
+        "
+      >
+        We can't reach the server from here, so there's nothing to sign in to
+        right now. Everything on the planning side keeps working offline.
+      </p>
+
       <!--
-        No backend behind this deployment — the GitHub Pages docs build, or a
-        Pages project with no service binding. There is no account to make and
-        no code to redeem here, so point at the hosted app rather than offering
-        a sign-in link that would 404.
+        No server answered. On the hosted app that means the Worker is down or
+        unreachable; on a self-hosted copy it usually means the Pages project
+        has no service binding. Either way there is no account to make and no
+        code to redeem, so say so plainly instead of offering a sign-in link
+        that cannot work.
       -->
       <a
         v-if="!session.backendAvailable"
-        href="https://bottlecount.pages.dev/app"
+        :href="APP_URL"
         style="
           display: flex;
           align-items: center;
@@ -148,7 +163,7 @@ watch(feature, (f) => {
         "
       >
         <Icon name="share" :size="15" />
-        Open the hosted app
+        Reload the app
       </a>
 
       <!-- Signed out: signing in is the first step either way. -->

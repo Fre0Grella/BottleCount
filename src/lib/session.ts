@@ -5,10 +5,10 @@ import { featuresFor } from '../../shared/tiers';
  * What the app assumes before — and if need be instead of — an answer from the
  * server: an anonymous browser on the free tier.
  *
- * This is the whole browser-only product, so it is a real state rather than a
- * loading placeholder. A GitHub Pages build, a Worker that is down, an offline
- * phone and a user who simply never signed in all land here, and all of them
- * get a working planner.
+ * This is the whole free product, so it is a real state rather than a loading
+ * placeholder. A user who never signed in, an offline phone, a Worker that is
+ * down and a self-hosted Pages project whose service binding is missing all
+ * land here, and every one of them gets a working planner.
  */
 export const ANONYMOUS_SESSION: SessionDTO = Object.freeze({
   authenticated: false,

@@ -94,8 +94,10 @@ a 404 at the last step of every sign-in.
 - **The invite link still resolves to nothing.** It is now gated behind `pro`
   and built from the real origin instead of a hard-coded `bottlecount.app`, but
   the `/i/` route that serves it lands with the party-data work.
-- **GitHub Pages keeps working** and becomes the documentation host. The same
-  source builds for both, with `BASE_PATH` deciding the root.
+- **GitHub Pages becomes the documentation host** and stops serving the app.
+  The same source builds for both; `BUILD_TARGET=docs` sets the root and drops
+  the application routes from the output, since every one of them needs the
+  Worker (superseded in detail by ADR 0002's consequences).
 - **The D1 SQL is not covered by tests.** `@cloudflare/vitest-pool-workers`
   currently peers on Vitest 4 while this project is on 5, so the route tests run
   on plain Vitest against fake repositories. They cover routing, the session

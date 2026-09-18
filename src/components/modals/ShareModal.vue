@@ -30,12 +30,12 @@ const publication = computed(() => party.value?.publication ?? null);
 const inviteLink = computed(() => {
   const pub = publication.value;
   if (!pub) return '';
-  const origin =
-    typeof window === 'undefined'
-      ? 'bottlecount.pages.dev'
-      : window.location.host;
+  // `window` is always there: the whole app mounts under `client:only`, so this
+  // never renders on the server. Reading the live host is also what makes a
+  // preview deployment and a self-hosted domain each hand out links that point
+  // back at themselves.
   return inviteUrl(
-    origin,
+    window.location.host,
     import.meta.env.BASE_URL as string,
     pub.slug,
     pub.rootToken,

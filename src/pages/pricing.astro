@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import NavBar from '../components/NavBar.astro';
 import Footer from '../components/Footer.astro';
+import { APP_URL } from '../lib/links';
 const base = import.meta.env.BASE_URL;
 
 // The three ways to run BottleCount. Everything in `planning` is unconditional;
@@ -16,7 +17,7 @@ const plans = [
     priceNote: 'no account, forever',
     pitch:
       'The whole planner, running entirely in your browser. Nothing is uploaded, because there is nowhere to upload it to.',
-    cta: { label: 'Open the app', href: `${base}app` },
+    cta: { label: 'Open the app', href: APP_URL },
     featured: false,
     has: [
       'Auto-balancing drink menu',
