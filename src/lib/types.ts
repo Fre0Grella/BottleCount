@@ -169,13 +169,23 @@ export interface Party {
   publication?: PartyPublication | null;
 }
 
-/** The host's half of a published party — see shared/invites.ts. */
+/**
+ * Set once a party is stored server-side, which is what makes co-organisers
+ * and the invite link possible. Its absence means the party is local-only.
+ */
 export interface PartyPublication {
   /** The party's id on the server. */
   remoteId: string;
-  slug: string;
+  /** The document version this browser's copy was built from. */
+  version: number;
+  /**
+   * The guest-facing link, or null when it has never been opened or has been
+   * closed. Storing a party is not the same act as opening it to RSVPs, so
+   * these are null for a party shared only with a co-organiser.
+   */
+  slug: string | null;
   /** The host's own link token. Guests who use it land at depth 0. */
-  rootToken: string;
+  rootToken: string | null;
   publishedAt: string;
 }
 

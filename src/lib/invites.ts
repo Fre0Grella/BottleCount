@@ -3,10 +3,8 @@ import type {
   InviteAnswer,
   InviteOpenDTO,
   InviteStatus,
-  PublishedPartyDTO,
-  PublishPartyRequest,
 } from '../../shared/invites';
-import type { Invite, Party } from './types';
+import type { Invite } from './types';
 
 // ── Host-side API ───────────────────────────────────────────────────────────
 
@@ -33,52 +31,15 @@ async function post<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
   }
 }
 
-/** The snapshot guests see. Everything not on this list stays in the browser. */
-export function snapshotOf(party: Party): PublishPartyRequest {
-  return {
-    localId: party.id!,
-    name: party.name,
-    date: party.date,
-    cover: party.cover,
-    venue: {
-      place: party.venue.place,
-      city: party.venue.city,
-      time: party.venue.time,
-    },
-    allowForward: party.allowForward,
-    maxCapacity: party.settings.max_capacity,
-  };
-}
-
-export function publishParty(
-  party: Party,
-): Promise<ApiResult<PublishedPartyDTO>> {
-  return post<PublishedPartyDTO>('/api/parties/publish', snapshotOf(party));
-}
-
-export async function unpublishParty(
-  localId: number,
-): Promise<ApiResult<void>> {
-  try {
-    const res = await fetch(`/api/parties/${localId}/publish`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    return res.ok ? { ok: true } : { ok: false, error: `http_${res.status}` };
-  } catch {
-    return { ok: false, error: 'network_error' };
-  }
-}
-
-/** The host overriding a guest's answer — see `POST /api/parties/:id/invites/:id`. */
+/** The host overriding a guest's answer — see `PATCH /api/parties/:id/invites/:id`. */
 export async function setRemoteInviteStatus(
-  localId: number,
-  remoteId: string,
+  partyId: string,
+  inviteId: string,
   status: InviteStatus,
 ): Promise<ApiResult<void>> {
   try {
     const res = await fetch(
-      `/api/parties/${localId}/invites/${encodeURIComponent(remoteId)}`,
+      `/api/parties/${encodeURIComponent(partyId)}/invites/${encodeURIComponent(inviteId)}`,
       {
         method: 'PATCH',
         credentials: 'include',
@@ -93,13 +54,16 @@ export async function setRemoteInviteStatus(
 }
 
 export async function fetchFunnel(
-  localId: number,
+  partyId: string,
 ): Promise<ApiResult<HostInviteDTO[]>> {
   try {
-    const res = await fetch(`/api/parties/${localId}/invites`, {
-      credentials: 'include',
-      headers: { accept: 'application/json' },
-    });
+    const res = await fetch(
+      `/api/parties/${encodeURIComponent(partyId)}/invites`,
+      {
+        credentials: 'include',
+        headers: { accept: 'application/json' },
+      },
+    );
     if (!res.ok) return { ok: false, error: `http_${res.status}` };
     const body = (await res.json()) as { invites: HostInviteDTO[] };
     return { ok: true, value: body.invites };

@@ -6,6 +6,8 @@
  * still reads is a bug that typechecks on both sides independently.
  */
 
+import type { PartyDocument } from './collab';
+
 // ── Status ──────────────────────────────────────────────────────────────────
 
 export const INVITE_STATUSES = ['opened', 'confirmed', 'declined'] as const;
@@ -103,16 +105,18 @@ export interface PublishedPartyDTO {
   allowForward: boolean;
 }
 
-/** The snapshot a host pushes so guests have something to open. */
+/**
+ * What a host pushes to put a party on the server.
+ *
+ * The whole planning document, not a summary: a co-organiser needs the menu and
+ * the numbers, and the guest-facing card is derived from the same document
+ * server-side rather than sent alongside it — two copies of the party's name
+ * travelling together is two copies that can disagree.
+ */
 export interface PublishPartyRequest {
   /** The party's id in the host's browser. Republishing with it updates in place. */
   localId: number;
-  name: string;
-  date: string;
-  cover: number;
-  venue: { place: string; city: string; time: string };
-  allowForward: boolean;
-  maxCapacity: number | null;
+  document: PartyDocument;
 }
 
 // ── Link building ───────────────────────────────────────────────────────────

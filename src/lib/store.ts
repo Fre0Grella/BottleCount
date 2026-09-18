@@ -8,13 +8,23 @@ import type {
 } from './types';
 import { db } from './db';
 import { fetchSession, ANONYMOUS_SESSION } from './session';
+import { fetchFunnel, mergeFunnel, setRemoteInviteStatus } from './invites';
 import {
-  fetchFunnel,
-  mergeFunnel,
-  publishParty,
-  setRemoteInviteStatus,
-  unpublishParty,
-} from './invites';
+  applyDocument,
+  documentOf,
+  closeInviteLink,
+  createCollaboratorInvite,
+  deleteRemoteParty,
+  fetchParty,
+  listMembers,
+  listParties,
+  openInviteLink,
+  removeMember,
+  revokeCollaboratorInvites,
+  storeParty,
+} from './collab';
+import { PartySync } from './sync';
+import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
 import type { SessionDTO } from '../../shared/session';
 import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
@@ -110,6 +120,16 @@ interface StoreState {
   upgradeFor: Feature | null;
   /** True while a publish/republish is in flight. */
   publishing: boolean;
+  /** The active party's co-organisers, when it is on the server. */
+  members: PartyMemberDTO[];
+  /** The caller's role on the active party. Null when it is local-only. */
+  role: PartyRole | null;
+  /** True while local edits are waiting to reach the server. */
+  syncPending: boolean;
+  /** Set when a sync attempt failed. Cleared by the next success. */
+  syncError: string | null;
+  /** The co-organisers sheet. */
+  membersOpen: boolean;
   /** True while the funnel is being pulled. Never blocks the UI. */
   funnelSyncing: boolean;
   funnelSyncedAt: string | null;
@@ -144,6 +164,11 @@ const state = reactive<StoreState>({
   scanHistory: [],
   upgradeFor: null,
   publishing: false,
+  members: [],
+  role: null,
+  syncPending: false,
+  syncError: null,
+  membersOpen: false,
   funnelSyncing: false,
   funnelSyncedAt: null,
   publishError: null,
@@ -184,6 +209,10 @@ function update(mutator: (p: Party) => void): void {
   void persistActive().catch((err) => {
     console.error('Failed to persist party changes', err);
   });
+  // Every edit goes through here, so this is the one place that has to tell the
+  // sync engine something changed. It diffs against what the server is believed
+  // to hold and sends only that, debounced — see lib/sync.ts.
+  sync?.record(p);
 }
 
 /**
@@ -216,6 +245,12 @@ async function refreshSession(): Promise<void> {
     state.session = await fetchSession();
   } finally {
     state.sessionLoading = false;
+  }
+  // A co-organiser's first sight of a party is here: they accepted an
+  // invitation elsewhere, so it exists for them on the server and nowhere
+  // locally. Failures are silent — the local parties still work.
+  if (state.session.authenticated) {
+    await syncPartyList().catch(() => {});
   }
 }
 
@@ -298,14 +333,32 @@ function openParty(id: number): void {
   state.activeId = id;
   state.route = 'party';
   state.tab = 'plan';
+
+  const party = state.parties.find((p) => p.id === id);
+  const publication = party?.publication;
+  if (party && publication) {
+    startSync(party, publication.version);
+    void pull();
+  }
 }
 
 function closeParty(): void {
+  // Flush before tearing down, or the last edit before navigating home is the
+  // one that never reaches the other organiser.
+  void sync?.flush();
+  stopSync();
   state.route = 'home';
   state.activeId = null;
 }
 
 async function deleteParty(id: number): Promise<void> {
+  const party = state.parties.find((p) => p.id === id);
+  // Deleting a shared party has to reach the server, or the co-organisers keep
+  // it and it reappears here on the next list sync.
+  const remoteId = party?.publication?.remoteId;
+  if (remoteId) await deleteRemoteParty(remoteId);
+  if (state.activeId === id) stopSync();
+
   await db.parties.delete(id);
   const idx = state.parties.findIndex((p) => p.id === id);
   if (idx !== -1) state.parties.splice(idx, 1);
@@ -533,31 +586,154 @@ async function reloadCatalog(): Promise<void> {
   state.catalog = await loadCatalog();
 }
 
-// ── Publishing & the funnel ────────────────────────────────────────────────
+// ── Cloud sync & co-organisers ─────────────────────────────────────────────
 
 /**
- * Turns the invite link on, or refreshes what guests see.
+ * The sync engine for whichever party is open, or null.
  *
- * Called every time the share sheet opens, not only the first time: the host
- * may have renamed the party or moved the venue since, and the published card
- * is what guests read. Republishing keeps the slug, so links already sent
- * survive an edit.
+ * One at a time on purpose: only the open party is being edited, and a poll per
+ * party in the list would be a lot of requests to learn nothing.
  */
-async function publishActiveParty(): Promise<boolean> {
+let sync: PartySync | null = null;
+let pullTimer: ReturnType<typeof setInterval> | null = null;
+
+const PULL_MS = 6000;
+
+function stopSync(): void {
+  sync?.stop();
+  sync = null;
+  if (pullTimer !== null) clearInterval(pullTimer);
+  pullTimer = null;
+  state.syncPending = false;
+  state.members = [];
+  state.role = null;
+}
+
+/** Applies a document that arrived from the server to the open party. */
+function adoptDocument(
+  document: Parameters<typeof applyDocument>[1],
+  partyId: number,
+): void {
+  const p = state.parties.find((x) => x.id === partyId);
+  if (!p) return;
+  applyDocument(p, document);
+  void persist(p);
+}
+
+async function persist(p: Party): Promise<void> {
+  await db.parties.put(structuredClone(toRaw(p)));
+}
+
+/**
+ * Starts pushing and pulling for the open party.
+ *
+ * Pulling is a poll rather than a socket: two organisers make a handful of
+ * edits a minute between them, and a Durable Object to push those would cost
+ * more to run and more to reason about than it saves.
+ */
+function startSync(party: Party, version: number): void {
+  stopSync();
+  const publication = party.publication;
+  if (!publication || !party.id) return;
+
+  const localId = party.id;
+  sync = new PartySync(publication.remoteId, documentOf(party), version, {
+    onRemoteDocument: (document) => adoptDocument(document, localId),
+    onVersion: (v) => {
+      state.syncError = null;
+      if (party.publication) party.publication.version = v;
+    },
+    onError: (error) => {
+      state.syncError = error;
+    },
+    onPendingChanged: (pending) => {
+      state.syncPending = pending;
+    },
+  });
+
+  pullTimer = setInterval(() => void pull(), PULL_MS);
+}
+
+/** Pulls the party, so somebody else's edits show up here. */
+async function pull(): Promise<void> {
+  const p = activeParty();
+  const remoteId = p?.publication?.remoteId;
+  if (!p || !remoteId || !sync) return;
+
+  // Don't pull over our own unsent work — the push is about to make this
+  // version stale anyway, and the merge would be doing it twice.
+  if (sync.hasPending) return;
+
+  const result = await fetchParty(remoteId);
+  if (!result.ok || !result.value) return;
+
+  const shared = result.value;
+  state.members = shared.members;
+  state.role = shared.role;
+  if (shared.version !== sync.currentVersion) {
+    sync.adopt(shared.document, shared.version);
+  }
+}
+
+/**
+ * Puts the active party on the server, which is what makes co-organisers and
+ * the invite link possible. Idempotent.
+ */
+async function shareActiveParty(): Promise<boolean> {
   const p = activeParty();
   if (!p?.id) return false;
+  if (!can('cloudSync')) {
+    requestUpgrade('cloudSync');
+    return false;
+  }
 
   state.publishing = true;
   state.publishError = null;
   try {
-    const result = await publishParty(p);
+    const result = await storeParty(p);
+    if (!result.ok || !result.value) {
+      state.publishError = result.error ?? 'share_failed';
+      return false;
+    }
+    const shared = result.value;
+    update((party) => {
+      party.publication = {
+        remoteId: shared.id,
+        version: shared.version,
+        slug: shared.publication?.slug ?? null,
+        rootToken: shared.publication?.rootToken ?? null,
+        publishedAt: shared.updatedAt,
+      };
+    });
+    state.members = shared.members;
+    state.role = shared.role;
+    startSync(p, shared.version);
+    return true;
+  } finally {
+    state.publishing = false;
+  }
+}
+
+/** Opens the guest-facing invite link, storing the party first if need be. */
+async function openPartyInviteLink(): Promise<boolean> {
+  const p = activeParty();
+  if (!p) return false;
+  if (!p.publication && !(await shareActiveParty())) return false;
+
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+
+  state.publishing = true;
+  try {
+    const result = await openInviteLink(remoteId);
     if (!result.ok || !result.value) {
       state.publishError = result.error ?? 'publish_failed';
       return false;
     }
-    const { id, slug, rootToken, publishedAt } = result.value;
     update((party) => {
-      party.publication = { remoteId: id, slug, rootToken, publishedAt };
+      if (!party.publication) return;
+      party.publication.slug = result.value!.slug;
+      party.publication.rootToken = result.value!.rootToken;
     });
     return true;
   } finally {
@@ -565,28 +741,148 @@ async function publishActiveParty(): Promise<boolean> {
   }
 }
 
-/**
- * Turns the link off. The server deletes the party and its invites, so anyone
- * holding a link gets a 404 from then on.
- *
- * Guests already merged into the local list are left alone rather than purged:
- * the host still has a party to run, and the people who said yes are still
- * coming. What they lose is the ability to change their answer.
- */
-async function unpublishActiveParty(): Promise<boolean> {
-  const p = activeParty();
-  if (!p?.id) return false;
+/** Closes the link. Owner only; the server enforces it too. */
+async function closePartyInviteLink(): Promise<boolean> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
 
-  const result = await unpublishParty(p.id);
+  const result = await closeInviteLink(remoteId);
   if (!result.ok) {
     state.publishError = result.error ?? 'unpublish_failed';
     return false;
   }
   update((party) => {
+    if (!party.publication) return;
+    party.publication.slug = null;
+    party.publication.rootToken = null;
+  });
+  return true;
+}
+
+/** Stops sharing entirely: the party, its guests and its co-organisers. */
+async function unshareActiveParty(): Promise<boolean> {
+  const p = activeParty();
+  const remoteId = p?.publication?.remoteId;
+  if (!p || !remoteId) return false;
+
+  const result = await deleteRemoteParty(remoteId);
+  if (!result.ok) {
+    state.publishError = result.error ?? 'unshare_failed';
+    return false;
+  }
+  stopSync();
+  update((party) => {
     party.publication = null;
   });
   return true;
 }
+
+// ── Co-organisers ──────────────────────────────────────────────────────────
+
+async function refreshMembers(): Promise<void> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return;
+  const result = await listMembers(remoteId);
+  if (result.ok && result.value) state.members = result.value.members;
+}
+
+/** Mints a link that turns whoever opens it into a co-organiser. */
+async function inviteCoOrganiser(): Promise<string | null> {
+  const p = activeParty();
+  if (!p) return null;
+  if (!p.publication && !(await shareActiveParty())) return null;
+
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return null;
+
+  const result = await createCollaboratorInvite(remoteId);
+  if (!result.ok || !result.value) {
+    state.publishError = result.error ?? 'invite_failed';
+    return null;
+  }
+  return result.value.token;
+}
+
+async function revokeCoOrganiserInvites(): Promise<boolean> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+  const result = await revokeCollaboratorInvites(remoteId);
+  return result.ok;
+}
+
+async function removeCoOrganiser(userId: string): Promise<boolean> {
+  const remoteId = activeParty()?.publication?.remoteId;
+  if (!remoteId) return false;
+  const result = await removeMember(remoteId, userId);
+  if (result.ok) await refreshMembers();
+  return result.ok;
+}
+
+function openMembers(): void {
+  if (!can('coOrganizers')) {
+    requestUpgrade('coOrganizers');
+    return;
+  }
+  state.membersOpen = true;
+  void refreshMembers();
+}
+
+function closeMembers(): void {
+  state.membersOpen = false;
+}
+
+/**
+ * Pulls in parties shared with this user that this browser has never seen.
+ *
+ * A co-organiser's first sight of a party is here: they accepted an invitation
+ * on another device (or in another tab), so it exists for them on the server
+ * and nowhere locally.
+ */
+async function syncPartyList(): Promise<void> {
+  if (!can('cloudSync') && !state.session.authenticated) return;
+
+  const listed = await listParties();
+  if (!listed.ok || !listed.value) return;
+
+  for (const summary of listed.value.parties) {
+    const known = state.parties.find(
+      (p) => p.publication?.remoteId === summary.id,
+    );
+    if (known) continue;
+
+    const fetched = await fetchParty(summary.id);
+    if (!fetched.ok || !fetched.value) continue;
+
+    const shared = fetched.value;
+    const party: Party = {
+      name: shared.document.name,
+      date: shared.document.date,
+      createdAt: shared.updatedAt,
+      cover: shared.document.cover,
+      venue: shared.document.venue,
+      settings: shared.document.settings,
+      menu: shared.document.menu as Party['menu'],
+      locks: shared.document.locks,
+      checked: shared.document.checked,
+      allowForward: shared.document.allowForward,
+      includeSnacks: shared.document.includeSnacks,
+      // The guest list is not in the document; it arrives through the funnel.
+      invites: [],
+      publication: {
+        remoteId: shared.id,
+        version: shared.version,
+        slug: shared.publication?.slug ?? null,
+        rootToken: shared.publication?.rootToken ?? null,
+        publishedAt: shared.updatedAt,
+      },
+    };
+    const newId = await db.parties.add(party);
+    party.id = newId as number;
+    state.parties.push(party);
+  }
+}
+
+// ── The funnel ─────────────────────────────────────────────────────────────
 
 /**
  * Whether a merge produced anything worth persisting.
@@ -614,24 +910,25 @@ function sameInvites(before: Invite[], after: Invite[]): boolean {
 /**
  * Pulls the funnel and folds it into the party's guest list.
  *
- * Silent on failure. This runs on a timer while the guests tab is open, and a
- * host whose phone dropped off the network should see the list they already
- * have rather than an error where their party used to be.
+ * Silent on failure. This runs on a timer while the guests tab is open, and an
+ * organiser whose phone dropped off the network should see the list they
+ * already have rather than an error where their party used to be.
  */
 async function syncFunnel(): Promise<void> {
   const p = activeParty();
-  if (!p?.id || !p.publication) return;
+  const remoteId = p?.publication?.remoteId;
+  if (!p || !remoteId) return;
 
   state.funnelSyncing = true;
   try {
-    const result = await fetchFunnel(p.id);
+    const result = await fetchFunnel(remoteId);
     if (!result.ok || !result.value) return;
     const remote = result.value;
 
     const merged = mergeFunnel(p.invites, remote);
     // Most polls find nothing new. Committing anyway would write the whole
-    // party to IndexedDB and re-render the guest list every twenty seconds for
-    // as long as the tab is open, so only commit a list that actually differs.
+    // party to IndexedDB and re-render the guest list every few seconds for as
+    // long as the tab is open, so only commit a list that actually differs.
     if (!sameInvites(p.invites, merged)) {
       update((party) => {
         party.invites = merged;
@@ -696,8 +993,9 @@ function setInviteStatus(id: number, status: Invite['status']): void {
     }
   });
 
-  if (remoteId && party.id && party.publication) {
-    void setRemoteInviteStatus(party.id, remoteId, status);
+  const partyRemoteId = party.publication?.remoteId;
+  if (remoteId && partyRemoteId) {
+    void setRemoteInviteStatus(partyRemoteId, remoteId, status);
   }
 }
 
@@ -755,9 +1053,9 @@ function openShare(): void {
   }
   state.shareOpen = true;
   // Not awaited: the sheet opens immediately and shows its own pending state.
-  // Publishing here rather than behind a button is what keeps the card guests
-  // read in step with a party the host has since renamed or moved.
-  void publishActiveParty();
+  // Opening the link here rather than behind a separate button is what keeps
+  // the card guests read in step with a party the host has since renamed.
+  void openPartyInviteLink();
 }
 function closeShare(): void {
   state.shareOpen = false;
@@ -835,10 +1133,20 @@ export const store = {
   refreshSession,
   requestUpgrade,
   closeUpgrade,
-  // publishing & funnel
-  publishActiveParty,
-  unpublishActiveParty,
+  // sharing, sync & the funnel
+  shareActiveParty,
+  unshareActiveParty,
+  openPartyInviteLink,
+  closePartyInviteLink,
+  syncPartyList,
   syncFunnel,
+  // co-organisers
+  openMembers,
+  closeMembers,
+  refreshMembers,
+  inviteCoOrganiser,
+  revokeCoOrganiserInvites,
+  removeCoOrganiser,
   // invites
   addInvite,
   setInviteStatus,

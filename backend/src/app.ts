@@ -5,6 +5,7 @@ import type { AppVariables } from './appEnv';
 import { repositoriesFor } from './composition';
 import type { Repositories } from './repositories/repositories';
 import auth from './routes/auth';
+import collaborate from './routes/collaborate';
 import devAuth from './routes/devAuth';
 import invites from './routes/invites';
 import licences from './routes/licences';
@@ -91,6 +92,7 @@ export function createApp(overrides: AppOverrides = {}): App {
   app.route('/api/session', session);
   app.route('/api/licences', licences);
   app.route('/api/parties', parties);
+  app.route('/api/collaborate', collaborate);
 
   // Mounted outside /api/* on purpose: guests have no account, and being able
   // to RSVP without signing up is most of what an invite link is for. The

@@ -3,38 +3,44 @@ import type {
   InviteOpenDTO,
   PublishedPartyDTO,
 } from '../../../../shared/invites';
+import type { SharedPartyDTO } from '../../../../shared/collab';
 import type { Repositories } from '../../repositories/repositories';
-import { fakeInvites, fakeParties, resetFakeIds } from '../support/fakeInvites';
-import { aUser, fakeLicences, fakeUsers } from '../support/fakeRepositories';
+import { resetFakeIds } from '../support/fakeInvites';
+import { aUser, fakeUsers } from '../support/fakeRepositories';
+import {
+  aDocument,
+  publishAndOpenInvites,
+  repositoriesWith,
+} from '../support/party';
 import { request, sessionCookie } from '../support/harness';
 
-/** A pro host with one published party, and the repositories behind them. */
+/** A pro host with one published party whose invite link is open. */
 async function aPublishedParty(
   overrides: { maxCapacity?: number | null; allowForward?: boolean } = {},
 ): Promise<{ repositories: Repositories; party: PublishedPartyDTO }> {
-  const repositories: Repositories = {
-    users: fakeUsers([aUser({ tier: 'pro' })]),
-    licences: fakeLicences(),
-    parties: fakeParties(),
-    invites: fakeInvites(),
-  };
-
-  const res = await request('/api/parties/publish', {
-    repositories,
-    cookie: await sessionCookie('user-1'),
-    method: 'POST',
-    body: {
-      localId: 7,
-      name: 'Rooftop',
-      date: '2026-10-02',
-      cover: 1,
-      venue: { place: 'The Roof', city: 'Milan', time: '21:00' },
-      allowForward: overrides.allowForward ?? true,
-      maxCapacity: overrides.maxCapacity ?? null,
+  const repositories = repositoriesWith();
+  const document = aDocument({
+    allowForward: overrides.allowForward ?? true,
+    settings: {
+      ...aDocument().settings,
+      max_capacity: overrides.maxCapacity ?? null,
     },
   });
-  expect(res.status).toBe(200);
-  return { repositories, party: (await res.json()) as PublishedPartyDTO };
+  const { party, slug, rootToken } = await publishAndOpenInvites(
+    repositories,
+    'user-1',
+    document,
+  );
+  return {
+    repositories,
+    party: {
+      id: party.id,
+      slug,
+      rootToken,
+      publishedAt: party.updatedAt,
+      allowForward: document.allowForward,
+    },
+  };
 }
 
 async function open(
@@ -68,53 +74,38 @@ beforeEach(() => resetFakeIds());
 describe('publishing a party', () => {
   it('refuses a free host', async () => {
     // The paywall is enforced here, not only by hiding the share sheet.
-    const repositories: Repositories = {
-      users: fakeUsers([aUser({ tier: 'free' })]),
-      licences: fakeLicences(),
-      parties: fakeParties(),
-      invites: fakeInvites(),
-    };
+    const repositories = repositoriesWith(fakeUsers([aUser({ tier: 'free' })]));
 
-    const res = await request('/api/parties/publish', {
+    const res = await request('/api/parties', {
       repositories,
       cookie: await sessionCookie('user-1'),
       method: 'POST',
-      body: { localId: 1, name: 'Party', date: '2026-10-02' },
+      body: { localId: 1, document: aDocument() },
     });
 
     expect(res.status).toBe(403);
-    expect(await res.json()).toMatchObject({ feature: 'inviteLink' });
+    expect(await res.json()).toMatchObject({ feature: 'cloudSync' });
   });
 
   it('allows a free host on a self-hosted deployment', async () => {
-    const repositories: Repositories = {
-      users: fakeUsers([aUser({ tier: 'free' })]),
-      licences: fakeLicences(),
-      parties: fakeParties(),
-      invites: fakeInvites(),
-    };
+    const repositories = repositoriesWith(fakeUsers([aUser({ tier: 'free' })]));
 
-    const res = await request('/api/parties/publish', {
+    const res = await request('/api/parties', {
       repositories,
       env: { SELF_HOSTED: 'true' },
       cookie: await sessionCookie('user-1'),
       method: 'POST',
-      body: { localId: 1, name: 'Party', date: '2026-10-02' },
+      body: { localId: 1, document: aDocument() },
     });
 
     expect(res.status).toBe(200);
   });
 
   it('refuses an anonymous caller', async () => {
-    const res = await request('/api/parties/publish', {
-      repositories: {
-        users: fakeUsers(),
-        licences: fakeLicences(),
-        parties: fakeParties(),
-        invites: fakeInvites(),
-      },
+    const res = await request('/api/parties', {
+      repositories: repositoriesWith(fakeUsers()),
       method: 'POST',
-      body: { localId: 1, name: 'Party', date: '2026-10-02' },
+      body: { localId: 1, document: aDocument() },
     });
 
     expect(res.status).toBe(401);
@@ -125,24 +116,24 @@ describe('publishing a party', () => {
     // already sent.
     const { repositories, party } = await aPublishedParty();
 
-    const res = await request('/api/parties/publish', {
+    const res = await request('/api/parties', {
       repositories,
       cookie: await sessionCookie('user-1'),
       method: 'POST',
       body: {
         localId: 7,
-        name: 'Rooftop (moved)',
-        date: '2026-10-09',
-        cover: 1,
-        venue: { place: 'The Roof', city: 'Milan', time: '22:00' },
-        allowForward: true,
-        maxCapacity: null,
+        document: aDocument({
+          name: 'Rooftop (moved)',
+          date: '2026-10-09',
+          venue: { place: 'The Roof', city: 'Milan', time: '22:00' },
+        }),
       },
     });
+    expect(res.status).toBe(200);
 
-    const republished = (await res.json()) as PublishedPartyDTO;
-    expect(republished.slug).toBe(party.slug);
-    expect(republished.rootToken).toBe(party.rootToken);
+    const republished = (await res.json()) as SharedPartyDTO;
+    expect(republished.publication?.slug).toBe(party.slug);
+    expect(republished.publication?.rootToken).toBe(party.rootToken);
 
     // …and the guest-facing card reflects the edit.
     const opened = await open(repositories, party.slug);
@@ -150,13 +141,13 @@ describe('publishing a party', () => {
     expect(opened.party.venue.time).toBe('22:00');
   });
 
-  it('rejects a snapshot with no name', async () => {
+  it('rejects a document with no name', async () => {
     const { repositories } = await aPublishedParty();
-    const res = await request('/api/parties/publish', {
+    const res = await request('/api/parties', {
       repositories,
       cookie: await sessionCookie('user-1'),
       method: 'POST',
-      body: { localId: 8, name: '   ', date: '2026-10-02' },
+      body: { localId: 8, document: aDocument({ name: '   ' }) },
     });
 
     expect(res.status).toBe(400);
@@ -201,17 +192,14 @@ describe('opening an invite link', () => {
     const first = await open(repositories, party.slug);
 
     // Publish a second party and try to carry the first party's row into it.
-    await request('/api/parties/publish', {
+    const second = await publishAndOpenInvites(
       repositories,
-      cookie: await sessionCookie('user-1'),
-      method: 'POST',
-      body: { localId: 9, name: 'Other', date: '2026-11-01' },
-    });
-    const other = await repositories.parties.findByOwnerAndLocalId('user-1', 9);
-    expect(other.ok).toBe(true);
-    if (!other.ok) return;
+      'user-1',
+      aDocument({ name: 'Other', date: '2026-11-01' }),
+      9,
+    );
 
-    const opened = await open(repositories, other.value.slug, {
+    const opened = await open(repositories, second.slug, {
       inviteId: first.inviteId,
     });
 
@@ -229,10 +217,10 @@ describe('opening an invite link', () => {
     expect(res.status).toBe(404);
   });
 
-  it('404s once the host unpublishes', async () => {
+  it('404s once the host closes the link', async () => {
     const { repositories, party } = await aPublishedParty();
 
-    const removed = await request('/api/parties/7/publish', {
+    const removed = await request(`/api/parties/${party.id}/invite-link`, {
       repositories,
       cookie: await sessionCookie('user-1'),
       method: 'DELETE',

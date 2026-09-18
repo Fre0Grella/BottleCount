@@ -5,36 +5,35 @@ import type {
   PublishedPartyDTO,
 } from '../../../../shared/invites';
 import type { Repositories } from '../../repositories/repositories';
-import { fakeInvites, fakeParties, resetFakeIds } from '../support/fakeInvites';
-import { aUser, fakeLicences, fakeUsers } from '../support/fakeRepositories';
+import { resetFakeIds } from '../support/fakeInvites';
+import { aUser, fakeUsers } from '../support/fakeRepositories';
+import {
+  aDocument,
+  publishAndOpenInvites,
+  repositoriesWith,
+} from '../support/party';
 import { request, sessionCookie } from '../support/harness';
 
 let repositories: Repositories;
 let party: PublishedPartyDTO;
+let partyId: string;
 
 beforeEach(async () => {
   resetFakeIds();
-  repositories = {
-    users: fakeUsers([aUser({ tier: 'pro' })]),
-    licences: fakeLicences(),
-    parties: fakeParties(),
-    invites: fakeInvites(),
-  };
-  const res = await request('/api/parties/publish', {
+  repositories = repositoriesWith();
+  const published = await publishAndOpenInvites(
     repositories,
-    cookie: await sessionCookie('user-1'),
-    method: 'POST',
-    body: {
-      localId: 7,
-      name: 'Rooftop',
-      date: '2026-10-02',
-      cover: 0,
-      venue: { place: '', city: '', time: '21:00' },
-      allowForward: true,
-      maxCapacity: null,
-    },
-  });
-  party = (await res.json()) as PublishedPartyDTO;
+    'user-1',
+    aDocument({ venue: { place: '', city: '', time: '21:00' } }),
+  );
+  partyId = published.party.id;
+  party = {
+    id: published.party.id,
+    slug: published.slug,
+    rootToken: published.rootToken,
+    publishedAt: published.party.updatedAt,
+    allowForward: true,
+  };
 });
 
 /** Opens the link (optionally as a forward) and confirms, returning the guest. */
@@ -58,7 +57,7 @@ async function guestConfirms(
 }
 
 async function funnel(): Promise<HostInviteDTO[]> {
-  const res = await request('/api/parties/7/invites', {
+  const res = await request(`/api/parties/${partyId}/invites`, {
     repositories,
     cookie: await sessionCookie('user-1'),
   });
@@ -156,8 +155,8 @@ describe("the host's funnel", () => {
     expect(rows.map((i) => i.name)).toEqual(['First', 'Second']);
   });
 
-  it('404s a party the host has not published', async () => {
-    const res = await request('/api/parties/99/invites', {
+  it('404s a party that does not exist', async () => {
+    const res = await request('/api/parties/party-nope/invites', {
       repositories,
       cookie: await sessionCookie('user-1'),
     });
@@ -172,7 +171,7 @@ describe("the host's funnel", () => {
       aUser({ id: 'user-2', email: 'other@example.com', tier: 'pro' }),
     ]);
 
-    const res = await request('/api/parties/7/invites', {
+    const res = await request(`/api/parties/${partyId}/invites`, {
       repositories,
       cookie: await sessionCookie('user-2'),
     });
@@ -180,14 +179,27 @@ describe("the host's funnel", () => {
     expect(res.status).toBe(404);
   });
 
-  it('refuses a free host', async () => {
+  it('stays readable to a member whose tier has changed', async () => {
+    // The paywall is on *creating* a cloud party, not on running one. A member
+    // of a party that already exists keeps access to it — anything else would
+    // strand a co-organiser, who is never required to pay at all.
     repositories.users = fakeUsers([aUser({ tier: 'free' })]);
-    const res = await request('/api/parties/7/invites', {
+
+    const res = await request(`/api/parties/${partyId}/invites`, {
       repositories,
       cookie: await sessionCookie('user-1'),
     });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+  });
+
+  it('is refused to someone who is not a member, whatever their tier', async () => {
+    const res = await request(`/api/parties/${partyId}/invites`, {
+      repositories,
+      cookie: await sessionCookie('stranger'),
+    });
+
+    expect(res.status).toBe(404);
   });
 });
 
@@ -197,7 +209,7 @@ describe('the host overriding an answer', () => {
     status: string,
     cookie = 'user-1',
   ): Promise<Response> {
-    return request(`/api/parties/7/invites/${inviteId}`, {
+    return request(`/api/parties/${partyId}/invites/${inviteId}`, {
       repositories,
       cookie: await sessionCookie(cookie),
       method: 'PATCH',
@@ -231,16 +243,15 @@ describe('the host overriding an answer', () => {
   });
 
   it('ignores capacity — the host is the authority on their own door', async () => {
-    await request('/api/parties/publish', {
+    await request('/api/parties', {
       repositories,
       cookie: await sessionCookie('user-1'),
       method: 'POST',
       body: {
         localId: 7,
-        name: 'Rooftop',
-        date: '2026-10-02',
-        allowForward: true,
-        maxCapacity: 1,
+        document: aDocument({
+          settings: { ...aDocument().settings, max_capacity: 1 },
+        }),
       },
     });
     await guestConfirms('Giulia', party.rootToken);

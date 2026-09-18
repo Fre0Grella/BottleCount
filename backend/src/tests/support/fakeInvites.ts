@@ -1,3 +1,6 @@
+import type { PartyDocument, PartyRole } from '../../../../shared/collab';
+import { apply as applyPatch } from '../../../../shared/patch';
+import type { MergePatch } from '../../../../shared/patch';
 import type {
   InviteAnswer,
   InviteStatus,
@@ -12,6 +15,7 @@ import { INVITE_ERRORS } from '../../repositories/inviteRepository';
 import {
   PARTY_ERRORS,
   type PartyRepository,
+  type PartySummary,
   type PublishedParty,
 } from '../../repositories/partyRepository';
 import { err, ok, type Result } from '../../repositories/result';
@@ -35,58 +39,84 @@ export function resetFakeIds(): void {
 
 export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
   rows: Map<string, PublishedParty>;
+  /** Membership, so `listForUser` can answer. Set by `fakeMembers`. */
+  memberships: Map<string, Map<string, PartyRole>>;
 } {
   const rows = new Map(seed.map((p) => [p.id, p]));
+  const memberships = new Map<string, Map<string, PartyRole>>();
 
   return {
     rows,
+    memberships,
+
     async publish(
       ownerId: string,
       snapshot: PublishPartyRequest,
     ): Promise<Result<PublishedParty>> {
       const now = new Date().toISOString();
+      const doc = snapshot.document;
+
       for (const row of rows.values()) {
         if (row.ownerId === ownerId && row.localId === snapshot.localId) {
-          // Republishing keeps the slug and root token — links already sent
-          // have to keep working.
+          // Republishing keeps the slug, the root token and whether the invite
+          // link is open — links already sent have to keep working, and storing
+          // the party must not reopen one the owner closed.
           const updated: PublishedParty = {
             ...row,
-            name: snapshot.name,
-            date: snapshot.date,
-            cover: snapshot.cover,
-            venue: snapshot.venue,
-            allowForward: snapshot.allowForward,
-            maxCapacity: snapshot.maxCapacity,
+            name: doc.name,
+            date: doc.date,
+            cover: doc.cover,
+            venue: doc.venue,
+            allowForward: doc.allowForward,
+            maxCapacity: doc.settings.max_capacity,
+            document: doc,
+            version: row.version + 1,
             updatedAt: now,
           };
           rows.set(row.id, updated);
           return ok(updated);
         }
       }
+
       const party: PublishedParty = {
         id: nextId('party'),
         ownerId,
         localId: snapshot.localId,
-        slug: `${snapshot.name.toLowerCase().replace(/\W+/g, '-')}-${nextId('s')}`,
-        name: snapshot.name,
-        date: snapshot.date,
-        cover: snapshot.cover,
-        venue: snapshot.venue,
-        allowForward: snapshot.allowForward,
-        maxCapacity: snapshot.maxCapacity,
+        slug: `${doc.name.toLowerCase().replace(/\W+/g, '-')}-${nextId('s')}`,
+        name: doc.name,
+        date: doc.date,
+        cover: doc.cover,
+        venue: doc.venue,
+        allowForward: doc.allowForward,
+        maxCapacity: doc.settings.max_capacity,
         rootToken: nextId('root'),
         publishedAt: now,
         updatedAt: now,
+        document: doc,
+        version: 1,
+        invitesOpen: false,
       };
       rows.set(party.id, party);
+
+      const members = memberships.get(party.id) ?? new Map<string, PartyRole>();
+      members.set(ownerId, 'owner');
+      memberships.set(party.id, members);
+
       return ok(party);
     },
+
     async findBySlug(slug: string): Promise<Result<PublishedParty>> {
       for (const row of rows.values()) {
         if (row.slug === slug) return ok(row);
       }
       return err(PARTY_ERRORS.NOT_FOUND);
     },
+
+    async findById(id: string): Promise<Result<PublishedParty>> {
+      const row = rows.get(id);
+      return row ? ok(row) : err(PARTY_ERRORS.NOT_FOUND);
+    },
+
     async findByOwnerAndLocalId(
       ownerId: string,
       localId: number,
@@ -96,6 +126,97 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
       }
       return err(PARTY_ERRORS.NOT_FOUND);
     },
+
+    async listForUser(userId: string): Promise<Result<PartySummary[]>> {
+      const out: PartySummary[] = [];
+      for (const row of rows.values()) {
+        const role = memberships.get(row.id)?.get(userId);
+        if (!role) continue;
+        out.push({
+          id: row.id,
+          name: row.name,
+          date: row.date,
+          cover: row.cover,
+          role,
+          version: row.version,
+          updatedAt: row.updatedAt,
+          memberCount: memberships.get(row.id)?.size ?? 1,
+        });
+      }
+      return ok(out);
+    },
+
+    async patchDocument({
+      partyId,
+      patch,
+    }: {
+      partyId: string;
+      patch: MergePatch;
+    }): Promise<
+      Result<{ document: PartyDocument; version: number; updatedAt: string }>
+    > {
+      const row = rows.get(partyId);
+      if (!row) return err(PARTY_ERRORS.NOT_FOUND);
+      if (!row.document) return err(PARTY_ERRORS.NO_DOCUMENT);
+
+      // The same RFC 7386 rules SQLite's json_patch applies, via the shared
+      // implementation — so a test exercises the semantics the real statement
+      // has, even though it cannot exercise its atomicity.
+      const document = applyPatch(
+        row.document as unknown as Record<string, never>,
+        patch,
+      ) as unknown as PartyDocument;
+      const updatedAt = new Date().toISOString();
+      const updated: PublishedParty = {
+        ...row,
+        document,
+        version: row.version + 1,
+        updatedAt,
+        name: document.name,
+        date: document.date,
+        cover: document.cover,
+        venue: document.venue,
+        allowForward: document.allowForward,
+        maxCapacity: document.settings.max_capacity,
+      };
+      rows.set(partyId, updated);
+      return ok({ document, version: updated.version, updatedAt });
+    },
+
+    async putDocument({
+      partyId,
+      document,
+    }: {
+      partyId: string;
+      document: PartyDocument;
+    }): Promise<Result<{ version: number; updatedAt: string }>> {
+      const row = rows.get(partyId);
+      if (!row) return err(PARTY_ERRORS.NOT_FOUND);
+      const updatedAt = new Date().toISOString();
+      rows.set(partyId, {
+        ...row,
+        document,
+        version: row.version + 1,
+        updatedAt,
+      });
+      return ok({ version: row.version + 1, updatedAt });
+    },
+
+    async setInvitesOpen(
+      id: string,
+      open: boolean,
+    ): Promise<Result<PublishedParty>> {
+      const row = rows.get(id);
+      if (!row) return err(PARTY_ERRORS.NOT_FOUND);
+      const updated = { ...row, invitesOpen: open };
+      rows.set(id, updated);
+      return ok(updated);
+    },
+
+    async deleteById(id: string): Promise<Result<void>> {
+      return rows.delete(id) ? ok(undefined) : err(PARTY_ERRORS.NOT_FOUND);
+    },
+
     async unpublish(ownerId: string, id: string): Promise<Result<void>> {
       const row = rows.get(id);
       if (!row || row.ownerId !== ownerId) return err(PARTY_ERRORS.NOT_FOUND);

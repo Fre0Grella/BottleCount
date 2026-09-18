@@ -27,14 +27,15 @@ const base = process.env.BASE_PATH ?? (isDocs ? '/BottleCount/' : '/');
  * Routes that are the application rather than documentation.
  *
  * Each one needs the Worker: `/app` for sign-in and every paid feature,
- * `/auth/callback` for the end of the OAuth round trip, `/i` for invite links.
+ * `/auth/callback` for the end of the OAuth round trip, `/i` for guest invite
+ * links, `/join` for co-organiser invitations.
  * Publishing them to a host with no backend produces a site that looks like the
  * product and then fails halfway through it, which is worse than not being
  * there at all. Links to the app in the documentation point at the real one
  * instead, and those pages carry a canonical link to it — both from
  * `PUBLIC_APP_ORIGIN` (see `src/lib/links.ts`).
  */
-const APP_ROUTES = ['app', 'auth', 'i'];
+const APP_ROUTES = ['app', 'auth', 'i', 'join'];
 
 /**
  * Leaves the application out of a documentation build.

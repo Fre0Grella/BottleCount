@@ -88,9 +88,13 @@ invites.post('/:slug/open', async (c) => {
   const found = await c.var.repositories.parties.findBySlug(
     c.req.param('slug'),
   );
-  // An unpublished or never-published party is a 404 either way; there is
-  // nothing useful to tell a link holder apart from "this is not a party".
-  if (!found.ok) return c.json({ error: 'party_not_found' }, 404);
+  // A party that does not exist, one whose link the owner closed, and one
+  // stored only so a co-organiser could open it all answer alike: there is
+  // nothing useful to tell a link holder apart from "this is not a party", and
+  // distinguishing them would leak that a slug is real.
+  if (!found.ok || !found.value.invitesOpen) {
+    return c.json({ error: 'party_not_found' }, 404);
+  }
   const party = found.value;
 
   const body = await c.req
@@ -132,7 +136,9 @@ invites.post('/:slug/answer', async (c) => {
   const found = await c.var.repositories.parties.findBySlug(
     c.req.param('slug'),
   );
-  if (!found.ok) return c.json({ error: 'party_not_found' }, 404);
+  if (!found.ok || !found.value.invitesOpen) {
+    return c.json({ error: 'party_not_found' }, 404);
+  }
   const party = found.value;
 
   const body = await c.req.json<unknown>().catch(() => null);

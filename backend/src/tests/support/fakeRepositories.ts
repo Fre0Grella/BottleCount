@@ -1,5 +1,6 @@
 import type { Tier } from '../../../../shared/tiers';
 import { fakeInvites, fakeParties } from './fakeInvites';
+import { fakeMembers } from './fakeMembers';
 import type {
   LicenceKey,
   LicenceRepository,
@@ -89,7 +90,11 @@ export function fakeRepositories(
   parties = fakeParties(),
   invites = fakeInvites(),
 ): Repositories {
-  return { users, licences, parties, invites };
+  // Membership shares the party repository's map: `listForUser` must answer
+  // from the same membership `roleFor` enforces, or a test could pass with a
+  // party listed that its own guard refuses to open.
+  const members = fakeMembers(parties.memberships, () => users.rows);
+  return { users, licences, parties, invites, members };
 }
 
 export function aUser(overrides: Partial<User> = {}): User {

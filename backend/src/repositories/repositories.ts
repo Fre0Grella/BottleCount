@@ -1,5 +1,6 @@
 import type { InviteRepository } from './inviteRepository';
 import type { LicenceRepository } from './licenceRepository';
+import type { MemberRepository } from './memberRepository';
 import type { PartyRepository } from './partyRepository';
 import type { UserRepository } from './userRepository';
 
@@ -9,4 +10,5 @@ export interface Repositories {
   licences: LicenceRepository;
   parties: PartyRepository;
   invites: InviteRepository;
+  members: MemberRepository;
 }

@@ -8,24 +8,42 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 
 ## What it serves
 
-| Route                                     | Auth            | Purpose                                                             |
-| ----------------------------------------- | --------------- | ------------------------------------------------------------------- |
-| `GET /`                                   | —               | Liveness, and which environment answered                            |
-| `GET /auth/google`                        | —               | Google OAuth; sets the `session_token` cookie                       |
-| `POST /auth/logout`                       | —               | Clears it (the cookie is httpOnly, so the page cannot)              |
-| `POST /auth/dev`                          | —               | Sign in without Google. **404 unless local or self-hosted**         |
-| `GET /api/session`                        | optional        | Who the caller is and what they may do                              |
-| `POST /api/licences/redeem`               | session         | Turns a licence code into `pro`                                     |
-| `POST /api/parties/publish`               | session + `pro` | Publish or refresh a party's invite card                            |
-| `DELETE /api/parties/:localId/publish`    | session + `pro` | Turn the link off; deletes its invites                              |
-| `GET /api/parties/:localId/invites`       | session + `pro` | The host's RSVP funnel                                              |
-| `PATCH /api/parties/:localId/invites/:id` | session + `pro` | Host overriding a guest's answer                                    |
-| `POST /invite/:slug/open`                 | —               | A guest opened the link. **Writes** — this is what "reached" counts |
-| `POST /invite/:slug/answer`               | —               | A guest's yes or no                                                 |
+| Route                                      | Auth               | Purpose                                                             |
+| ------------------------------------------ | ------------------ | ------------------------------------------------------------------- |
+| `GET /`                                    | —                  | Liveness, and which environment answered                            |
+| `GET /auth/google`                         | —                  | Google OAuth; sets the `session_token` cookie                       |
+| `POST /auth/logout`                        | —                  | Clears it (the cookie is httpOnly, so the page cannot)              |
+| `POST /auth/dev`                           | —                  | Sign in without Google. **404 unless local or self-hosted**         |
+| `GET /api/session`                         | optional           | Who the caller is and what they may do                              |
+| `POST /api/licences/redeem`                | session            | Turns a licence code into `pro`                                     |
+| `GET /api/parties`                         | session            | Parties the caller can open, owned or shared                        |
+| `POST /api/parties`                        | session + `pro`    | Store a party, or save it again                                     |
+| `GET /api/parties/:id`                     | member             | The full document, members and role                                 |
+| `PATCH /api/parties/:id`                   | member             | One organiser's edit, as a merge patch                              |
+| `DELETE /api/parties/:id`                  | owner              | Delete it for everyone                                              |
+| `POST /api/parties/:id/invite-link`        | member             | Open the party to RSVPs                                             |
+| `DELETE /api/parties/:id/invite-link`      | owner              | Close it                                                            |
+| `GET /api/parties/:id/invites`             | member             | The RSVP funnel                                                     |
+| `PATCH /api/parties/:id/invites/:inviteId` | member             | Override a guest's answer                                           |
+| `GET /api/parties/:id/members`             | member             | Who is on the party                                                 |
+| `POST /api/parties/:id/members/invite`     | owner              | Mint a co-organiser link                                            |
+| `DELETE /api/parties/:id/members/invites`  | owner              | Revoke outstanding links                                            |
+| `DELETE /api/parties/:id/members/:userId`  | owner, or yourself | Remove, or leave                                                    |
+| `GET /api/collaborate/:token`              | session            | What am I being asked to join?                                      |
+| `POST /api/collaborate/:token`             | session            | Join as an editor                                                   |
+| `POST /invite/:slug/open`                  | —                  | A guest opened the link. **Writes** — this is what "reached" counts |
+| `POST /invite/:slug/answer`                | —                  | A guest's yes or no                                                 |
 
 `/api/session` is the one `/api/*` route served without a session, because the
 free tier _is_ a logged-out browser. The exemption is named explicitly in
 `app.ts` rather than left to mount order.
+
+"member" above means a member of that party — and membership _is_ the
+authorisation. A caller who is not one gets **404, not 403**, so a party id
+cannot be probed for existence. The tier check gates only `POST /api/parties`:
+opening and editing a party you were invited to is deliberately free, because it
+belongs to someone who has already paid
+([ADR 0003](../docs/adr/0003-co-organisers.md)).
 
 `/invite/*` is mounted **outside** `/api/*` entirely. Guests have no account —
 being able to RSVP without signing up is most of what an invite link is for — so
@@ -117,8 +135,11 @@ decline, one row per returning browser, owner isolation.
 
 They cannot catch a mistake in a SQL statement, and two of those rules are
 defended _by_ the SQL: the capacity check and the write are one statement, so two
-guests racing for the last place cannot both take it, whereas the fake does the
-check and the write separately. The fakes reproduce the rule, not the atomicity.
+guests racing for the last place cannot both take it, and `json_patch` merges a
+co-organiser's edit inside the same statement that reads and writes the
+document, so two saves landing at once cannot both read the same version. The
+fakes do the check and the write separately: they reproduce the rule, not the
+atomicity. Both were verified by hand against a local D1.
 
 Covering that needs `@cloudflare/vitest-pool-workers`, which at the time of
 writing peers on Vitest 4 while this project is on 5. When that clears, the

@@ -19,6 +19,7 @@ import TicketModal from './modals/TicketModal.vue';
 import AddGuestModal from './modals/AddGuestModal.vue';
 import DoorScannerModal from './modals/DoorScannerModal.vue';
 import UpgradeModal from './UpgradeModal.vue';
+import CoOrganisersModal from './modals/CoOrganisersModal.vue';
 
 const store = useStore();
 
@@ -219,6 +220,7 @@ const tabs = computed(() => {
         <TicketModal />
         <AddGuestModal />
         <DoorScannerModal />
+        <CoOrganisersModal />
       </template>
 
       <!--
