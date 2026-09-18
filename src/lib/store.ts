@@ -8,7 +8,14 @@ import type {
 } from './types';
 import { db } from './db';
 import { fetchSession, ANONYMOUS_SESSION } from './session';
-import { fetchFunnel, mergeFunnel, setRemoteInviteStatus } from './invites';
+import {
+  addRemoteGuest,
+  checkInRemote,
+  fetchFunnel,
+  mergeFunnel,
+  setRemoteInviteStatus,
+  undoCheckInRemote,
+} from './invites';
 import {
   applyDocument,
   documentOf,
@@ -670,6 +677,13 @@ async function pull(): Promise<void> {
   const shared = result.value;
   state.members = shared.members;
   state.role = shared.role;
+  // A co-organiser's first pull is where they get the signing key, without
+  // which their scanner rejects every guest.
+  if (p.publication && shared.ticketKey) {
+    p.publication.ticketKey = shared.ticketKey;
+    p.publication.slug = shared.publication?.slug ?? null;
+    p.publication.rootToken = shared.publication?.rootToken ?? null;
+  }
   if (shared.version !== sync.currentVersion) {
     sync.adopt(shared.document, shared.version);
   }
@@ -702,6 +716,7 @@ async function shareActiveParty(): Promise<boolean> {
         version: shared.version,
         slug: shared.publication?.slug ?? null,
         rootToken: shared.publication?.rootToken ?? null,
+        ticketKey: shared.ticketKey,
         publishedAt: shared.updatedAt,
       };
     });
@@ -873,6 +888,7 @@ async function syncPartyList(): Promise<void> {
         version: shared.version,
         slug: shared.publication?.slug ?? null,
         rootToken: shared.publication?.rootToken ?? null,
+        ticketKey: shared.ticketKey,
         publishedAt: shared.updatedAt,
       },
     };
@@ -948,6 +964,8 @@ async function syncFunnel(): Promise<void> {
  * what keeps a funnel refresh from deleting them.
  */
 function addInvite(name: string): void {
+  const remoteId = activeParty()?.publication?.remoteId;
+
   update((p) => {
     const maxId =
       p.invites.length > 0 ? Math.max(...p.invites.map((i) => i.id)) : 0;
@@ -957,9 +975,21 @@ function addInvite(name: string): void {
       status: 'confirmed',
       depth: 0,
       referrer: null,
+      source: 'manual',
       used: false,
     });
   });
+
+  // On a shared party the guest has to exist on the server too, or the
+  // co-organiser never sees them and the other phone on the door cannot check
+  // their ticket. The row appears locally first so the list responds at once;
+  // the next funnel sync replaces it with the server's, carrying the ticket
+  // code only the server can issue.
+  if (remoteId) {
+    void addRemoteGuest(remoteId, name).then((result) => {
+      if (result.ok) void syncFunnel();
+    });
+  }
 }
 
 /**
@@ -999,14 +1029,76 @@ function setInviteStatus(id: number, status: Invite['status']): void {
   }
 }
 
-function checkInGuest(id: number, time: string): void {
+/**
+ * Records that a guest walked in.
+ *
+ * On a shared party the server arbitrates, which is what makes "already
+ * scanned" true across every phone on the door. It is applied locally first so
+ * the scanner responds instantly — a door queue does not wait for a round trip
+ * — and reconciled by the answer.
+ *
+ * Returns the time of an *earlier* check-in when the server refuses, so the
+ * scanner can say when they came in rather than only that they did.
+ */
+async function checkInGuest(
+  id: number,
+  time: string,
+): Promise<{ ok: boolean; alreadyAt?: string | null }> {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return { ok: false };
+
+  const remoteId = party.publication?.remoteId;
+  const inviteRemoteId = invite.remoteId;
+
   update((p) => {
-    const invite = p.invites.find((i) => i.id === id);
-    if (invite) {
-      invite.used = true;
-      invite.usedAt = time;
+    const target = p.invites.find((i) => i.id === id);
+    if (target) {
+      target.used = true;
+      target.usedAt = time;
     }
   });
+
+  if (!remoteId || !inviteRemoteId) return { ok: true };
+
+  const result = await checkInRemote(remoteId, inviteRemoteId);
+  if (result.ok) return { ok: true };
+
+  if (result.error === 'already_checked_in') {
+    // Somebody else's phone got there first. Adopt their time — ours was a
+    // guess made a moment ago and theirs is what actually happened.
+    const alreadyAt = result.value?.checkedInAt ?? null;
+    update((p) => {
+      const target = p.invites.find((i) => i.id === id);
+      if (target && alreadyAt) target.usedAt = alreadyAt;
+    });
+    return { ok: false, alreadyAt };
+  }
+
+  // A network failure leaves the local check-in standing: the guest is through
+  // the door either way, and the next sync reconciles it. Refusing them over a
+  // dropped request would be the worse mistake.
+  return { ok: true };
+}
+
+/** Undoes a check-in on every device, for someone waved through by mistake. */
+async function undoCheckIn(id: number): Promise<void> {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return;
+
+  update((p) => {
+    const target = p.invites.find((i) => i.id === id);
+    if (target) {
+      target.used = false;
+      target.usedAt = undefined;
+    }
+  });
+
+  const remoteId = party.publication?.remoteId;
+  if (remoteId && invite.remoteId) {
+    await undoCheckInRemote(remoteId, invite.remoteId);
+  }
 }
 
 // ── Shopping ───────────────────────────────────────────────────────────────
@@ -1151,6 +1243,7 @@ export const store = {
   addInvite,
   setInviteStatus,
   checkInGuest,
+  undoCheckIn,
   // shopping
   toggleChecked,
   // modals

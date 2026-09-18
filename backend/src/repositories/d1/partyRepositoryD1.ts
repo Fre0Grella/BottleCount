@@ -30,6 +30,7 @@ interface PartyRow {
   document: string | null;
   version: number;
   invites_open: number;
+  ticket_key: string | null;
 }
 
 /**
@@ -40,6 +41,15 @@ interface PartyRow {
  * document to serve — and turning it into a throw would take down a request
  * that could have degraded.
  */
+function parseTicketKey(raw: string | null): JsonWebKey | null {
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw) as JsonWebKey;
+  } catch {
+    return null;
+  }
+}
+
 function parseDocument(raw: string | null): PartyDocument | null {
   if (raw === null) return null;
   try {
@@ -79,6 +89,7 @@ function toParty(row: PartyRow): PublishedParty {
       document,
       version: row.version,
       invitesOpen: row.invites_open === 1,
+      ticketKey: parseTicketKey(row.ticket_key),
     };
   }
 
@@ -103,7 +114,26 @@ function toParty(row: PartyRow): PublishedParty {
     document: null,
     version: row.version,
     invitesOpen: row.invites_open === 1,
+    ticketKey: parseTicketKey(row.ticket_key),
   };
+}
+
+/**
+ * A fresh HMAC-SHA256 key, exported as a JWK.
+ *
+ * Generated on the server so no client decides it, and exported because
+ * IndexedDB — where the browser will keep its copy — cannot structured-clone a
+ * CryptoKey.
+ */
+async function newTicketKey(): Promise<string> {
+  // `generateKey` is typed as possibly returning a key *pair*; HMAC never does,
+  // but the signature covers RSA and EC too.
+  const key = (await crypto.subtle.generateKey(
+    { name: 'HMAC', hash: 'SHA-256' },
+    true,
+    ['sign', 'verify'],
+  )) as CryptoKey;
+  return JSON.stringify(await crypto.subtle.exportKey('jwk', key));
 }
 
 export class PartyRepositoryD1 implements PartyRepository {
@@ -135,8 +165,8 @@ export class PartyRepositoryD1 implements PartyRepository {
            id, owner_id, local_id, slug, name, date, cover,
            venue_place, venue_city, venue_time,
            allow_forward, max_capacity, root_token,
-           document, version, invites_open, published_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
+           document, version, invites_open, ticket_key, published_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
          ON CONFLICT (owner_id, local_id) DO UPDATE SET
            name = excluded.name,
            date = excluded.date,
@@ -149,6 +179,8 @@ export class PartyRepositoryD1 implements PartyRepository {
            document = excluded.document,
            version = parties.version + 1,
            updated_at = excluded.updated_at
+           -- ticket_key is deliberately absent: rotating it on every save would
+           -- invalidate every ticket already in a guest's phone.
          RETURNING *`,
       )
       .bind(
@@ -166,6 +198,7 @@ export class PartyRepositoryD1 implements PartyRepository {
         doc.settings.max_capacity,
         newToken(),
         JSON.stringify(doc),
+        await newTicketKey(),
         now,
         now,
       )

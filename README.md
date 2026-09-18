@@ -85,9 +85,13 @@ Alcohol intensity presets still map to pure alcohol targets per person: 🌿 Sof
 ### 🎟️ Tickets & Validation
 
 - Generate signed QR tickets in the browser.
-- Validate tickets locally with HMAC verification and expiry checks.
-- Multi-scanner check-in on the hosted and self-hosted tiers, where several
-  phones on the door can agree on who has already walked in.
+- Validate tickets locally with HMAC verification and expiry checks. The signing
+  key belongs to the party, so any organiser's phone can check any ticket — and
+  it keeps working with no signal once fetched.
+- Every ticket carries a five-character code as well. When a QR won't scan, the
+  door types the code and the guest's name; both have to match.
+- Several phones on one door share check-in state, so nobody is admitted twice.
+  The server arbitrates, and a mistaken check-in can be undone.
 
 ### 📱 Offline-First Planning
 
@@ -335,6 +339,7 @@ Because browser storage is still local storage, export/import backup tools are a
 - [ADR 0001 — Cloudflare, and three ways to run BottleCount](docs/adr/0001-cloudflare-tiers.md)
 - [ADR 0002 — Invite links, and what the funnel counts](docs/adr/0002-invite-links-and-the-funnel.md)
 - [ADR 0003 — Co-organisers, and how two people edit one party](docs/adr/0003-co-organisers.md)
+- [ADR 0004 — Shared doors, and a code you can read out loud](docs/adr/0004-shared-doors-and-ticket-codes.md)
 
 The backend has [its own README](backend/README.md) covering routes, local
 setup, deployment and what the tests do and do not cover.

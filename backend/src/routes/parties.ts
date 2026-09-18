@@ -15,6 +15,11 @@ import { INVITE_STATUSES } from '../../../shared/invites';
 import type { InviteStatus } from '../../../shared/invites';
 import { featuresFor, resolveTier } from '../../../shared/tiers';
 import type { AppVariables } from '../appEnv';
+import { INVITE_ERRORS } from '../repositories/inviteRepository';
+import type {
+  Invite,
+  InviteWithReferrer,
+} from '../repositories/inviteRepository';
 import { MEMBER_ERRORS } from '../repositories/memberRepository';
 import type { PartyMember } from '../repositories/memberRepository';
 import { PARTY_ERRORS } from '../repositories/partyRepository';
@@ -40,6 +45,25 @@ function toPublishedDTO(party: PublishedParty): PublishedPartyDTO {
     rootToken: party.rootToken,
     publishedAt: party.publishedAt,
     allowForward: party.allowForward,
+  };
+}
+
+function toInviteDTO(
+  invite: InviteWithReferrer | (Invite & { referrerName: string | null }),
+): HostInviteDTO {
+  return {
+    id: invite.id,
+    name: invite.name,
+    status: invite.status,
+    depth: invite.depth,
+    referrer: invite.referrerName,
+    forwardToken: invite.forwardToken,
+    ticketCode: invite.ticketCode,
+    source: invite.source,
+    checkedIn: invite.checkedIn,
+    checkedInAt: invite.checkedInAt,
+    openedAt: invite.openedAt,
+    answeredAt: invite.answeredAt,
   };
 }
 
@@ -146,6 +170,7 @@ async function sharedPartyDTO(
     publication: party.invitesOpen
       ? { slug: party.slug, rootToken: party.rootToken }
       : null,
+    ticketKey: party.ticketKey,
   };
 }
 
@@ -282,18 +307,77 @@ parties.get('/:partyId/invites', async (c) => {
   const listed = await c.var.repositories.invites.listForParty(party.id);
   if (!listed.ok) return c.json({ error: listed.error }, 500);
 
-  const invites: HostInviteDTO[] = listed.value.map((invite) => ({
-    id: invite.id,
-    name: invite.name,
-    status: invite.status,
-    depth: invite.depth,
-    referrer: invite.referrerName,
-    forwardToken: invite.forwardToken,
-    openedAt: invite.openedAt,
-    answeredAt: invite.answeredAt,
-  }));
+  return c.json({
+    party: toPublishedDTO(party),
+    invites: listed.value.map(toInviteDTO),
+  });
+});
 
-  return c.json({ party: toPublishedDTO(party), invites });
+/**
+ * `POST /api/parties/:partyId/invites` — a guest an organiser types in.
+ *
+ * On a shared party this has to be a server row, not a local one. It is what
+ * lets the co-organiser see them at all, and what gives them a ticket code the
+ * second phone on the door can check.
+ */
+parties.post('/:partyId/invites', async (c) => {
+  const body = await c.req
+    .json<{ name?: string }>()
+    .catch(() => ({}) as { name?: string });
+  const name = body.name?.trim().slice(0, 60);
+  if (!name) return c.json({ error: 'name_required' }, 400);
+
+  const added = await c.var.repositories.invites.addManual({
+    partyId: c.get('party').id,
+    name,
+    ticketCode: '',
+  });
+  if (!added.ok) return c.json({ error: added.error }, 500);
+
+  return c.json(toInviteDTO({ ...added.value, referrerName: null }));
+});
+
+/**
+ * `POST /api/parties/:partyId/invites/:inviteId/check-in` — they walked in.
+ *
+ * The server decides, not the scanning phone. A second scan answers 409 with
+ * the time of the first, so whichever phone is holding the queue up can say
+ * "already scanned at 23:14" rather than silently admitting them twice.
+ */
+parties.post('/:partyId/invites/:inviteId/check-in', async (c) => {
+  const checked = await c.var.repositories.invites.checkIn({
+    inviteId: c.req.param('inviteId'),
+    partyId: c.get('party').id,
+    at: new Date().toISOString(),
+  });
+
+  if (!checked.ok) {
+    if (checked.error === INVITE_ERRORS.ALREADY_CHECKED_IN) {
+      const existing = await c.var.repositories.invites.findById(
+        c.req.param('inviteId'),
+      );
+      return c.json(
+        {
+          error: checked.error,
+          checkedInAt: existing.ok ? existing.value.checkedInAt : null,
+        },
+        409,
+      );
+    }
+    return c.json({ error: checked.error }, 404);
+  }
+
+  return c.json(toInviteDTO({ ...checked.value, referrerName: null }));
+});
+
+/** `DELETE …/check-in` — for the guest waved through by mistake. */
+parties.delete('/:partyId/invites/:inviteId/check-in', async (c) => {
+  const undone = await c.var.repositories.invites.undoCheckIn({
+    inviteId: c.req.param('inviteId'),
+    partyId: c.get('party').id,
+  });
+  if (!undone.ok) return c.json({ error: undone.error }, 404);
+  return c.json(toInviteDTO({ ...undone.value, referrerName: null }));
 });
 
 /** `PATCH /api/parties/:partyId/invites/:inviteId` — override an answer. */

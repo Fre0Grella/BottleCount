@@ -1,10 +1,12 @@
 import QRCode from 'qrcode';
 import { signTicket } from './crypto';
-import type { Party, TicketQRPayload } from './types';
+import type { TicketQRPayload } from '../../shared/tickets';
+import { TICKET_CODE_ALPHABET, TICKET_CODE_LENGTH } from '../../shared/tickets';
+import type { Party } from './types';
 
 // ── Ticket identity ──────────────────────────────────────────────────────────
 
-/** FNV-1a 32-bit hash — stable per-guest ticket id fallback. */
+/** FNV-1a 32-bit hash — the local-only fallback for a party with no server. */
 function fnv1a(str: string): number {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) {
@@ -14,22 +16,57 @@ function fnv1a(str: string): number {
   return h;
 }
 
-/** Human-readable ticket code shown on the ticket, e.g. `BC-3-04217`. */
+/**
+ * A code derived from the guest's name, for a party that lives only in this
+ * browser.
+ *
+ * Shared parties get their codes from the server, where a unique index makes
+ * them genuinely unique. This is the free tier's substitute: deterministic, so
+ * reopening the app shows the same code on the same ticket, and drawn from the
+ * same alphabet so a guest cannot tell the difference. Two guests of the same
+ * party could in principle collide; with one device checking one door, the
+ * guest's name settles it.
+ */
+function derivedCode(party: Party, name: string): string {
+  let h = fnv1a(`${name}·${String(party.id)}`);
+  let code = '';
+  for (let i = 0; i < TICKET_CODE_LENGTH; i++) {
+    code += TICKET_CODE_ALPHABET[h % TICKET_CODE_ALPHABET.length];
+    h = Math.floor(h / TICKET_CODE_ALPHABET.length) + 7919 * (i + 1);
+  }
+  return code;
+}
+
+/**
+ * The five characters printed on a guest's ticket.
+ *
+ * The server's, whenever the party has one — that is the code the other phone
+ * on the door will look up, and the one door staff read back over a noisy room.
+ */
 export function ticketCode(party: Party, name: string): string {
-  const h = fnv1a(name + '·' + String(party.id));
-  return `BC-${party.id}-${(h % 100000).toString().padStart(5, '0')}`;
+  const invite = party.invites.find((i) => i.name === name);
+  return invite?.ticketCode || derivedCode(party, name);
+}
+
+/**
+ * The party id a ticket is stamped with.
+ *
+ * The server's on a shared party, so a ticket issued on one device resolves on
+ * another. Falls back to the browser's local id, which is all a local-only
+ * party has.
+ */
+export function ticketPartyId(party: Party): string {
+  return party.publication?.remoteId ?? String(party.id);
 }
 
 /** Build the signed-QR payload for a guest's ticket. */
 export function ticketPayload(party: Party, name: string): TicketQRPayload {
-  const invite = party.invites.find((i) => i.name === name);
-  const ticketId = invite?.id ?? fnv1a(name + '·' + String(party.id)) % 100000;
   // Expiry: party date +1 day at 06:00.
   const exp = new Date(party.date + 'T06:00:00');
   exp.setDate(exp.getDate() + 1);
   return {
-    ticketId,
-    partyId: party.id!,
+    code: ticketCode(party, name),
+    partyId: ticketPartyId(party),
     guestName: name,
     expiresAt: exp.toISOString(),
   };
@@ -115,9 +152,10 @@ function overlayLogo(canvas: HTMLCanvasElement): Promise<void> {
 
 /** Render a signed ticket QR with the BottleCount logo in the centre. */
 export async function ticketQrDataUrl(
+  party: Party,
   payload: TicketQRPayload,
 ): Promise<string> {
-  const signed = await signTicket(payload);
+  const signed = await signTicket(party, payload);
   const canvas = document.createElement('canvas');
   await QRCode.toCanvas(canvas, signed, {
     width: 320,

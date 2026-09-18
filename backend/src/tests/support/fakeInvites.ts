@@ -1,4 +1,5 @@
 import type { PartyDocument, PartyRole } from '../../../../shared/collab';
+import { generateTicketCode } from '../../../../shared/tickets';
 import { apply as applyPatch } from '../../../../shared/patch';
 import type { MergePatch } from '../../../../shared/patch';
 import type {
@@ -95,6 +96,9 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
         document: doc,
         version: 1,
         invitesOpen: false,
+        // A stand-in, not a real key: nothing in a route test signs anything.
+        // What the tests care about is that every member gets the same one.
+        ticketKey: { kty: 'oct', k: `key-${nextId('k')}` },
       };
       rows.set(party.id, party);
 
@@ -270,6 +274,8 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         depth,
         referrerId,
         forwardToken: nextId('fwd'),
+        ticketCode: generateTicketCode(),
+        source: 'link',
         checkedIn: false,
         checkedInAt: null,
         openedAt: new Date().toISOString(),
@@ -331,6 +337,65 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         status,
         answeredAt: status === 'opened' ? null : new Date().toISOString(),
       };
+      rows.set(inviteId, updated);
+      return ok(updated);
+    },
+
+    async addManual({
+      partyId,
+      name,
+    }: {
+      partyId: string;
+      name: string;
+      ticketCode: string;
+    }): Promise<Result<Invite>> {
+      const now = new Date().toISOString();
+      const invite: Invite = {
+        id: nextId('invite'),
+        partyId,
+        name,
+        status: 'confirmed',
+        depth: 0,
+        referrerId: null,
+        forwardToken: nextId('fwd'),
+        ticketCode: generateTicketCode(),
+        source: 'manual',
+        checkedIn: false,
+        checkedInAt: null,
+        openedAt: now,
+        answeredAt: now,
+      };
+      rows.set(invite.id, invite);
+      return ok(invite);
+    },
+
+    async checkIn({
+      inviteId,
+      partyId,
+      at,
+    }: {
+      inviteId: string;
+      partyId: string;
+      at: string;
+    }): Promise<Result<Invite>> {
+      const row = rows.get(inviteId);
+      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
+      if (row.checkedIn) return err(INVITE_ERRORS.ALREADY_CHECKED_IN);
+      const updated: Invite = { ...row, checkedIn: true, checkedInAt: at };
+      rows.set(inviteId, updated);
+      return ok(updated);
+    },
+
+    async undoCheckIn({
+      inviteId,
+      partyId,
+    }: {
+      inviteId: string;
+      partyId: string;
+    }): Promise<Result<Invite>> {
+      const row = rows.get(inviteId);
+      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
+      const updated: Invite = { ...row, checkedIn: false, checkedInAt: null };
       rows.set(inviteId, updated);
       return ok(updated);
     },

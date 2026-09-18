@@ -11,6 +11,10 @@ function remote(overrides: Partial<HostInviteDTO> = {}): HostInviteDTO {
     depth: 0,
     referrer: null,
     forwardToken: 'fwd-1',
+    ticketCode: 'AB23C',
+    source: 'link',
+    checkedIn: false,
+    checkedInAt: null,
     openedAt: '2026-09-01T10:00:00.000Z',
     answeredAt: '2026-09-01T10:01:00.000Z',
     ...overrides,
@@ -92,16 +96,35 @@ describe('mergeFunnel', () => {
     expect(merged.find((i) => i.name === 'Marco')?.id).toBeGreaterThan(7);
   });
 
-  it('carries check-in state over, which the server does not know about', () => {
-    // It comes from the door scanner, which is entirely client-side.
+  it('takes check-in from the server, not from this device', () => {
+    // The point of the whole door-sync feature. A phone that did not scan
+    // someone must still show them as arrived, and a phone that did must not
+    // out-vote the server once a check-in has been undone.
+    const merged = mergeFunnel(
+      [local({ id: 2, remoteId: 'remote-1' })],
+      [remote({ checkedIn: true, checkedInAt: '2026-10-02T23:14:00.000Z' })],
+    );
+
+    expect(merged[0]?.used).toBe(true);
+    expect(merged[0]?.usedAt).toBe('2026-10-02T23:14:00.000Z');
+  });
+
+  it('clears a local check-in the server no longer has', () => {
+    // An organiser undid it on the other phone — someone waved through by
+    // mistake. Keeping the local `true` would let them in a second time.
     const existing = [
       local({ id: 2, remoteId: 'remote-1', used: true, usedAt: '23:14' }),
     ];
 
-    const merged = mergeFunnel(existing, [remote()]);
+    const merged = mergeFunnel(existing, [remote({ checkedIn: false })]);
 
-    expect(merged[0]?.used).toBe(true);
-    expect(merged[0]?.usedAt).toBe('23:14');
+    expect(merged[0]?.used).toBe(false);
+    expect(merged[0]?.usedAt).toBeUndefined();
+  });
+
+  it('carries the ticket code through, which the door reads', () => {
+    const merged = mergeFunnel([], [remote({ ticketCode: 'PQ4XZ' })]);
+    expect(merged[0]?.ticketCode).toBe('PQ4XZ');
   });
 
   it('drops a guest the server no longer lists', () => {

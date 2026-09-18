@@ -26,6 +26,12 @@ export interface PublishedParty {
    * and nothing else.
    */
   invitesOpen: boolean;
+  /**
+   * The party's ticket-signing key, as a JWK. Generated server-side when the
+   * party is first stored; every member verifies with the same one, which is
+   * what lets a second phone check a ticket the first phone issued.
+   */
+  ticketKey: JsonWebKey | null;
 }
 
 /** A party as it appears in somebody's list, with their role on it. */

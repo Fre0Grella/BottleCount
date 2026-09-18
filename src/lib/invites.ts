@@ -74,6 +74,78 @@ export async function fetchFunnel(
 
 // ── Guest-side API ──────────────────────────────────────────────────────────
 
+/**
+ * Tells the server a guest walked in.
+ *
+ * The server arbitrates, so this is what makes a second scan on a second phone
+ * fail. A 409 carries the time of the first scan, which is what the door needs
+ * to say rather than a bare refusal.
+ */
+export async function checkInRemote(
+  partyId: string,
+  inviteId: string,
+): Promise<ApiResult<{ checkedInAt: string | null }>> {
+  try {
+    const res = await fetch(
+      `/api/parties/${encodeURIComponent(partyId)}/invites/${encodeURIComponent(inviteId)}/check-in`,
+      { method: 'POST', credentials: 'include' },
+    );
+    if (res.ok) {
+      const body = (await res.json()) as { checkedInAt: string | null };
+      return { ok: true, value: body };
+    }
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      checkedInAt?: string | null;
+    };
+    return {
+      ok: false,
+      error: body.error ?? `http_${res.status}`,
+      value: { checkedInAt: body.checkedInAt ?? null },
+    };
+  } catch {
+    return { ok: false, error: 'network_error' };
+  }
+}
+
+/** Undoes a check-in, for the guest waved through by mistake. */
+export async function undoCheckInRemote(
+  partyId: string,
+  inviteId: string,
+): Promise<ApiResult<void>> {
+  try {
+    const res = await fetch(
+      `/api/parties/${encodeURIComponent(partyId)}/invites/${encodeURIComponent(inviteId)}/check-in`,
+      { method: 'DELETE', credentials: 'include' },
+    );
+    return res.ok ? { ok: true } : { ok: false, error: `http_${res.status}` };
+  } catch {
+    return { ok: false, error: 'network_error' };
+  }
+}
+
+/** Adds a guest an organiser typed in, as a real invite the co-organiser sees. */
+export async function addRemoteGuest(
+  partyId: string,
+  name: string,
+): Promise<ApiResult<HostInviteDTO>> {
+  try {
+    const res = await fetch(
+      `/api/parties/${encodeURIComponent(partyId)}/invites`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      },
+    );
+    if (!res.ok) return { ok: false, error: `http_${res.status}` };
+    return { ok: true, value: (await res.json()) as HostInviteDTO };
+  } catch {
+    return { ok: false, error: 'network_error' };
+  }
+}
+
 export function openInvite(
   slug: string,
   args: { referrer: string | null; inviteId: string | null },
@@ -105,9 +177,10 @@ export function answerInvite(
  *
  * - Rows are matched by `remoteId`, so a refresh updates a guest in place and
  *   keeps the client-side `id` their avatar colour and list key depend on.
- * - Local-only rows (no `remoteId`) are kept untouched. Those are the guests
- *   the host typed in by hand, which works on every tier and must not be
- *   deleted by a funnel refresh that has never heard of them.
+ * - Local-only rows (no `remoteId`) are kept untouched. On a *local-only* party
+ *   those are all of them. On a shared party a guest typed in by an organiser
+ *   is sent to the server and comes back with a `remoteId`, so a row without
+ *   one there is only ever a save still in flight.
  *
  * Returns a new array; the caller decides when to commit it.
  */
@@ -125,11 +198,6 @@ export function mergeFunnel(
   const merged = remote.map((row) => {
     const previous = byRemoteId.get(row.id);
     return {
-      // Check-in state lives on the host's device (it comes from the door
-      // scanner, which the server knows nothing about yet), so it is carried
-      // over rather than overwritten with a default.
-      used: previous?.used ?? false,
-      ...(previous?.usedAt ? { usedAt: previous.usedAt } : {}),
       id: previous?.id ?? ++nextId,
       remoteId: row.id,
       name: row.name ?? '',
@@ -137,6 +205,14 @@ export function mergeFunnel(
       depth: row.depth,
       referrer: row.referrer,
       ...(row.forwardToken ? { forwardToken: row.forwardToken } : {}),
+      ticketCode: row.ticketCode,
+      source: row.source,
+      // Check-in is the server's answer now, not this device's. That is the
+      // whole point: two phones on the door have to agree, and the one that
+      // agrees is the one that arbitrated. A local guess kept here would show
+      // a guest as not-yet-arrived on the phone that did not scan them.
+      used: row.checkedIn,
+      ...(row.checkedInAt ? { usedAt: row.checkedInAt } : {}),
       openedAt: row.openedAt,
       ...(row.answeredAt ? { answeredAt: row.answeredAt } : {}),
     } satisfies Invite;

@@ -106,6 +106,16 @@ export interface SharedPartyDTO {
   updatedAt: string;
   /** Present once the invite link is on, so a collaborator can share it too. */
   publication: { slug: string; rootToken: string } | null;
+  /**
+   * The party's ticket-signing key, as a JWK.
+   *
+   * Handed to every member because every member may work the door, and a phone
+   * that cannot verify is a phone that rejects real guests. It is a shared
+   * secret among organisers: holding it means being able to mint a ticket, and
+   * anyone who holds it can already add a guest through the API, so it grants
+   * nothing they did not have. It is never sent to a guest.
+   */
+  ticketKey: JsonWebKey | null;
 }
 
 /** One entry in the list of parties a user can open. */

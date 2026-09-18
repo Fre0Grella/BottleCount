@@ -91,6 +91,16 @@ export interface HostInviteDTO {
   /** The referrer's display name, or null at depth 0. */
   referrer: string | null;
   forwardToken: string | null;
+  /** The five characters on this guest's ticket. */
+  ticketCode: string;
+  /** 'link' if they RSVPed themselves; 'manual' if an organiser typed them in. */
+  source: 'link' | 'manual';
+  /**
+   * Whether they have walked in, as the *server* sees it — which is what makes
+   * "already scanned" true across every phone on the door rather than on one.
+   */
+  checkedIn: boolean;
+  checkedInAt: string | null;
   openedAt: string;
   answeredAt: string | null;
 }

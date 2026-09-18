@@ -1,38 +1,41 @@
 # BottleCount backend
 
-A Hono Worker on Cloudflare, backed by D1. It exists to serve the three things a
-static bundle cannot: who you are, what you have paid for, and (next) the party
-data two people need to share.
+A Hono Worker on Cloudflare, backed by D1. It exists to serve the four things a
+static bundle cannot: who you are, what you have paid for, the party data two
+organisers share, and the one check-in list every phone on the door agrees on.
 
 See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 
 ## What it serves
 
-| Route                                      | Auth               | Purpose                                                             |
-| ------------------------------------------ | ------------------ | ------------------------------------------------------------------- |
-| `GET /`                                    | —                  | Liveness, and which environment answered                            |
-| `GET /auth/google`                         | —                  | Google OAuth; sets the `session_token` cookie                       |
-| `POST /auth/logout`                        | —                  | Clears it (the cookie is httpOnly, so the page cannot)              |
-| `POST /auth/dev`                           | —                  | Sign in without Google. **404 unless local or self-hosted**         |
-| `GET /api/session`                         | optional           | Who the caller is and what they may do                              |
-| `POST /api/licences/redeem`                | session            | Turns a licence code into `pro`                                     |
-| `GET /api/parties`                         | session            | Parties the caller can open, owned or shared                        |
-| `POST /api/parties`                        | session + `pro`    | Store a party, or save it again                                     |
-| `GET /api/parties/:id`                     | member             | The full document, members and role                                 |
-| `PATCH /api/parties/:id`                   | member             | One organiser's edit, as a merge patch                              |
-| `DELETE /api/parties/:id`                  | owner              | Delete it for everyone                                              |
-| `POST /api/parties/:id/invite-link`        | member             | Open the party to RSVPs                                             |
-| `DELETE /api/parties/:id/invite-link`      | owner              | Close it                                                            |
-| `GET /api/parties/:id/invites`             | member             | The RSVP funnel                                                     |
-| `PATCH /api/parties/:id/invites/:inviteId` | member             | Override a guest's answer                                           |
-| `GET /api/parties/:id/members`             | member             | Who is on the party                                                 |
-| `POST /api/parties/:id/members/invite`     | owner              | Mint a co-organiser link                                            |
-| `DELETE /api/parties/:id/members/invites`  | owner              | Revoke outstanding links                                            |
-| `DELETE /api/parties/:id/members/:userId`  | owner, or yourself | Remove, or leave                                                    |
-| `GET /api/collaborate/:token`              | session            | What am I being asked to join?                                      |
-| `POST /api/collaborate/:token`             | session            | Join as an editor                                                   |
-| `POST /invite/:slug/open`                  | —                  | A guest opened the link. **Writes** — this is what "reached" counts |
-| `POST /invite/:slug/answer`                | —                  | A guest's yes or no                                                 |
+| Route                                                | Auth               | Purpose                                                             |
+| ---------------------------------------------------- | ------------------ | ------------------------------------------------------------------- |
+| `GET /`                                              | —                  | Liveness, and which environment answered                            |
+| `GET /auth/google`                                   | —                  | Google OAuth; sets the `session_token` cookie                       |
+| `POST /auth/logout`                                  | —                  | Clears it (the cookie is httpOnly, so the page cannot)              |
+| `POST /auth/dev`                                     | —                  | Sign in without Google. **404 unless local or self-hosted**         |
+| `GET /api/session`                                   | optional           | Who the caller is and what they may do                              |
+| `POST /api/licences/redeem`                          | session            | Turns a licence code into `pro`                                     |
+| `GET /api/parties`                                   | session            | Parties the caller can open, owned or shared                        |
+| `POST /api/parties`                                  | session + `pro`    | Store a party, or save it again                                     |
+| `GET /api/parties/:id`                               | member             | The full document, members and role                                 |
+| `PATCH /api/parties/:id`                             | member             | One organiser's edit, as a merge patch                              |
+| `DELETE /api/parties/:id`                            | owner              | Delete it for everyone                                              |
+| `POST /api/parties/:id/invite-link`                  | member             | Open the party to RSVPs                                             |
+| `DELETE /api/parties/:id/invite-link`                | owner              | Close it                                                            |
+| `GET /api/parties/:id/invites`                       | member             | The RSVP funnel                                                     |
+| `POST /api/parties/:id/invites`                      | member             | Add a guest by hand (`source: manual`)                              |
+| `PATCH /api/parties/:id/invites/:inviteId`           | member             | Override a guest's answer                                           |
+| `POST /api/parties/:id/invites/:inviteId/check-in`   | member             | They walked in. 409 if already scanned                              |
+| `DELETE /api/parties/:id/invites/:inviteId/check-in` | member             | Undo a check-in                                                     |
+| `GET /api/parties/:id/members`                       | member             | Who is on the party                                                 |
+| `POST /api/parties/:id/members/invite`               | owner              | Mint a co-organiser link                                            |
+| `DELETE /api/parties/:id/members/invites`            | owner              | Revoke outstanding links                                            |
+| `DELETE /api/parties/:id/members/:userId`            | owner, or yourself | Remove, or leave                                                    |
+| `GET /api/collaborate/:token`                        | session            | What am I being asked to join?                                      |
+| `POST /api/collaborate/:token`                       | session            | Join as an editor                                                   |
+| `POST /invite/:slug/open`                            | —                  | A guest opened the link. **Writes** — this is what "reached" counts |
+| `POST /invite/:slug/answer`                          | —                  | A guest's yes or no                                                 |
 
 `/api/session` is the one `/api/*` route served without a session, because the
 free tier _is_ a logged-out browser. The exemption is named explicitly in

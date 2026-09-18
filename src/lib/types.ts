@@ -1,11 +1,12 @@
 import type { InviteStatus } from '../../shared/invites';
+import type { TicketQRPayload } from '../../shared/tickets';
 
 /**
  * Re-exported so components import their types from one place. The states
  * themselves are the server's — see shared/invites.ts — because a guest's
  * answer is what sets them.
  */
-export type { InviteStatus };
+export type { InviteStatus, TicketQRPayload };
 
 // ── Catalog ────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,10 @@ export interface Invite {
   remoteId?: string;
   /** This guest's own forward link token, once they have confirmed. */
   forwardToken?: string;
+  /** The five characters on their ticket, when the party has a server. */
+  ticketCode?: string;
+  /** Whether an organiser typed them in rather than them RSVPing. */
+  source?: 'link' | 'manual';
   openedAt?: string;
   answeredAt?: string;
 }
@@ -186,6 +191,11 @@ export interface PartyPublication {
   slug: string | null;
   /** The host's own link token. Guests who use it land at depth 0. */
   rootToken: string | null;
+  /**
+   * The party's ticket-signing key. Every organiser holds the same one, which
+   * is what lets a second phone on the door verify a ticket the first issued.
+   */
+  ticketKey?: JsonWebKey | null;
   publishedAt: string;
 }
 
@@ -195,13 +205,6 @@ export interface Ticket {
   guestName: string;
   used: boolean;
   usedAt?: string;
-  expiresAt: string;
-}
-
-export interface TicketQRPayload {
-  ticketId: number;
-  partyId: number;
-  guestName: string;
   expiresAt: string;
 }
 

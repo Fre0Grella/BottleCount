@@ -1,10 +1,12 @@
 import type { InviteAnswer, InviteStatus } from '../../../../shared/invites';
 import { INVITE_STATUSES } from '../../../../shared/invites';
 import { newToken } from '../../lib/tokens';
+import { withUniqueTicketCode } from '../../lib/ticketCodes';
 import {
   INVITE_ERRORS,
   type Invite,
   type InviteRepository,
+  type InviteSource,
   type InviteWithReferrer,
 } from '../inviteRepository';
 import { err, ok, type Result } from '../result';
@@ -17,6 +19,8 @@ interface InviteRow {
   depth: number;
   referrer_id: string | null;
   forward_token: string;
+  ticket_code: string | null;
+  source: string;
   checked_in: number;
   checked_in_at: string | null;
   opened_at: string;
@@ -44,6 +48,11 @@ function toInvite(row: InviteRow): Invite {
     depth: row.depth,
     referrerId: row.referrer_id,
     forwardToken: row.forward_token,
+    // A row from before ticket codes existed reads as empty rather than being
+    // invented here — only a write may mint a code, or two readers would
+    // disagree about what is printed on the same ticket.
+    ticketCode: row.ticket_code ?? '',
+    source: row.source === 'manual' ? 'manual' : ('link' as InviteSource),
     checkedIn: row.checked_in === 1,
     checkedInAt: row.checked_in_at,
     openedAt: row.opened_at,
@@ -97,23 +106,31 @@ export class InviteRepositoryD1 implements InviteRepository {
       }
     }
 
-    const row = await this.db
-      .prepare(
-        `INSERT INTO invites (
-           id, party_id, name, status, depth, referrer_id, forward_token, opened_at
-         ) VALUES (?, ?, NULL, 'opened', ?, ?, ?, ?) RETURNING *`,
-      )
-      .bind(
-        crypto.randomUUID(),
-        partyId,
-        depth,
-        referrerId,
-        newToken(),
-        new Date().toISOString(),
-      )
-      .first<InviteRow>();
+    // The code is minted here, on open, rather than on confirmation: a guest
+    // who answers expects their ticket immediately, and generating it later
+    // would mean a second write on the busiest path.
+    return withUniqueTicketCode(async (ticketCode) => {
+      const row = await this.db
+        .prepare(
+          `INSERT INTO invites (
+             id, party_id, name, status, depth, referrer_id,
+             forward_token, ticket_code, source, opened_at
+           ) VALUES (?, ?, NULL, 'opened', ?, ?, ?, ?, 'link', ?) RETURNING *`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          partyId,
+          depth,
+          referrerId,
+          newToken(),
+          ticketCode,
+          new Date().toISOString(),
+        )
+        .first<InviteRow>()
+        .catch(() => null);
 
-    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
+      return row ? ok(toInvite(row)) : err(INVITE_ERRORS.CODE_TAKEN);
+    });
   }
 
   async findById(id: string): Promise<Result<Invite>> {
@@ -204,6 +221,87 @@ export class InviteRepositoryD1 implements InviteRepository {
          WHERE id = ? AND party_id = ? RETURNING *`,
       )
       .bind(status, status, new Date().toISOString(), inviteId, partyId)
+      .first<InviteRow>();
+
+    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
+  }
+
+  async addManual({
+    partyId,
+    name,
+  }: {
+    partyId: string;
+    name: string;
+    ticketCode: string;
+  }): Promise<Result<Invite>> {
+    const now = new Date().toISOString();
+
+    // `ticketCode` in the signature is ignored in favour of a drawn one: the
+    // caller should not have to know about collisions, and the retry has to own
+    // the draw for the redraw to mean anything.
+    return withUniqueTicketCode(async (code) => {
+      const row = await this.db
+        .prepare(
+          `INSERT INTO invites (
+             id, party_id, name, status, depth, referrer_id,
+             forward_token, ticket_code, source, opened_at, answered_at
+           ) VALUES (?, ?, ?, 'confirmed', 0, NULL, ?, ?, 'manual', ?, ?)
+           RETURNING *`,
+        )
+        .bind(crypto.randomUUID(), partyId, name, newToken(), code, now, now)
+        .first<InviteRow>()
+        .catch(() => null);
+
+      return row ? ok(toInvite(row)) : err(INVITE_ERRORS.CODE_TAKEN);
+    });
+  }
+
+  async checkIn({
+    inviteId,
+    partyId,
+    at,
+  }: {
+    inviteId: string;
+    partyId: string;
+    at: string;
+  }): Promise<Result<Invite>> {
+    // `AND checked_in = 0` is what makes the second scan lose. Two phones
+    // scanning the same ticket at once both reach here; only one row changes.
+    const row = await this.db
+      .prepare(
+        `UPDATE invites SET checked_in = 1, checked_in_at = ?
+         WHERE id = ? AND party_id = ? AND checked_in = 0
+         RETURNING *`,
+      )
+      .bind(at, inviteId, partyId)
+      .first<InviteRow>();
+
+    if (row) return ok(toInvite(row));
+
+    // Nothing changed: either they are already in, or the invite is not here.
+    const existing = await this.db
+      .prepare('SELECT * FROM invites WHERE id = ? AND party_id = ?')
+      .bind(inviteId, partyId)
+      .first<InviteRow>();
+
+    return err(
+      existing ? INVITE_ERRORS.ALREADY_CHECKED_IN : INVITE_ERRORS.NOT_FOUND,
+    );
+  }
+
+  async undoCheckIn({
+    inviteId,
+    partyId,
+  }: {
+    inviteId: string;
+    partyId: string;
+  }): Promise<Result<Invite>> {
+    const row = await this.db
+      .prepare(
+        `UPDATE invites SET checked_in = 0, checked_in_at = NULL
+         WHERE id = ? AND party_id = ? RETURNING *`,
+      )
+      .bind(inviteId, partyId)
       .first<InviteRow>();
 
     return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
