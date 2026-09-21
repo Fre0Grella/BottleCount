@@ -1,5 +1,7 @@
 ---
 import '../styles/theme.css';
+import Canonical from '../components/Canonical.astro';
+import { APP_URL } from '../lib/links';
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -9,6 +11,7 @@ const base = import.meta.env.BASE_URL;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BottleCount — Docs</title>
+    <Canonical />
     <link rel="icon" href={`${base}favicon.svg`} />
     <script is:inline>
       document.documentElement.dataset.theme =
@@ -54,7 +57,7 @@ const base = import.meta.env.BASE_URL;
         </span>
         Documentation
       </div>
-      <a href={`${base}app`} class="open-app-btn">Open app</a>
+      <a href={APP_URL} class="open-app-btn">Open app</a>
     </header>
 
     <!-- Main content -->
@@ -254,14 +257,107 @@ const base = import.meta.env.BASE_URL;
           <h2 class="doc-section__title">RSVP &amp; spread</h2>
         </div>
         <p class="doc-para">
-          Invites move through a funnel: reached → confirmed, with maybes shown
-          faded against your capacity so you can read the room. When you allow
-          it, guests can forward the invite to their own friends.
+          Hit <strong>Send invite</strong> and BottleCount creates a link you can
+          share anywhere. Whoever opens it types their own name and taps yes or no
+          — no account, no app. You never type a guest in.
         </p>
         <p class="doc-para">
-          The spread view groups people into tiers — you, your direct invites,
-          and friends-of-friends — and shows a spread factor: the average number
-          of extra people each direct invite brought in.
+          Everyone who opens the link is counted as <strong>reached</strong>,
+          including the ones who look and never answer: those are your
+          <strong>maybes</strong>, shown faded against your capacity so you can
+          read the room. The rest land as confirmed or declined. If you set a
+          capacity cap, confirmations stop there — though people can still tell
+          you they can't come.
+        </p>
+        <p class="doc-para">
+          When you allow forwarding, a guest who confirms gets a link of their
+          own. The spread view groups people into tiers — you, your direct
+          invites, and friends-of-friends — and shows a spread factor: the
+          average number of extra people each direct invite brought in.
+        </p>
+        <p class="doc-para">
+          Invite links and the funnel need a server to work, so they are part of
+          the hosted and self-hosted plans. Turning the link off stops it
+          working for anyone still holding it.
+        </p>
+      </section>
+
+      <section class="doc-section">
+        <div class="doc-section__head">
+          <span class="doc-section__icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"></path>
+              <circle cx="9.5" cy="6.5" r="3.5"></circle>
+              <path d="M21 19v-1a4 4 0 0 0-3-3.87"></path>
+              <path d="M16.5 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </span>
+          <h2 class="doc-section__title">Running it with someone else</h2>
+        </div>
+        <p class="doc-para">
+          Open <strong>Co-organisers</strong> in the party header and send the link
+          it gives you. Whoever opens it signs in and can then edit the party from
+          their own device — the menu, the budget, the guest list. Changes show up
+          on your screen within a few seconds.
+        </p>
+        <p class="doc-para">
+          You don't have to take turns. Edits to different things merge, so one
+          of you can build the menu while the other works the numbers. If you
+          both change the <em>same</em> figure, the later one wins — the same as two
+          people typing into one box.
+        </p>
+        <p class="doc-para">
+          Co-organisers can do everything except take the party away from you:
+          they can't delete it, close an invite link you opened, or add and
+          remove people. They also don't pay — the party is yours.
+        </p>
+      </section>
+
+      <section class="doc-section">
+        <div class="doc-section__head">
+          <span class="doc-section__icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 8V6a2 2 0 0 1 2-2h2"></path>
+              <path d="M16 4h2a2 2 0 0 1 2 2v2"></path>
+              <path d="M20 16v2a2 2 0 0 1-2 2h-2"></path>
+              <path d="M8 20H6a2 2 0 0 1-2-2v-2"></path>
+              <path d="M4 12h16"></path>
+            </svg>
+          </span>
+          <h2 class="doc-section__title">On the door</h2>
+        </div>
+        <p class="doc-para">
+          Open the scanner and point it at a guest's QR. It checks the
+          signature, the party and the expiry, then lets them in — or tells you
+          why not. It keeps working with no signal once the party has loaded.
+        </p>
+        <p class="doc-para">
+          Every ticket also has a <strong>five-character code</strong>, printed
+          on it and short enough to read across a noisy doorway. When a QR won't
+          scan — cracked screen, dead battery, a screenshot of a screenshot —
+          type the code and the guest's name instead. Both have to match: the
+          code on its own is short enough that someone could overhear it.
+        </p>
+        <p class="doc-para">
+          On the hosted and self-hosted plans you can put
+          <strong>more than one phone</strong> on the door. They share a single check-in
+          list, so a ticket that got someone in at the front can't get someone else
+          in at the back — the second phone tells you when the first one scanned it.
+          Waved someone through by mistake? Undo it and they can be scanned again.
         </p>
       </section>
     </main>

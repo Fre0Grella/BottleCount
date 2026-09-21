@@ -1,0 +1,73 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci` in both packages rather than `install:all`: CI should install
+      # exactly what the lockfiles say, not resolve fresh.
+      - name: Install
+        run: npm ci && npm --prefix backend ci
+
+      # No `format:check` step yet: seven files predating the Husky/lint-staged
+      # hook still carry CRLF line endings, so it fails on `main` today. Fixing
+      # that is `git add --renormalize .` plus one commit — worth doing on its
+      # own, not folded into an architecture change.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Frontend unit tests and backend tests both.
+      - name: Tests
+        run: npm test
+
+      # Catches the failure mode a typecheck cannot: a build that trips over
+      # the shared/ imports crossing the package boundary.
+      - name: Build the application
+        run: npm run build
+
+      - name: Build the documentation
+        run: npm run build:docs
+
+      # The documentation site has no Worker behind it, so shipping /app,
+      # /auth or /i there would publish a copy of the product that looks real
+      # and fails at sign-in. astro.config.mjs strips them; this checks it.
+      - name: Documentation build must contain no application
+        run: |
+          failed=0
+          for route in app auth i; do
+            if [ -e "dist/$route" ]; then
+              echo "::error::dist/$route is in the documentation build — it needs the Worker, and GitHub Pages has none"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      # These pages exist on both hosts. Without a canonical they are duplicate
+      # content on two domains, and a missing one fails silently — nothing in
+      # the build or the browser complains.
+      - name: Documentation pages must point their canonical at the app
+        run: |
+          failed=0
+          while IFS= read -r page; do
+            if ! grep -q '<link rel="canonical" href="https://bottlecount.pages.dev' "$page"; then
+              echo "::error::$page has no canonical pointing at the application host"
+              failed=1
+            fi
+          done < <(find dist -name '*.html')
+          exit $failed
+        shell: bash

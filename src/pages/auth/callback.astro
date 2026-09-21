@@ -1,0 +1,63 @@
+---
+import '../../styles/theme.css';
+import { APP_URL } from '../../lib/links';
+const base = import.meta.env.BASE_URL;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signing you in — BottleCount</title>
+    <link rel="icon" href={`${base}faviconDark.svg`} />
+    <script is:inline>
+      document.documentElement.dataset.theme =
+        localStorage.getItem('bc-theme') || 'dark';
+    </script>
+    <!--
+      Where Google sends the user once the Worker has set the session cookie.
+      It is a static page rather than a Worker route so the cookie is already in
+      the browser by the time anything here runs; all that is left is to get out
+      of the way.
+    -->
+    <meta http-equiv="refresh" content={`2;url=${APP_URL}`} />
+    <script is:inline define:vars={{ APP_URL }}>
+      // A co-organiser invitation sends people through sign-in and expects them
+      // back on the invitation. The meta refresh above is the fallback for when
+      // there is nothing to come back to.
+      try {
+        const back = sessionStorage.getItem('bc-after-signin');
+        sessionStorage.removeItem('bc-after-signin');
+        // Same-origin paths only: an absolute URL here would make the sign-in
+        // flow an open redirect.
+        if (back && back.startsWith('/') && !back.startsWith('//')) {
+          window.location.replace(back);
+        } else {
+          window.location.replace(APP_URL);
+        }
+      } catch {
+        window.location.replace(APP_URL);
+      }
+    </script>
+  </head>
+  <body
+    style="margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);font-family:var(--font-body)"
+  >
+    <div style="text-align:center;display:flex;flex-direction:column;gap:12px">
+      <div
+        style="font-family:var(--font-disp);font-weight:700;font-size:20px;letter-spacing:-0.01em"
+      >
+        You're in.
+      </div>
+      <div style="font-size:13px;color:var(--dim)">
+        Taking you back to your parties…
+      </div>
+      <a
+        href={APP_URL}
+        style="font-size:13px;font-weight:600;color:var(--accent);text-decoration:none"
+        >Continue</a
+      >
+    </div>
+  </body>
+</html>

@@ -10,7 +10,15 @@
     "format:check": "prettier . --check",
     "prepare": "husky",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "backend": "npm --prefix backend run",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:test": "npm --prefix backend run test",
+    "test": "vitest run && npm --prefix backend run test",
+    "typecheck": "astro check && npm --prefix backend run typecheck",
+    "install:all": "npm install && npm --prefix backend install",
+    "test:frontend": "vitest run",
+    "build:docs": "BUILD_TARGET=docs BASE_PATH=/BottleCount/ SITE=https://fre0grella.github.io PUBLIC_APP_ORIGIN=https://bottlecount.pages.dev astro build"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -24,6 +32,7 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
     "@eslint/js": "^10.0.1",
     "@types/qrcode": "^1.5.5",
     "astro-eslint-parser": "^1.4.0",
@@ -38,6 +47,7 @@
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.59.1",
+    "vitest": "^5.0.1",
     "vue-eslint-parser": "^10.4.0"
   }
 }

@@ -18,6 +18,8 @@ import SendTicketModal from './modals/SendTicketModal.vue';
 import TicketModal from './modals/TicketModal.vue';
 import AddGuestModal from './modals/AddGuestModal.vue';
 import DoorScannerModal from './modals/DoorScannerModal.vue';
+import UpgradeModal from './UpgradeModal.vue';
+import CoOrganisersModal from './modals/CoOrganisersModal.vue';
 
 const store = useStore();
 
@@ -218,7 +220,15 @@ const tabs = computed(() => {
         <TicketModal />
         <AddGuestModal />
         <DoorScannerModal />
+        <CoOrganisersModal />
       </template>
+
+      <!--
+        Outside the party-workspace branch: the upgrade prompt is reachable from
+        the home screen too, and unmounting it on navigation would close it
+        mid-redemption.
+      -->
+      <UpgradeModal />
     </template>
   </div>
 </template>

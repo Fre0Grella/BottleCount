@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
+import { inviteUrl } from '../../../shared/invites';
 
 const store = useStore();
 
@@ -16,16 +17,35 @@ const cover = computed(() => {
   return COVERS[p.cover] ?? COVERS[0];
 });
 
+/**
+ * The host's own link, or '' until the party has been published.
+ *
+ * The slug is the server's, not one derived from the party name: renaming the
+ * party must not change a link already sent, and only the server knows which
+ * slug it handed out. `openShare` publishes on open, so this fills in a moment
+ * after the sheet appears — `publishing` covers the gap.
+ */
+const publication = computed(() => party.value?.publication ?? null);
+
 const inviteLink = computed(() => {
-  const p = party.value;
-  if (!p) return '';
-  const slug =
-    p.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'party';
-  return `bottlecount.app/i/${slug}-${p.id}`;
+  const pub = publication.value;
+  if (!pub) return '';
+  // `window` is always there: the whole app mounts under `client:only`, so this
+  // never renders on the server. Reading the live host is also what makes a
+  // preview deployment and a self-hosted domain each hand out links that point
+  // back at themselves.
+  return inviteUrl(
+    window.location.host,
+    import.meta.env.BASE_URL as string,
+    pub.slug,
+    pub.rootToken,
+  );
 });
+
+const publishing = computed(() => store.state.publishing);
+const publishFailed = computed(
+  () => !publishing.value && !publication.value && store.state.publishError,
+);
 
 const venueWhere = computed(() => {
   const p = party.value;
@@ -68,9 +88,13 @@ const channels: Channel[] = [
 ].map((ch) => ({
   ...ch,
   onClick: () => {
+    // Nothing to share until the party is published — sharing a blank link is
+    // worse than the button doing nothing for the second it takes.
+    if (!inviteLink.value) return;
     if (ch.label === 'Copy link') {
-      const link = `https://${inviteLink.value}`;
-      navigator.clipboard?.writeText(link).catch(() => {});
+      navigator.clipboard
+        ?.writeText(`https://${inviteLink.value}`)
+        .catch(() => {});
     }
     sent.value = true;
   },
@@ -213,7 +237,11 @@ watch(
             "
           >
             <Icon name="link" :size="12" />
-            {{ inviteLink }}
+            <span v-if="publishing">Creating your link…</span>
+            <span v-else-if="publishFailed" style="color: var(--bad)">
+              Couldn't reach the server — try again in a moment.
+            </span>
+            <span v-else>{{ inviteLink }}</span>
           </div>
         </div>
       </div>

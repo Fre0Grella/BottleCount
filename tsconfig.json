@@ -8,5 +8,10 @@
     "jsx": "preserve",
     "jsxImportSource": "vue",
     "verbatimModuleSyntax": true
-  }
+  },
+  // `backend/` is a separate package with its own tsconfig and its own globals
+  // (D1Database and friends come from @cloudflare/workers-types, which the
+  // frontend must not load). `shared/` is deliberately left in: both sides
+  // compile it, which is what keeps the tier model honest.
+  "exclude": ["dist", "backend", ".astro", ".wrangler"]
 }

@@ -16,6 +16,12 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+# Wrangler secrets for local dev — never commit these.
+.dev.vars
+backend/.dev.vars
+
+# wrangler local state (its D1 sqlite file lives here)
+.wrangler/
 
 # macOS-specific files
 .DS_Store

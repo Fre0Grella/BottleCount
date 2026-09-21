@@ -14,6 +14,34 @@ const emoji = computed(() => {
 
 const errCount = computed(() => store.menuErrors().length);
 
+/**
+ * How many people are on this party besides you. Shown on the button so the
+ * fact that a party is shared is visible without opening anything — which
+ * matters when somebody else's edits start appearing under your cursor.
+ */
+const coOrganisers = computed(() =>
+  Math.max(0, store.state.members.length - 1),
+);
+
+/**
+ * Whether there are unsent edits. A shared party that is quietly failing to
+ * save is the worst thing this feature can do silently, so it says so.
+ */
+const syncPending = computed(() => store.state.syncPending);
+const syncFailed = computed(() => store.state.syncError !== null);
+
+const membersTitle = computed(() =>
+  coOrganisers.value > 0
+    ? `${coOrganisers.value + 1} people are running this party`
+    : 'Invite a co-organiser',
+);
+
+const syncLabel = computed(() =>
+  syncFailed.value
+    ? { short: 'Not saved', title: "Couldn't reach the server — still trying" }
+    : { short: 'Saving…', title: 'Saving your changes…' },
+);
+
 function onNameInput(e: Event): void {
   const val = (e.target as HTMLInputElement).value;
   store.update((p) => {
@@ -106,6 +134,57 @@ function onNameInput(e: Event): void {
       >
         {{ errCount }} to balance
       </span>
+
+      <!--
+        Unsent edits. Only appears on a shared party, because on a local-only
+        one there is nothing to be behind on.
+      -->
+      <span
+        v-if="party.publication && (syncPending || syncFailed)"
+        :title="syncLabel.title"
+        style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 5px 11px;
+          border-radius: 999px;
+        "
+        :style="{
+          background: syncFailed ? 'var(--bad-soft)' : 'var(--surface2)',
+          color: syncFailed ? 'var(--bad)' : 'var(--dim)',
+        }"
+      >
+        <Icon :name="syncFailed ? 'info' : 'hourglass'" :size="12" />
+        <span v-if="store.state.device === 'desktop'">{{
+          syncLabel.short
+        }}</span>
+      </span>
+
+      <!-- co-organisers -->
+      <button
+        :title="membersTitle"
+        style="
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 8px 13px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--dim);
+          min-height: 36px;
+        "
+        @click="store.openMembers()"
+      >
+        <Icon name="users" :size="15" />
+        <span v-if="coOrganisers > 0">{{ coOrganisers + 1 }}</span>
+        <span v-else-if="store.state.device === 'desktop'">Co-organisers</span>
+      </button>
 
       <!-- manage ingredients button -->
       <button

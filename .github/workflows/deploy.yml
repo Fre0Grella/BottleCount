@@ -1,4 +1,21 @@
-name: Deploy to GitHub Pages
+# GitHub Pages — the documentation site.
+#
+# This is *not* the application. The app lives on Cloudflare Pages, where the
+# Worker is (see deploy-cloudflare.yml), and both tiers are served from there:
+# free users get it without an account, paying users sign in.
+#
+# What this deploys is the landing page, the docs, pricing and the legal pages,
+# under the repository's path prefix. `npm run build:docs` deletes /app, /auth
+# and /i from the output, because every one of them needs the Worker and there
+# is none behind this host — a half-working copy of the product is worse than no
+# copy. Those pages also exist on the application host, so each one carries a
+# canonical link pointing there.
+#
+# The build settings live in that npm script rather than here, so a local
+# `npm run build:docs` produces exactly what this publishes. That is also why
+# these are explicit steps: `withastro/action` runs `npm run build` and cannot
+# be pointed at another script.
+name: Deploy docs to GitHub Pages
 
 on:
   push:
@@ -19,10 +36,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: withastro/action@v3
+      - uses: actions/setup-node@v4
         with:
-          package-manager: 'npm'
-          node-version: 22
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:docs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
   deploy:
     needs: build

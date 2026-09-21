@@ -1,0 +1,166 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bottlecount-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-17",
+
+  // Every environment repeats the whole block on purpose: Wrangler does not
+  // inherit bindings into named environments, so an overlay would silently
+  // deploy a Worker with no database.
+  "env": {
+    // `wrangler dev --env local`. D1 runs against a local SQLite file, so the
+    // `database_id` is only a placeholder until you create a real one.
+    "local": {
+      "d1_databases": [
+        {
+          "binding": "db",
+          "database_name": "db",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+        },
+      ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
+      "vars": {
+        "FRONTEND_URL": "http://localhost:4321",
+        "ENVIRONMENT": "local",
+        // Unlocks POST /auth/dev so a fresh clone can sign in without
+        // registering a Google OAuth client.
+        "SELF_HOSTED": "true",
+      },
+    },
+
+    "preview": {
+      "name": "bottlecount-backend-preview",
+      "d1_databases": [
+        {
+          "binding": "db",
+          "database_name": "db-preview",
+          // Fill in after `wrangler d1 create db-preview`.
+          "database_id": "",
+        },
+      ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
+      "vars": {
+        "FRONTEND_URL": "https://preview.bottlecount.pages.dev",
+        "ENVIRONMENT": "preview",
+        "SELF_HOSTED": "false",
+        "GOOGLE_CLIENT_ID": "",
+      },
+    },
+
+    "production": {
+      "name": "bottlecount-backend",
+      "d1_databases": [
+        {
+          "binding": "db",
+          "database_name": "db",
+          // Fill in after `wrangler d1 create db`.
+          "database_id": "",
+        },
+      ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
+      "vars": {
+        "FRONTEND_URL": "https://bottlecount.pages.dev",
+        "ENVIRONMENT": "production",
+        // The hosted deployment is the one people pay for, so this is the one
+        // place it must stay "false" — see shared/tiers.ts.
+        "SELF_HOSTED": "false",
+        // Not a secret (GOOGLE_CLIENT_SECRET and JWT_SECRET are, and are set
+        // with `wrangler secret put`).
+        "GOOGLE_CLIENT_ID": "",
+      },
+    },
+
+    // What a self-hoster deploys. Identical to production except that
+    // SELF_HOSTED grants `pro` to every signed-in user and enables /auth/dev.
+    "selfhosted": {
+      "name": "bottlecount-backend",
+      "d1_databases": [
+        {
+          "binding": "db",
+          "database_name": "db",
+          "database_id": "",
+        },
+      ],
+      // Guards the two unauthenticated invite endpoints. They are the only
+      // routes on the Worker that write without an account behind them, and
+      // each open() creates a row, so an unthrottled loop could inflate a
+      // host's funnel or fill the table. Keyed on IP, because there is no
+      // account to key on. The platform only supports a 10s or 60s period, so
+      // this bounds the rate rather than a daily total; 30/minute is far above
+      // a person opening a link and answering, and far below a script.
+      "unsafe": {
+        "bindings": [
+          {
+            "name": "INVITE_RATE_LIMITER",
+            "type": "ratelimit",
+            // Namespace ids only have to be unique within the Worker.
+            "namespace_id": "2001",
+            "simple": { "limit": 30, "period": 60 },
+          },
+        ],
+      },
+      "vars": {
+        "FRONTEND_URL": "",
+        "ENVIRONMENT": "production",
+        "SELF_HOSTED": "true",
+        "GOOGLE_CLIENT_ID": "",
+      },
+    },
+  },
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+}

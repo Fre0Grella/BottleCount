@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useStore, COVERS } from '../lib/store';
 import Icon from './Icon.vue';
 import AppFooter from './AppFooter.vue';
+import AccountButton from './AccountButton.vue';
 import type { Party } from '../lib/types';
 
 const store = useStore();
@@ -45,7 +46,7 @@ const partyCards = computed<PartyCard[]>(() => {
         })
       : '—';
 
-    const accepted = p.invites.filter((i) => i.status === 'accepted').length;
+    const accepted = p.invites.filter((i) => i.status === 'confirmed').length;
     const r = store.calcForParty(p);
     const avgProfit = (r.profit_min + r.profit_max) / 2;
     const profitColor = avgProfit >= 0 ? 'var(--good)' : 'var(--bad)';
@@ -142,6 +143,7 @@ async function handleDelete(e: Event, id: number): Promise<void> {
         </span>
       </a>
       <div style="display: flex; align-items: center; gap: 8px">
+        <AccountButton />
         <a
           :href="`${base}docs`"
           style="
