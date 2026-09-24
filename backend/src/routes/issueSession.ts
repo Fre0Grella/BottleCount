@@ -15,7 +15,7 @@ export interface SessionClaims {
 }
 
 type SessionEnv = Env & {
-  Bindings: { JWT_SECRET: string; FRONTEND_URL: string };
+  Bindings: { JWT_SECRET: string; FRONTEND_URL?: string; ENVIRONMENT?: string };
 };
 
 /**
@@ -43,7 +43,7 @@ export async function issueSession<E extends SessionEnv>(
 
   setCookie(c, 'session_token', token, {
     httpOnly: true,
-    secure: resolveFrontendUrl(c.env).startsWith('https://'),
+    secure: resolveFrontendUrl(c.env, c.req.raw).startsWith('https://'),
     sameSite: 'Lax',
     path: '/',
     maxAge: 60 * 60 * 24 * SESSION_DAYS,

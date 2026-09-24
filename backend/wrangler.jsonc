@@ -37,6 +37,10 @@
         ],
       },
       "vars": {
+        // Load-bearing here and nowhere else: locally the Astro dev server and
+        // this Worker are two different ports, so the request's own origin is
+        // the wrong answer. Everywhere else the frontend URL is derived from
+        // the request (see src/routes/frontendUrl.ts).
         "FRONTEND_URL": "http://localhost:4321",
         "ENVIRONMENT": "local",
         // Unlocks POST /auth/dev so a fresh clone can sign in without
@@ -74,6 +78,9 @@
         ],
       },
       "vars": {
+        // A fallback only, for a direct hit on *.workers.dev that skipped the
+        // Pages proxy. Normal traffic derives the origin from the request, so
+        // a custom domain needs nothing set here.
         "FRONTEND_URL": "https://preview.bottlecount.pages.dev",
         "ENVIRONMENT": "preview",
         "SELF_HOSTED": "false",
@@ -110,6 +117,9 @@
         ],
       },
       "vars": {
+        // A fallback only — see the preview env. Changing the app's domain
+        // does not require changing this; the sign-in redirect follows
+        // whichever host the request arrived on.
         "FRONTEND_URL": "https://bottlecount.pages.dev",
         "ENVIRONMENT": "production",
         // The hosted deployment is the one people pay for, so this is the one
@@ -151,6 +161,8 @@
         ],
       },
       "vars": {
+        // Deliberately empty: a self-hoster's domain is derived from the
+        // request, so there is nothing for them to fill in.
         "FRONTEND_URL": "",
         "ENVIRONMENT": "production",
         "SELF_HOSTED": "true",

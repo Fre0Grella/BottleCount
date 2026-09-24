@@ -9,7 +9,9 @@ type Bindings = {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   JWT_SECRET: string;
-  FRONTEND_URL: string;
+  /** Only a fallback now — see routes/frontendUrl.ts. */
+  FRONTEND_URL?: string;
+  ENVIRONMENT?: string;
 };
 
 const auth = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
@@ -28,13 +30,18 @@ auth.use('/google', async (c, next) => {
     // The redirect target is the *frontend* origin: the Pages Function at
     // functions/auth/google.ts proxies it straight back here, which is what
     // keeps the session cookie first-party.
-    redirect_uri: `${resolveFrontendUrl(c.env)}/auth/google`,
+    // Derived from the request, so whichever domain the user reached the app
+    // on is the one Google sends them back to. Each such domain has to be
+    // registered as an authorised redirect URI on the OAuth client — Google
+    // checks this against its own allowlist, which is also what stops a forged
+    // Host header from redirecting the flow anywhere.
+    redirect_uri: `${resolveFrontendUrl(c.env, c.req.raw)}/auth/google`,
   });
   return handler(c, next);
 });
 
 auth.get('/google', async (c) => {
-  const frontendUrl = resolveFrontendUrl(c.env);
+  const frontendUrl = resolveFrontendUrl(c.env, c.req.raw);
   const oauthToken = c.get('token');
   const user = c.get('user-google');
 

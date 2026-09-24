@@ -92,10 +92,20 @@ npm run db:migrate:remote
 npm run deploy:production
 ```
 
-`GOOGLE_CLIENT_ID` and `FRONTEND_URL` are not secrets and live in
-`wrangler.jsonc`. The Google OAuth client's authorised redirect URI must be
-`<FRONTEND_URL>/auth/google` — the frontend origin, not the Worker's, because
-the Pages Function proxies it back here.
+`GOOGLE_CLIENT_ID` is not a secret and lives in `wrangler.jsonc`.
+
+You do **not** have to tell the Worker its own domain. The Pages Function
+proxies `/auth/*` over a service binding, which preserves the original request,
+so the sign-in redirect follows whichever host the user actually reached the app
+on — production, a preview deployment or a custom domain, with nothing set.
+`FRONTEND_URL` remains only as a fallback for a direct hit on `*.workers.dev`,
+which skips the proxy.
+
+What you do have to register is the OAuth client's **authorised redirect URI**:
+`https://<your domain>/auth/google`, for each domain the app is served on. That
+is the frontend origin, not the Worker's, because the Pages Function proxies it
+back here — and Google checking it against its own allowlist is what stops a
+forged `Host` header sending the flow anywhere.
 
 Afterwards, pushes to `main` deploy through
 `.github/workflows/deploy-cloudflare.yml`.
