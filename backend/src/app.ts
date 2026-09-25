@@ -21,6 +21,8 @@ export type Bindings = {
   ENVIRONMENT: string;
   /** "true" on a self-hosted deployment — see shared/tiers.ts. */
   SELF_HOSTED?: string;
+  /** A reusable licence for testing. Ignored on production — see routes/licences.ts. */
+  TEST_LICENCE_CODE?: string;
   /** Guards the unauthenticated invite endpoints. Absent locally. */
   INVITE_RATE_LIMITER?: {
     limit(o: { key: string }): Promise<{ success: boolean }>;
@@ -47,9 +49,9 @@ export function createApp(overrides: AppOverrides = {}): App {
   const app: App = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
 
   // In production the Pages Function proxy puts the frontend and this Worker on
-  // one origin, so CORS never comes up. It matters for `wrangler dev`, where
-  // the Astro dev server is a different port and the session cookie has to
-  // survive the hop.
+  // one origin, and in development the Astro dev server's proxy does the same
+  // (astro.config.mjs), so CORS normally never comes up. This covers a page
+  // that calls the Worker's own port directly.
   app.use(
     '*',
     cors({

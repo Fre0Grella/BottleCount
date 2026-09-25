@@ -81,3 +81,31 @@ describe('GET /api/session', () => {
     expect(dto.selfHosted).toBe(true);
   });
 });
+
+describe('devSignIn', () => {
+  // The app offers an email sign-in only where POST /auth/dev would accept it;
+  // anywhere else the button would lead to a 404.
+  it('is on for local development', async () => {
+    const dto = await getSession({
+      repositories: fakeRepositories(),
+      env: { ENVIRONMENT: 'local' },
+    });
+    expect(dto.devSignIn).toBe(true);
+  });
+
+  it('is on for a self-hosted Worker', async () => {
+    const dto = await getSession({
+      repositories: fakeRepositories(),
+      env: { ENVIRONMENT: 'production', SELF_HOSTED: 'true' },
+    });
+    expect(dto.devSignIn).toBe(true);
+  });
+
+  it('is off on the hosted deployment', async () => {
+    const dto = await getSession({
+      repositories: fakeRepositories(),
+      env: { ENVIRONMENT: 'production', SELF_HOSTED: 'false' },
+    });
+    expect(dto.devSignIn).toBe(false);
+  });
+});

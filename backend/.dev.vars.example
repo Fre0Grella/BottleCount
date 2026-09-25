@@ -9,3 +9,7 @@ JWT_SECRET="dev-only-change-me"
 # POST /auth/dev instead.
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+
+# Optional: "true" makes local behave like a self-hosted deployment, where every
+# signed-in user is pro. Leave it out to test the free tier and the upgrade.
+# SELF_HOSTED="true"

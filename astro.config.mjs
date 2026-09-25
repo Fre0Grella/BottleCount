@@ -64,9 +64,71 @@ function docsOnly() {
   };
 }
 
+/**
+ * Where `astro dev` finds the Worker — `wrangler dev` in the backend's own
+ * terminal. Override with `BACKEND_DEV_URL` if it runs somewhere else.
+ */
+const backendDevUrl = process.env.BACKEND_DEV_URL ?? 'http://localhost:8787';
+
+/**
+ * What `functions/` does on Cloudflare, done by the dev server instead.
+ *
+ * The frontend only ever calls its own origin (`/api/session`, never
+ * `localhost:8787/api/session`), because in production the Pages Functions
+ * forward those paths to the Worker over a service binding. `astro dev` runs no
+ * Pages Functions, so without this every call 404s, the session resolves to
+ * anonymous, and every paid feature sits locked with no way to unlock it.
+ *
+ * `/auth/*` is listed path by path for the same reason `functions/auth/` is
+ * three files rather than a catchall: `/auth/callback` is a page, not a route.
+ */
+const DEV_PROXY_PATHS = [
+  '/api',
+  '/invite',
+  '/auth/dev',
+  '/auth/google',
+  '/auth/logout',
+];
+
+/**
+ * `/i/<slug>` and `/join/<token>` are minted at runtime, so the build has one
+ * page for each and `functions/i/` and `functions/join/` rewrite the whole
+ * space onto it. This is that rewrite for the dev server; the browser's URL is
+ * untouched and the page still reads the slug off it.
+ */
+function devRewrites() {
+  const REWRITES = [
+    [/^\/i\/[^/?#]+/, '/i/'],
+    [/^\/join\/[^/?#]+/, '/join/'],
+  ];
+  return {
+    name: 'bottlecount:dev-rewrites',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        for (const [pattern, target] of REWRITES) {
+          if (req.url && pattern.test(req.url)) {
+            req.url = req.url.replace(pattern, target);
+            break;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   site,
   base,
   integrations: [vue(), ...(isDocs ? [docsOnly()] : [])],
   output: 'static',
+  vite: {
+    plugins: [devRewrites()],
+    server: {
+      proxy: Object.fromEntries(
+        DEV_PROXY_PATHS.map((path) => [path, { target: backendDevUrl }]),
+      ),
+    },
+  },
 });

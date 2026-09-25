@@ -65,20 +65,32 @@ npm run db:init:local            # applies migrations to the local D1
 npm run dev                      # wrangler dev --env local
 ```
 
-The `local` environment sets `SELF_HOSTED=true`, so you can sign in without a
-Google OAuth client:
+The `local` environment behaves like the hosted product: `SELF_HOSTED` is
+`"false"`, so a new account is `free` and the paywall is real. `/auth/dev` still
+works, because `ENVIRONMENT` is `local`:
 
 ```bash
 curl -X POST http://localhost:8787/auth/dev \
   -H 'content-type: application/json' \
   -d '{"email":"you@example.com","name":"You"}' -c cookies.txt
 
+curl -X POST http://localhost:8787/api/licences/redeem \
+  -H 'content-type: application/json' \
+  -d '{"code":"BC-TEST-TEST-TEST"}' -b cookies.txt
+
 curl http://localhost:8787/api/session -b cookies.txt
 ```
 
-Run the Astro dev server (`npm run dev` at the repo root) beside it. In
-production the Pages Functions proxy puts both on one origin; in development
-they are two ports, which is the only reason the CORS middleware is there.
+`BC-TEST-TEST-TEST` is the test licence (`TEST_LICENCE_CODE`, set on `local`
+and `preview`). Unlike a minted code it is reusable and never written to
+`licence_keys`, and it is refused whenever `ENVIRONMENT` is `production`. Put
+`SELF_HOSTED="true"` in `.dev.vars` to see the self-hosted behaviour instead.
+
+Run the Astro dev server (`npm run dev` at the repo root) beside it and open
+http://localhost:4321/app. It proxies `/api/*`, `/invite/*` and the `/auth/*`
+routes here (see `astro.config.mjs`), so the browser sees one origin, as it
+does behind the Pages Functions in production — and signing in from the header
+offers the same email sign-in as `/auth/dev`.
 
 ## Deploying
 
@@ -111,6 +123,9 @@ npm run licence:issue -- --env production --note "ko-fi #128"
 It prints a code such as `BC-7K2M-QP4X-9DNR` and inserts it. The buyer redeems
 it in the app. `--print` generates a code and the SQL without touching the
 database.
+
+To test the upgrade without minting anything, redeem `BC-TEST-TEST-TEST` on
+`local` or `preview` (see above).
 
 ## Structure
 
