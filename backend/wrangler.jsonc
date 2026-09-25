@@ -39,9 +39,14 @@
       "vars": {
         "FRONTEND_URL": "http://localhost:4321",
         "ENVIRONMENT": "local",
-        // Unlocks POST /auth/dev so a fresh clone can sign in without
-        // registering a Google OAuth client.
-        "SELF_HOSTED": "true",
+        // "false" so local behaves like the hosted product: you sign in as
+        // free and the paywall is real. POST /auth/dev still works, because
+        // ENVIRONMENT is "local". To try the self-hosted behaviour instead
+        // (every signed-in user is pro), put SELF_HOSTED="true" in .dev.vars.
+        "SELF_HOSTED": "false",
+        // Reusable licence for testing — redeem it in the app to unlock pro.
+        // Refused on production whatever this says (routes/licences.ts).
+        "TEST_LICENCE_CODE": "BC-TEST-TEST-TEST",
       },
     },
 
@@ -77,6 +82,8 @@
         "FRONTEND_URL": "https://preview.bottlecount.pages.dev",
         "ENVIRONMENT": "preview",
         "SELF_HOSTED": "false",
+        // Reusable licence for testing on the preview deployment.
+        "TEST_LICENCE_CODE": "BC-TEST-TEST-TEST",
         "GOOGLE_CLIENT_ID": "",
       },
     },

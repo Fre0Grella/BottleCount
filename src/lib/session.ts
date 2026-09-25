@@ -17,6 +17,7 @@ export const ANONYMOUS_SESSION: SessionDTO = Object.freeze({
   features: featuresFor('free'),
   selfHosted: false,
   backendAvailable: false,
+  devSignIn: false,
 });
 
 function isSessionDTO(value: unknown): value is SessionDTO {
@@ -49,6 +50,27 @@ export async function fetchSession(): Promise<SessionDTO> {
     return isSessionDTO(body) ? body : ANONYMOUS_SESSION;
   } catch {
     return ANONYMOUS_SESSION;
+  }
+}
+
+/**
+ * Signs in by email alone, where the Worker allows it (`session.devSignIn`):
+ * local development and self-hosted deployments. The cookie it sets is the same
+ * one Google sign-in sets, so nothing downstream can tell them apart.
+ */
+export async function devSignIn(email: string): Promise<RedeemResult> {
+  try {
+    const res = await fetch('/auth/dev', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (res.ok) return { ok: true };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: body.error ?? `http_${res.status}` };
+  } catch {
+    return { ok: false, error: 'network_error' };
   }
 }
 

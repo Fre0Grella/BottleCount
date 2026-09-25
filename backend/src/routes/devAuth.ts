@@ -12,6 +12,18 @@ type Bindings = {
 const devAuth = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
 
 /**
+ * Whether this Worker signs people in without Google. Also read by
+ * `/api/session`, so the app offers the email sign-in exactly where this route
+ * would accept it.
+ */
+export function devSignInEnabled(env: {
+  ENVIRONMENT: string;
+  SELF_HOSTED?: string;
+}): boolean {
+  return env.SELF_HOSTED === 'true' || env.ENVIRONMENT === 'local';
+}
+
+/**
  * Sign in without Google.
  *
  * Two audiences: local development, and self-hosters. Registering a Google
@@ -26,8 +38,7 @@ const devAuth = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
  * 404 as though the route did not exist.
  */
 devAuth.post('/dev', async (c) => {
-  const enabled = c.env.SELF_HOSTED === 'true' || c.env.ENVIRONMENT === 'local';
-  if (!enabled) return c.notFound();
+  if (!devSignInEnabled(c.env)) return c.notFound();
 
   const body = await c.req
     .json<{ email?: string; name?: string }>()

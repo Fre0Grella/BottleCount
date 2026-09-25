@@ -98,7 +98,17 @@ function avatarOpacity(status: InviteStatus) {
 }
 
 function initial(name: string) {
-  return name.trim().charAt(0).toUpperCase();
+  return name.trim().charAt(0).toUpperCase() || '?';
+}
+
+/**
+ * Someone who opened the link and has not answered has not told anyone who
+ * they are — the name only arrives with the answer. They are still a row,
+ * because that is what "Reached" and "Maybe" count, so give them a label
+ * rather than an empty line.
+ */
+function isNameless(inv: { name: string }) {
+  return inv.name.trim() === '';
 }
 
 function referrerFirst(referrer: string | null) {
@@ -264,6 +274,7 @@ const lastSyncedLabel = computed(() => {
               color: var(--on-accent);
               min-height: 40px;
             "
+            :style="{ marginLeft: published && lastSyncedLabel ? '0' : 'auto' }"
             @click="store.openShare()"
           >
             <span style="display: flex"><Icon name="share" :size="14" /></span>
@@ -974,7 +985,16 @@ const lastSyncedLabel = computed(() => {
                   overflow: hidden;
                   text-overflow: ellipsis;
                 "
-                >{{ inv.name }}</span
+                :style="
+                  isNameless(inv)
+                    ? {
+                        fontStyle: 'italic',
+                        fontWeight: 500,
+                        color: 'var(--dim)',
+                      }
+                    : {}
+                "
+                >{{ isNameless(inv) ? 'Opened the link' : inv.name }}</span
               >
               <!-- viral badge -->
               <span
@@ -1070,9 +1090,14 @@ const lastSyncedLabel = computed(() => {
 
           <!-- action buttons -->
           <div style="display: flex; gap: 6px; flex-shrink: 0">
-            <!-- opened, no answer: the host can answer on their behalf -->
+            <!--
+              opened, no answer: the host can answer on their behalf — but only
+              for someone with a name, since a confirmed guest gets a ticket
+              made out to them.
+            -->
             <template v-if="inv.status === 'opened'">
               <button
+                v-if="!isNameless(inv)"
                 style="
                   cursor: pointer;
                   display: flex;

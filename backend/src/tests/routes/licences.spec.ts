@@ -111,6 +111,88 @@ describe('POST /api/licences/redeem', () => {
   });
 });
 
+describe('the test licence', () => {
+  const TEST_CODE = 'BC-TEST-TEST-TEST';
+
+  it('upgrades the caller without a licence_keys row', async () => {
+    const users = fakeUsers([aUser({ tier: 'free' })]);
+    const res = await request('/api/licences/redeem', {
+      repositories: fakeRepositories(users, fakeLicences()),
+      env: { ENVIRONMENT: 'local', TEST_LICENCE_CODE: TEST_CODE },
+      cookie: await sessionCookie('user-1'),
+      method: 'POST',
+      body: { code: TEST_CODE },
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ tier: 'pro' });
+    expect(users.rows.get('user-1')?.tier).toBe('pro');
+  });
+
+  it('can be redeemed by more than one account', async () => {
+    // A co-organiser test needs two accounts, and a minted code is spent on
+    // first use — this one never is.
+    const users = fakeUsers([
+      aUser({ id: 'user-1', email: 'a@example.com' }),
+      aUser({ id: 'user-2', email: 'b@example.com' }),
+    ]);
+    const repositories = fakeRepositories(users, fakeLicences());
+    const env = { ENVIRONMENT: 'preview', TEST_LICENCE_CODE: TEST_CODE };
+
+    for (const id of ['user-1', 'user-2']) {
+      const res = await request('/api/licences/redeem', {
+        repositories,
+        env,
+        cookie: await sessionCookie(id),
+        method: 'POST',
+        body: { code: TEST_CODE },
+      });
+      expect(res.status).toBe(200);
+    }
+    expect(users.rows.get('user-2')?.tier).toBe('pro');
+  });
+
+  it('accepts it typed in lower case', async () => {
+    const res = await request('/api/licences/redeem', {
+      repositories: fakeRepositories(fakeUsers([aUser()]), fakeLicences()),
+      env: { ENVIRONMENT: 'local', TEST_LICENCE_CODE: TEST_CODE },
+      cookie: await sessionCookie('user-1'),
+      method: 'POST',
+      body: { code: ' bc-test-test-test ' },
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('is refused on production even when the var is set', async () => {
+    // The code is in a public repository; a copied env block must not turn it
+    // into a free licence on the deployment people pay for.
+    const users = fakeUsers([aUser({ tier: 'free' })]);
+    const res = await request('/api/licences/redeem', {
+      repositories: fakeRepositories(users, fakeLicences()),
+      env: { ENVIRONMENT: 'production', TEST_LICENCE_CODE: TEST_CODE },
+      cookie: await sessionCookie('user-1'),
+      method: 'POST',
+      body: { code: TEST_CODE },
+    });
+
+    expect(res.status).toBe(404);
+    expect(users.rows.get('user-1')?.tier).toBe('free');
+  });
+
+  it('does not exist where the var is unset', async () => {
+    const res = await request('/api/licences/redeem', {
+      repositories: fakeRepositories(fakeUsers([aUser()]), fakeLicences()),
+      env: { ENVIRONMENT: 'local' },
+      cookie: await sessionCookie('user-1'),
+      method: 'POST',
+      body: { code: TEST_CODE },
+    });
+
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('the /api/* guard', () => {
   it('protects everything except the session endpoint', async () => {
     const repositories = fakeRepositories();

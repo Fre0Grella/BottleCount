@@ -210,14 +210,27 @@ npm --prefix backend run db:init:local           # apply migrations to local D1
 npm run backend:dev                              # wrangler dev --env local
 ```
 
-The `local` Worker environment sets `SELF_HOSTED=true`, so you can sign in
-without registering a Google OAuth client:
+Then open http://localhost:4321/app. The Astro dev server forwards `/api/*`,
+`/invite/*` and the `/auth/*` routes to the Worker on `:8787`, and serves
+`/i/<slug>` and `/join/<token>` — the same job the Pages Functions do on
+Cloudflare — so the browser talks to one origin, exactly as in production.
+Point it elsewhere with `BACKEND_DEV_URL`.
 
-```bash
-curl -X POST http://localhost:8787/auth/dev \
-  -H 'content-type: application/json' \
-  -d '{"email":"you@example.com"}' -c cookies.txt
-```
+To try every paid feature:
+
+1. **Sign in** from the header. Locally it asks for an email instead of sending
+   you to Google — any address works, and each one is a separate account.
+2. **Unlock** any locked feature and redeem the test licence
+   **`BC-TEST-TEST-TEST`**. It is reusable, so a second account (for
+   co-organisers, say) can redeem it too.
+3. **Guests → Send invite** creates the invite link. Open it in a private
+   window to RSVP as a guest; confirm, and use _Copy my link_ to forward it and
+   see a friend-of-friend land in the spread view.
+
+The `local` Worker environment behaves like the hosted product — you sign in as
+`free` and the paywall is real. Put `SELF_HOSTED="true"` in
+`backend/.dev.vars` to see the self-hosted behaviour instead, where every
+signed-in user is `pro`.
 
 Checks, all of which CI runs:
 
@@ -317,6 +330,10 @@ npm --prefix backend run licence:issue -- --env production --note "ko-fi #128"
 
 It prints a code like `BC-7K2M-QP4X-9DNR` and inserts it into D1. The buyer
 redeems it in the app, which flips their tier to `pro`.
+
+For testing, `BC-TEST-TEST-TEST` unlocks `pro` on the `local` and `preview`
+Workers without a row in D1 (`TEST_LICENCE_CODE` in `backend/wrangler.jsonc`).
+It is refused on production whatever the config says, since the code is public.
 
 ---
 

@@ -191,7 +191,11 @@ export function mergeFunnel(
   const byRemoteId = new Map(
     existing.filter((i) => i.remoteId).map((i) => [i.remoteId!, i]),
   );
-  const localOnly = existing.filter((i) => !i.remoteId);
+  // Copied, not carried: the store passes its reactive list, and a Vue proxy
+  // left inside the new array ends up in the raw party, where structuredClone
+  // refuses it and the next save to IndexedDB fails. Every field is a
+  // primitive, so a shallow copy is a full one.
+  const localOnly = existing.filter((i) => !i.remoteId).map((i) => ({ ...i }));
 
   let nextId = existing.reduce((max, i) => Math.max(max, i.id), 0);
 
@@ -221,4 +225,40 @@ export function mergeFunnel(
   // Hand-typed guests first: they were there before the link existed, and the
   // server list grows at the end as people open it.
   return [...localOnly, ...merged];
+}
+
+/**
+ * Ties a guest the host typed in to the row the server made for them.
+ *
+ * On a shared party a hand-typed guest is posted to the server, which answers
+ * with the row it stored — id and ticket code included. Until the local row
+ * carries that id, {@link mergeFunnel} cannot tell the two are the same person:
+ * it keeps the local one as hand-typed and adds the server's beside it.
+ *
+ * If a refresh landed between the post and its answer, the server's copy is
+ * already in the list and the local row is simply dropped.
+ */
+export function adoptRemoteGuest(
+  existing: Invite[],
+  localId: number,
+  row: HostInviteDTO,
+): Invite[] {
+  const target = existing.find((i) => i.id === localId);
+  if (!target) return existing;
+
+  if (existing.some((i) => i.remoteId === row.id)) {
+    return existing.filter((i) => i.id !== localId);
+  }
+
+  return existing.map((i) =>
+    i.id === localId
+      ? {
+          ...i,
+          remoteId: row.id,
+          ticketCode: row.ticketCode,
+          source: row.source,
+          openedAt: row.openedAt,
+        }
+      : i,
+  );
 }
