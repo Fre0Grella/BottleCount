@@ -13,6 +13,7 @@ import {
   checkInRemote,
   fetchFunnel,
   mergeFunnel,
+  adoptRemoteGuest,
   setRemoteInviteStatus,
   undoCheckInRemote,
 } from './invites';
@@ -941,7 +942,7 @@ async function syncFunnel(): Promise<void> {
     if (!result.ok || !result.value) return;
     const remote = result.value;
 
-    const merged = mergeFunnel(p.invites, remote);
+    const merged = mergeFunnel(toRaw(p).invites, remote);
     // Most polls find nothing new. Committing anyway would write the whole
     // party to IndexedDB and re-render the guest list every few seconds for as
     // long as the tab is open, so only commit a list that actually differs.
@@ -964,13 +965,14 @@ async function syncFunnel(): Promise<void> {
  * what keeps a funnel refresh from deleting them.
  */
 function addInvite(name: string): void {
-  const remoteId = activeParty()?.publication?.remoteId;
+  const party = activeParty();
+  const remoteId = party?.publication?.remoteId;
+  const localId =
+    (party?.invites ?? []).reduce((max, i) => Math.max(max, i.id), 0) + 1;
 
   update((p) => {
-    const maxId =
-      p.invites.length > 0 ? Math.max(...p.invites.map((i) => i.id)) : 0;
     p.invites.unshift({
-      id: maxId + 1,
+      id: localId,
       name,
       status: 'confirmed',
       depth: 0,
@@ -982,12 +984,19 @@ function addInvite(name: string): void {
 
   // On a shared party the guest has to exist on the server too, or the
   // co-organiser never sees them and the other phone on the door cannot check
-  // their ticket. The row appears locally first so the list responds at once;
-  // the next funnel sync replaces it with the server's, carrying the ticket
-  // code only the server can issue.
-  if (remoteId) {
+  // their ticket. The row appears locally first so the list responds at once,
+  // then takes the server's id — without it the next sync would add the
+  // server's copy beside it rather than recognising it (see adoptRemoteGuest).
+  if (party && remoteId) {
     void addRemoteGuest(remoteId, name).then((result) => {
-      if (result.ok) void syncFunnel();
+      if (!result.ok || !result.value) return;
+      party.invites = adoptRemoteGuest(
+        toRaw(party).invites,
+        localId,
+        result.value,
+      );
+      void persist(party);
+      if (activeParty() === party) void syncFunnel();
     });
   }
 }
