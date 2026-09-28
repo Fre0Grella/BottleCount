@@ -1,5 +1,5 @@
-import QRCode from 'qrcode';
 import { signTicket } from './crypto';
+import { brandedQrDataUrl, roundRect } from './qr';
 import type { TicketQRPayload } from '../../shared/tickets';
 import { TICKET_CODE_ALPHABET, TICKET_CODE_LENGTH } from '../../shared/tickets';
 import type { Party } from './types';
@@ -84,27 +84,6 @@ export function ticketExpiryLabel(party: Party): string {
 
 // ── Canvas helpers ───────────────────────────────────────────────────────────
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -126,45 +105,12 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 
 // ── Branded QR ───────────────────────────────────────────────────────────────
 
-/**
- * Draw the BottleCount logo on a white rounded plate in the centre of a QR
- * canvas. Uses the dark-on-light logo so it reads on the white QR background.
- */
-function overlayLogo(canvas: HTMLCanvasElement): Promise<void> {
-  return new Promise((resolve) => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return resolve();
-    const logo = new Image();
-    logo.onload = () => {
-      const size = canvas.width * 0.2;
-      const x = (canvas.width - size) / 2;
-      const y = (canvas.height - size) / 2;
-      ctx.fillStyle = '#ffffff';
-      roundRect(ctx, x - 7, y - 7, size + 14, size + 14, 8);
-      ctx.fill();
-      ctx.drawImage(logo, x, y, size, size);
-      resolve();
-    };
-    logo.onerror = () => resolve();
-    logo.src = `${import.meta.env.BASE_URL}logoLight.svg`;
-  });
-}
-
 /** Render a signed ticket QR with the BottleCount logo in the centre. */
 export async function ticketQrDataUrl(
   party: Party,
   payload: TicketQRPayload,
 ): Promise<string> {
-  const signed = await signTicket(party, payload);
-  const canvas = document.createElement('canvas');
-  await QRCode.toCanvas(canvas, signed, {
-    width: 320,
-    margin: 2,
-    errorCorrectionLevel: 'H', // headroom so the logo overlay stays scannable
-    color: { dark: '#0b1220', light: '#ffffff' },
-  });
-  await overlayLogo(canvas);
-  return canvas.toDataURL('image/png');
+  return brandedQrDataUrl(await signTicket(party, payload));
 }
 
 // ── Shareable ticket card ────────────────────────────────────────────────────
