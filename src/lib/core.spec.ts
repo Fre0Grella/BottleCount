@@ -11,6 +11,14 @@ const catalog: Catalog = {
       price_min: 10,
       price_max: 14,
     },
+    'Chips 150g': {
+      type: 'snack',
+      abv: 0,
+      volume_ml: 0,
+      price_min: 1.39,
+      price_max: 1.39,
+      unit: 'pcs',
+    },
     Cups: {
       type: 'extra',
       abv: 0,
@@ -31,7 +39,10 @@ function settings(): Settings {
     equipment_cost: 100,
     alcohol_ml_per_person: 50,
     buffer: 1.1,
-    extras: { Cups: { qty_per_person: 2 } },
+    extras: {
+      'Chips 150g': { qty_per_person: 0.055 },
+      Cups: { qty_per_person: 2 },
+    },
     menu: { Beer: { macro_pct: 1, spirits: { Vodka: { pct: 1 } } } },
   };
 }
@@ -59,6 +70,15 @@ describe('planFor', () => {
     expect(r.shopping_list).toEqual([]);
     expect(r.total_min).toBe(0);
     expect(r.total_max).toBe(0);
+  });
+
+  it('leaves snacks off the shopping list too', () => {
+    // Decided on #9: a venue that runs the bar handles the snacks as well.
+    const on = calculate(planFor(settings(), true), catalog);
+    const off = calculate(planFor(settings(), false), catalog);
+
+    expect(on.shopping_list.some((i) => i.type === 'snack')).toBe(true);
+    expect(off.shopping_list.some((i) => i.type === 'snack')).toBe(false);
   });
 
   it('still counts the fixed costs and ticket revenue', () => {
