@@ -24,8 +24,16 @@ const props = withDefaults(
     qrFileName: string;
     /** Added after "Opened WhatsApp" and friends, e.g. " — watch the RSVPs roll in." */
     sentNote?: string;
+    /** The heading above the grid. */
+    label?: string;
+    /**
+     * Whether to offer a QR code of the link. Off where a QR of the link would
+     * sit beside a different QR that matters more — a ticket's, which is what
+     * the door scans; a QR that merely opens the ticket page would be refused.
+     */
+    showQr?: boolean;
   }>(),
-  { shareTitle: '', sentNote: '.' },
+  { shareTitle: '', sentNote: '.', label: 'Share via', showQr: true },
 );
 
 /** What the last channel did, in a line — or null before one is used. */
@@ -134,15 +142,17 @@ const channels: Channel[] = [
       notice.value = null;
     },
   },
-].map((ch) => ({
-  ...ch,
-  onClick: () => {
-    // Nothing to share until the link exists — sharing a blank link is worse
-    // than the button doing nothing for the second it takes.
-    if (!props.link) return;
-    return ch.onClick();
-  },
-}));
+]
+  .filter((ch) => props.showQr || ch.label !== 'QR code')
+  .map((ch) => ({
+    ...ch,
+    onClick: () => {
+      // Nothing to share until the link exists — sharing a blank link is worse
+      // than the button doing nothing for the second it takes.
+      if (!props.link) return;
+      return ch.onClick();
+    },
+  }));
 
 // A QR drawn for one link must not stay on screen as another's.
 watch(
@@ -212,7 +222,7 @@ watch(
         margin-bottom: 9px;
       "
     >
-      Share via
+      {{ label }}
     </div>
     <div
       style="

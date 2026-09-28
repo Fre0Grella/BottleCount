@@ -1,23 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
-import {
-  ticketCode,
-  ticketPayload,
-  buildTicketFile,
-  downloadFile,
-} from '../../lib/ticket';
+import { ticketCode, ticketPayload } from '../../lib/ticket';
 import { signTicket } from '../../lib/crypto';
-import { brandedQrDataUrl } from '../../lib/qr';
 import { ticketUrl } from '../../lib/ticketLink';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
+import ShareChannels from '../ShareChannels.vue';
 
 const store = useStore();
 
-const status = ref('');
-const working = ref(false);
-const ticketFile = ref<File | null>(null);
 /** The guest's own ticket page — '' until the ticket has been signed. */
 const ticketLink = ref('');
 /** Signing failed, so there is no ticket to send — say so rather than wait. */
@@ -50,9 +42,9 @@ const code = computed(() => {
 const initial = computed(() => guestName.value.charAt(0).toUpperCase());
 
 /**
- * The words sent with the ticket. The link opens the guest's own ticket, QR
- * and all — it used to point at /app, the host's planner, where a guest sees
- * nothing of theirs.
+ * The words sent with the ticket. Every channel sends the link — never the
+ * ticket image — so a guest gets the same thing however it reached them: a
+ * page with their name, their code and a QR the door scans.
  */
 const shareText = computed(() => {
   const p = party.value;
@@ -60,19 +52,16 @@ const shareText = computed(() => {
   return `🎫 ${guestName.value}, you're on the list for ${p.name} (${partyDateShort.value}). Your ticket — show the QR at the door: ${ticketLink.value}`;
 });
 
-// Pre-build the branded ticket image when the modal opens so the native
-// share sheet can be invoked synchronously from the user's tap.
+const qrFileName = computed(
+  () => `ticket-${guestName.value.replace(/[^\w-]+/g, '-').toLowerCase()}.png`,
+);
+
+/** Signs the guest's ticket and builds the link that carries it. */
 async function prepare(): Promise<void> {
   const p = party.value;
   const name = guestName.value;
-  if (!p || !name) {
-    ticketFile.value = null;
-    ticketLink.value = '';
-    return;
-  }
+  if (!p || !name) return;
   try {
-    // Signed once: the QR in the image and the one the link draws must be the
-    // same ticket, byte for byte.
     const signed = await signTicket(p, ticketPayload(p, name));
     ticketLink.value = ticketUrl(
       window.location.origin,
@@ -80,19 +69,7 @@ async function prepare(): Promise<void> {
       signed,
       { party: p.name, date: p.date, cover: p.cover, time: p.venue.time },
     );
-    const qr = await brandedQrDataUrl(signed);
-    ticketFile.value = await buildTicketFile({
-      partyName: p.name,
-      dateLabel: partyDateShort.value,
-      guestName: name,
-      code: code.value,
-      qrDataUrl: qr,
-      grad: cover.value.grad,
-      emoji: cover.value.emoji,
-    });
   } catch {
-    ticketFile.value = null;
-    ticketLink.value = '';
     prepareFailed.value = true;
   }
 }
@@ -100,9 +77,6 @@ async function prepare(): Promise<void> {
 watch(
   () => store.state.sendTicketFor,
   (val) => {
-    status.value = '';
-    working.value = false;
-    ticketFile.value = null;
     ticketLink.value = '';
     prepareFailed.value = false;
     if (val !== null) void prepare();
@@ -110,125 +84,14 @@ watch(
   { immediate: true },
 );
 
-// ── Send channels ────────────────────────────────────────────────────────────
-
-/**
- * True, with a word to the host, while the ticket is still being signed — the
- * message has no link in it yet, and sending it would give the guest nothing.
- */
-function notReady(): boolean {
-  if (ticketLink.value) return false;
-  status.value = prepareFailed.value
-    ? "Couldn't create this ticket."
-    : 'Preparing the ticket — one moment…';
-  return true;
-}
-
-async function shareNative(): Promise<void> {
-  if (notReady()) return;
-  working.value = true;
-  try {
-    const file = ticketFile.value;
-    if (file && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        title: `Ticket — ${party.value?.name ?? ''}`,
-        text: shareText.value,
-        files: [file],
-      });
-      status.value = `Ticket shared with ${guestName.value}`;
-    } else if (navigator.share) {
-      await navigator.share({
-        title: 'BottleCount ticket',
-        text: shareText.value,
-      });
-      status.value = `Invite shared with ${guestName.value}`;
-    } else if (file) {
-      downloadFile(file);
-      status.value = 'Ticket image saved — attach it in your chat';
-    }
-  } catch {
-    /* user cancelled the share sheet */
-  } finally {
-    working.value = false;
-  }
-}
-
-function saveImage(): void {
-  if (!ticketFile.value) return;
-  downloadFile(ticketFile.value);
-  status.value = 'Ticket image saved to your device';
-}
-
-async function copyLink(): Promise<void> {
-  if (notReady()) return;
-  try {
-    await navigator.clipboard.writeText(shareText.value);
-    status.value = 'Invite text copied to clipboard';
-  } catch {
-    status.value = 'Could not access the clipboard';
-  }
-}
-
-function openWhatsApp(): void {
-  if (notReady()) return;
-  window.open(
-    `https://wa.me/?text=${encodeURIComponent(shareText.value)}`,
-    '_blank',
-    'noopener',
-  );
-  status.value = `Opening WhatsApp for ${guestName.value}`;
-}
-
-function openEmail(): void {
-  if (notReady()) return;
-  const subject = `Your ticket — ${party.value?.name ?? 'the party'}`;
-  window.location.href = `mailto:?subject=${encodeURIComponent(
-    subject,
-  )}&body=${encodeURIComponent(shareText.value)}`;
-  status.value = 'Opening your email app';
-}
-
+/** The ticket QR itself, full screen — what the door scans. Not a share. */
 function showQR(): void {
   const name = guestName.value;
   store.closeSendTicket();
   store.openTicket(name);
 }
 
-interface Channel {
-  label: string;
-  iconName: string;
-  color: string;
-  onClick: () => void;
-}
-
-const channels = computed((): Channel[] => [
-  {
-    label: 'Share',
-    iconName: 'share',
-    color: 'var(--accent)',
-    onClick: () => void shareNative(),
-  },
-  {
-    label: 'WhatsApp',
-    iconName: 'message',
-    color: '#25D366',
-    onClick: openWhatsApp,
-  },
-  { label: 'Email', iconName: 'mail', color: '#60A5FA', onClick: openEmail },
-  {
-    label: 'Copy text',
-    iconName: 'link',
-    color: '#34D399',
-    onClick: () => void copyLink(),
-  },
-  { label: 'Save image', iconName: 'qr', color: '#A78BFA', onClick: saveImage },
-  { label: 'Show QR', iconName: 'qr', color: '#F472B6', onClick: showQR },
-]);
-
 function handleClose(): void {
-  status.value = '';
-  working.value = false;
-  ticketFile.value = null;
   store.closeSendTicket();
 }
 </script>
@@ -290,27 +153,6 @@ function handleClose(): void {
         >
           <Icon name="x" :size="18" />
         </button>
-      </div>
-
-      <!-- Status banner -->
-      <div
-        v-if="status"
-        style="
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding: 11px 13px;
-          border-radius: var(--rs);
-          background: var(--good-soft);
-          border: 1px solid var(--good);
-          color: var(--good);
-          font-size: 13px;
-          font-weight: 600;
-          margin-bottom: 14px;
-        "
-      >
-        <Icon name="check" :size="16" />
-        {{ status }}
       </div>
 
       <!-- Ticket preview card -->
@@ -398,57 +240,61 @@ function handleClose(): void {
         </div>
       </div>
 
-      <!-- Send via -->
-      <div
+      <p
+        v-if="prepareFailed"
+        role="alert"
         style="
-          font-size: 12px;
-          color: var(--dim);
-          font-weight: 600;
-          margin-bottom: 9px;
+          margin: 0 0 14px;
+          font-size: 12.5px;
+          color: var(--bad);
+          display: flex;
+          align-items: center;
+          gap: 7px;
         "
       >
-        Send via
-      </div>
-      <div
-        style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px"
+        <Icon name="info" :size="14" />
+        Couldn't create this ticket, so there's no link to send.
+      </p>
+
+      <!--
+        Every channel sends the ticket link. The component's own QR option is
+        off: a QR of the link beside "Show QR" — the ticket QR the door scans —
+        would be two QRs that look alike and do different things.
+      -->
+      <ShareChannels
+        :link="ticketLink"
+        :message="shareText"
+        :email-subject="`Your ticket — ${party?.name ?? 'the party'}`"
+        :share-title="`Ticket — ${party?.name ?? ''}`"
+        :qr-file-name="qrFileName"
+        :sent-note="` for ${guestName}.`"
+        label="Send via"
+        :show-qr="false"
+      />
+
+      <button
+        type="button"
+        style="
+          cursor: pointer;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 12px 14px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text);
+          font-family: inherit;
+        "
+        @click="showQR"
       >
-        <button
-          v-for="ch in channels"
-          :key="ch.label"
-          :disabled="working"
-          style="
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 7px;
-            padding: 14px 6px;
-            border-radius: var(--rs);
-            border: 1.5px solid var(--border);
-            background: var(--surface2);
-            color: var(--text);
-          "
-          @click="ch.onClick"
-        >
-          <span
-            style="
-              display: flex;
-              width: 38px;
-              height: 38px;
-              border-radius: 11px;
-              align-items: center;
-              justify-content: center;
-            "
-            :style="{
-              background: ch.color + '22',
-              color: ch.color,
-            }"
-          >
-            <Icon :name="ch.iconName" :size="18" />
-          </span>
-          <span style="font-size: 11px; font-weight: 600">{{ ch.label }}</span>
-        </button>
-      </div>
+        <Icon name="qr" :size="15" />
+        Show the ticket QR here instead
+      </button>
     </div>
   </Modal>
 </template>
