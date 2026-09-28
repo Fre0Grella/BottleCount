@@ -49,7 +49,7 @@ jobs:
       - name: Documentation build must contain no application
         run: |
           failed=0
-          for route in app auth i; do
+          for route in app auth i join t; do
             if [ -e "dist/$route" ]; then
               echo "::error::dist/$route is in the documentation build — it needs the Worker, and GitHub Pages has none"
               failed=1
