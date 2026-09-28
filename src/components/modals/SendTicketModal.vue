@@ -4,10 +4,12 @@ import { useStore, COVERS } from '../../lib/store';
 import {
   ticketCode,
   ticketPayload,
-  ticketQrDataUrl,
   buildTicketFile,
   downloadFile,
 } from '../../lib/ticket';
+import { signTicket } from '../../lib/crypto';
+import { brandedQrDataUrl } from '../../lib/qr';
+import { ticketUrl } from '../../lib/ticketLink';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 
@@ -16,6 +18,10 @@ const store = useStore();
 const status = ref('');
 const working = ref(false);
 const ticketFile = ref<File | null>(null);
+/** The guest's own ticket page — '' until the ticket has been signed. */
+const ticketLink = ref('');
+/** Signing failed, so there is no ticket to send — say so rather than wait. */
+const prepareFailed = ref(false);
 
 const party = computed(() => store.activeParty());
 const guestName = computed(() => store.state.sendTicketFor ?? '');
@@ -43,15 +49,15 @@ const code = computed(() => {
 
 const initial = computed(() => guestName.value.charAt(0).toUpperCase());
 
-const appUrl =
-  typeof window !== 'undefined'
-    ? window.location.origin + import.meta.env.BASE_URL + 'app'
-    : '';
-
+/**
+ * The words sent with the ticket. The link opens the guest's own ticket, QR
+ * and all — it used to point at /app, the host's planner, where a guest sees
+ * nothing of theirs.
+ */
 const shareText = computed(() => {
   const p = party.value;
-  if (!p) return '';
-  return `🎫 ${guestName.value}, you're on the list for ${p.name} (${partyDateShort.value}). Open your BottleCount ticket: ${appUrl}`;
+  if (!p || !ticketLink.value) return '';
+  return `🎫 ${guestName.value}, you're on the list for ${p.name} (${partyDateShort.value}). Your ticket — show the QR at the door: ${ticketLink.value}`;
 });
 
 // Pre-build the branded ticket image when the modal opens so the native
@@ -61,10 +67,20 @@ async function prepare(): Promise<void> {
   const name = guestName.value;
   if (!p || !name) {
     ticketFile.value = null;
+    ticketLink.value = '';
     return;
   }
   try {
-    const qr = await ticketQrDataUrl(p, ticketPayload(p, name));
+    // Signed once: the QR in the image and the one the link draws must be the
+    // same ticket, byte for byte.
+    const signed = await signTicket(p, ticketPayload(p, name));
+    ticketLink.value = ticketUrl(
+      window.location.origin,
+      import.meta.env.BASE_URL as string,
+      signed,
+      { party: p.name, date: p.date, cover: p.cover, time: p.venue.time },
+    );
+    const qr = await brandedQrDataUrl(signed);
     ticketFile.value = await buildTicketFile({
       partyName: p.name,
       dateLabel: partyDateShort.value,
@@ -76,6 +92,8 @@ async function prepare(): Promise<void> {
     });
   } catch {
     ticketFile.value = null;
+    ticketLink.value = '';
+    prepareFailed.value = true;
   }
 }
 
@@ -85,6 +103,8 @@ watch(
     status.value = '';
     working.value = false;
     ticketFile.value = null;
+    ticketLink.value = '';
+    prepareFailed.value = false;
     if (val !== null) void prepare();
   },
   { immediate: true },
@@ -92,7 +112,20 @@ watch(
 
 // ── Send channels ────────────────────────────────────────────────────────────
 
+/**
+ * True, with a word to the host, while the ticket is still being signed — the
+ * message has no link in it yet, and sending it would give the guest nothing.
+ */
+function notReady(): boolean {
+  if (ticketLink.value) return false;
+  status.value = prepareFailed.value
+    ? "Couldn't create this ticket."
+    : 'Preparing the ticket — one moment…';
+  return true;
+}
+
 async function shareNative(): Promise<void> {
+  if (notReady()) return;
   working.value = true;
   try {
     const file = ticketFile.value;
@@ -127,6 +160,7 @@ function saveImage(): void {
 }
 
 async function copyLink(): Promise<void> {
+  if (notReady()) return;
   try {
     await navigator.clipboard.writeText(shareText.value);
     status.value = 'Invite text copied to clipboard';
@@ -136,6 +170,7 @@ async function copyLink(): Promise<void> {
 }
 
 function openWhatsApp(): void {
+  if (notReady()) return;
   window.open(
     `https://wa.me/?text=${encodeURIComponent(shareText.value)}`,
     '_blank',
@@ -145,6 +180,7 @@ function openWhatsApp(): void {
 }
 
 function openEmail(): void {
+  if (notReady()) return;
   const subject = `Your ticket — ${party.value?.name ?? 'the party'}`;
   window.location.href = `mailto:?subject=${encodeURIComponent(
     subject,
