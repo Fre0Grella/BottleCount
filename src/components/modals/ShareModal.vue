@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import QRCode from 'qrcode';
 import { useStore, COVERS } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import { inviteUrl } from '../../../shared/invites';
+import { brandedQrDataUrl } from '../../lib/qr';
 
 const store = useStore();
 
@@ -179,11 +179,9 @@ const channels: Channel[] = [
         qrDataUrl.value = null;
         return;
       }
-      qrDataUrl.value = await QRCode.toDataURL(inviteLink.value, {
-        width: 480,
-        margin: 2,
-        errorCorrectionLevel: 'M',
-      });
+      // Branded like ticket QRs, which is also why it is level H: the logo
+      // covers the middle of the code.
+      qrDataUrl.value = await brandedQrDataUrl(inviteLink.value, 480);
       notice.value = null;
     },
   },
