@@ -63,6 +63,12 @@ export interface PartyDocument {
   checked: Record<string, boolean>;
   allowForward: boolean;
   includeSnacks: boolean;
+  /**
+   * False when the venue runs the bar, which switches off all drink planning.
+   * The menu is kept, so turning it back on restores it. Absent on documents
+   * stored before it existed, which read as true.
+   */
+  barManaged: boolean;
 }
 
 /** The fields of a local `Party` that belong in the shared document. */
@@ -77,6 +83,7 @@ export const DOCUMENT_FIELDS = [
   'checked',
   'allowForward',
   'includeSnacks',
+  'barManaged',
 ] as const satisfies readonly (keyof PartyDocument)[];
 
 // ── Members ─────────────────────────────────────────────────────────────────

@@ -69,6 +69,7 @@ export function parseDocument(body: unknown): PublishPartyRequest | null {
     checked: record(d['checked']) as Record<string, boolean>,
     allowForward: d['allowForward'] !== false,
     includeSnacks: d['includeSnacks'] !== false,
+    barManaged: d['barManaged'] !== false,
   };
 
   // A menu is user-authored and unbounded in principle. Cap the stored size so

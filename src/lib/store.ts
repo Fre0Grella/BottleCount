@@ -36,7 +36,7 @@ import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
 import type { SessionDTO } from '../../shared/session';
 import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
-import { calculate } from './core';
+import { calculate, planFor, runsBar } from './core';
 import { rebalance, menuErrorKeys } from './menu';
 import settingsData from '../data/settings.json';
 
@@ -275,6 +275,7 @@ async function load(): Promise<void> {
   for (const p of state.parties) {
     if (p.settings.max_capacity === undefined) p.settings.max_capacity = null;
     if (p.includeSnacks === undefined) p.includeSnacks = true;
+    if (p.barManaged === undefined) p.barManaged = true;
     if (p.publication === undefined) p.publication = null;
 
     // Invite statuses were renamed when guests gained the ability to answer for
@@ -329,6 +330,7 @@ async function createParty(): Promise<void> {
     checked: {},
     allowForward: true,
     includeSnacks: true,
+    barManaged: true,
     invites: [],
   };
   const newId = await db.parties.add(newParty);
@@ -565,13 +567,7 @@ function extrasForParty(p: Party): Settings['extras'] {
 
 function calc(): CalculationResult {
   const p = activeParty();
-  if (!p || !state.catalog) return ZERO_RESULT;
-  const settings = {
-    ...p.settings,
-    extras: extrasForParty(p),
-    menu: p.menu,
-  };
-  return calculate(settings, state.catalog);
+  return p ? calcForParty(p) : ZERO_RESULT;
 }
 
 function calcForParty(p: Party): CalculationResult {
@@ -581,7 +577,14 @@ function calcForParty(p: Party): CalculationResult {
     extras: extrasForParty(p),
     menu: p.menu,
   };
-  return calculate(settings, state.catalog);
+  return calculate(planFor(settings, runsBar(p)), state.catalog);
+}
+
+/** The venue runs the bar, or the host does. Every drink screen follows this. */
+function toggleBarManaged(): void {
+  update((p) => {
+    p.barManaged = !runsBar(p);
+  });
 }
 
 function menuErrors(): string[] {
@@ -882,6 +885,7 @@ async function syncPartyList(): Promise<void> {
       checked: shared.document.checked,
       allowForward: shared.document.allowForward,
       includeSnacks: shared.document.includeSnacks,
+      barManaged: runsBar(shared.document),
       // The guest list is not in the document; it arrives through the funnel.
       invites: [],
       publication: {
@@ -1215,6 +1219,7 @@ export const store = {
   rebalanceDrink,
   toggleLock,
   toggleSnacks,
+  toggleBarManaged,
   toggleMaxCapacity,
   setMaxCapacity,
   addBottle,

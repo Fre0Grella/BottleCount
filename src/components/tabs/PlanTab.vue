@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore, COVERS, VIBES, BUFFERS } from '../../lib/store';
+import { runsBar } from '../../lib/core';
 import Icon from '../Icon.vue';
 import Slider from '../Slider.vue';
 
@@ -9,6 +10,9 @@ const store = useStore();
 // ── Active party (reactive) ────────────────────────────────────────────────
 
 const p = computed(() => store.activeParty());
+
+/** False when the venue runs the bar: the drink settings below go away. */
+const planningDrinks = computed(() => (p.value ? runsBar(p.value) : true));
 
 // ── Venue hero ─────────────────────────────────────────────────────────────
 
@@ -164,7 +168,7 @@ const pnlRows = computed(() => {
   const r = calc.value;
   const drinksAvg = (r.total_min + r.total_max) / 2;
   const profitAvg = (r.profit_min + r.profit_max) / 2;
-  return [
+  const rows = [
     {
       label: 'Ticket revenue',
       v: fmtEur(r.revenue),
@@ -202,6 +206,9 @@ const pnlRows = computed(() => {
       bt: '1px solid var(--border)',
     },
   ];
+  return planningDrinks.value
+    ? rows
+    : rows.filter((row) => row.label !== 'Drinks');
 });
 </script>
 
@@ -790,8 +797,95 @@ const pnlRows = computed(() => {
         </div>
       </div>
 
+      <!-- who runs the bar -->
+      <div
+        role="switch"
+        tabindex="0"
+        :aria-checked="!planningDrinks"
+        style="
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border: 1px solid var(--border);
+          border-radius: var(--rs);
+          background: var(--surface2);
+          padding: 12px 14px;
+        "
+        :style="{
+          borderColor: planningDrinks ? 'var(--border)' : 'var(--accent)',
+          marginBottom: planningDrinks ? '20px' : '0',
+        }"
+        @click="store.toggleBarManaged()"
+        @keydown.enter.prevent="store.toggleBarManaged()"
+        @keydown.space.prevent="store.toggleBarManaged()"
+      >
+        <span
+          style="
+            display: flex;
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          "
+          :style="{
+            background: planningDrinks ? 'var(--track)' : 'var(--accent-soft)',
+            color: planningDrinks ? 'var(--faint)' : 'var(--accent)',
+          }"
+        >
+          <Icon name="glass" :size="15" />
+        </span>
+        <div style="flex: 1; min-width: 0">
+          <div style="font-size: 13px; font-weight: 600">
+            The venue runs the bar
+          </div>
+          <div style="font-size: 11px; color: var(--faint)">
+            <template v-if="planningDrinks">
+              Turn on to skip drink planning — no menu, shopping list or drink
+              costs
+            </template>
+            <template v-else>
+              Drink planning is off. Your menu is kept — turn this off to bring
+              it back
+            </template>
+          </div>
+        </div>
+        <!-- toggle switch -->
+        <span
+          style="
+            display: flex;
+            align-items: center;
+            width: 42px;
+            height: 24px;
+            border-radius: 999px;
+            padding: 3px;
+            transition: background 0.2s;
+            flex-shrink: 0;
+          "
+          :style="{
+            background: planningDrinks ? 'var(--track)' : 'var(--accent)',
+          }"
+        >
+          <span
+            style="
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              background: #fff;
+              transition: transform 0.2s;
+            "
+            :style="{
+              transform: planningDrinks ? 'translateX(0)' : 'translateX(18px)',
+            }"
+          />
+        </span>
+      </div>
+
       <!-- how hard does it go -->
       <div
+        v-if="planningDrinks"
         style="
           font-size: 12px;
           color: var(--dim);
@@ -802,6 +896,7 @@ const pnlRows = computed(() => {
         How hard does it go?
       </div>
       <div
+        v-if="planningDrinks"
         style="
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -853,6 +948,7 @@ const pnlRows = computed(() => {
 
       <!-- buying buffer + hint -->
       <div
+        v-if="planningDrinks"
         style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"
       >
         <span style="font-size: 12px; color: var(--dim); font-weight: 600"

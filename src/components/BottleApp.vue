@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue';
 import { useStore } from '../lib/store';
+import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
 import AppFooter from './AppFooter.vue';
 import HomeScreen from './HomeScreen.vue';
@@ -27,19 +28,39 @@ onMounted(() => {
   void store.load();
 });
 
+// When the venue runs the bar there is no menu to plan and nothing to buy, so
+// those two tabs go rather than showing screens that no longer mean anything.
+const barTabs = new Set(['menu', 'shop']);
+const planningDrinks = computed(() => {
+  const p = store.activeParty();
+  return p ? runsBar(p) : true;
+});
+
+/**
+ * The tab to render. Falls back to Plan when the open one was hidden — the
+ * switch was just flipped here, or by a co-organiser on another device.
+ */
+const shownTab = computed(() =>
+  !planningDrinks.value && barTabs.has(store.state.tab)
+    ? 'plan'
+    : store.state.tab,
+);
+
 const tabs = computed(() => {
-  const s = store.state;
+  const active = shownTab.value;
   return [
     { key: 'plan' as const, label: 'Plan', icon: 'calc' },
     { key: 'menu' as const, label: 'Menu', icon: 'glass' },
     { key: 'shop' as const, label: 'Shopping', icon: 'cart' },
     { key: 'guests' as const, label: 'Guests', icon: 'users' },
-  ].map((t) => ({
-    ...t,
-    active: s.tab === t.key,
-    bg: s.tab === t.key ? 'var(--accent)' : 'transparent',
-    fg: s.tab === t.key ? 'var(--on-accent)' : 'var(--dim)',
-  }));
+  ]
+    .filter((t) => planningDrinks.value || !barTabs.has(t.key))
+    .map((t) => ({
+      ...t,
+      active: active === t.key,
+      bg: active === t.key ? 'var(--accent)' : 'transparent',
+      fg: active === t.key ? 'var(--on-accent)' : 'var(--dim)',
+    }));
 });
 </script>
 
@@ -202,10 +223,10 @@ const tabs = computed(() => {
               width: 100%;
             "
           >
-            <PlanTab v-if="store.state.tab === 'plan'" />
-            <MenuTab v-else-if="store.state.tab === 'menu'" />
-            <ShoppingTab v-else-if="store.state.tab === 'shop'" />
-            <GuestsTab v-else-if="store.state.tab === 'guests'" />
+            <PlanTab v-if="shownTab === 'plan'" />
+            <MenuTab v-else-if="shownTab === 'menu'" />
+            <ShoppingTab v-else-if="shownTab === 'shop'" />
+            <GuestsTab v-else-if="shownTab === 'guests'" />
           </div>
 
           <AppFooter />

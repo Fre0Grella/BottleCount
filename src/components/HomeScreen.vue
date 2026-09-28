@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore, COVERS } from '../lib/store';
+import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
 import AppFooter from './AppFooter.vue';
 import AccountButton from './AccountButton.vue';
@@ -60,7 +61,8 @@ const partyCards = computed<PartyCard[]>(() => {
       'var(--seg-3)',
       'var(--seg-4)',
     ];
-    const bar = Object.values(p.menu).map((cat, i) => ({
+    // No drink split to show when the venue runs the bar.
+    const bar = (runsBar(p) ? Object.values(p.menu) : []).map((cat, i) => ({
       w: (cat.macro_pct * 100).toFixed(1) + '%',
       c: SEG_COLORS[i % SEG_COLORS.length],
     }));

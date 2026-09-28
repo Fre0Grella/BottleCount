@@ -29,6 +29,7 @@ export function aDocument(
     checked: {},
     allowForward: true,
     includeSnacks: true,
+    barManaged: true,
     ...overrides,
   };
 }

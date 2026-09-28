@@ -14,6 +14,25 @@ export const ALCOHOL_LEVELS: Record<number, string> = {
   100: '🔥 Hardcore',
 };
 
+/**
+ * Whether the host plans the drinks for this party. Absent means yes: parties
+ * saved, or synced from a server, before the switch existed.
+ */
+export function runsBar(party: { barManaged?: boolean }): boolean {
+  return party.barManaged !== false;
+}
+
+/**
+ * The settings a party's numbers are calculated from.
+ *
+ * When the venue runs the bar there is nothing to buy, so the menu and extras
+ * are left out here rather than deleted from the party — which is what makes
+ * the switch reversible. Fixed costs and ticket revenue still count.
+ */
+export function planFor(settings: Settings, barManaged: boolean): Settings {
+  return barManaged ? settings : { ...settings, menu: {}, extras: {} };
+}
+
 export function calculate(
   settings: Settings,
   catalog: Catalog,
