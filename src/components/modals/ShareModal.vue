@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import QRCode from 'qrcode';
 import { useStore, COVERS } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
@@ -7,7 +8,9 @@ import { inviteUrl } from '../../../shared/invites';
 
 const store = useStore();
 
-const sent = ref(false);
+/** What the last channel did, in a line — or null before one is used. */
+const notice = ref<string | null>(null);
+const qrDataUrl = ref<string | null>(null);
 
 const party = computed(() => store.activeParty());
 
@@ -31,16 +34,21 @@ const inviteLink = computed(() => {
   const pub = publication.value;
   if (!pub) return '';
   // `window` is always there: the whole app mounts under `client:only`, so this
-  // never renders on the server. Reading the live host is also what makes a
+  // never renders on the server. Reading the live origin is also what makes a
   // preview deployment and a self-hosted domain each hand out links that point
-  // back at themselves.
+  // back at themselves — scheme included, so `http://localhost` works too.
   return inviteUrl(
-    window.location.host,
+    window.location.origin,
     import.meta.env.BASE_URL as string,
     pub.slug,
     pub.rootToken,
   );
 });
+
+/** The link as the card shows it: without the scheme, which nobody reads. */
+const inviteLinkLabel = computed(() =>
+  inviteLink.value.replace(/^https?:\/\//, ''),
+);
 
 const publishing = computed(() => store.state.publishing);
 const publishFailed = computed(
@@ -71,46 +79,148 @@ const shareHint = computed(() =>
     : 'Only people you invite directly can RSVP.',
 );
 
+/** The words that travel with the link in a message or an email. */
+const message = computed(() => {
+  const p = party.value;
+  if (!p) return inviteLink.value;
+  const where = venueWhere.value === 'TBD' ? '' : ` at ${venueWhere.value}`;
+  return `You're invited to ${p.name} — ${partyDateShort.value}${where}. Let me know if you're coming: ${inviteLink.value}`;
+});
+
+async function copyLink(then: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(inviteLink.value);
+    notice.value = then;
+  } catch {
+    // Clipboard access can be refused (an insecure origin, a denied
+    // permission). The link is on the card, so point there instead.
+    notice.value = "Couldn't copy — select the link on the card instead.";
+  }
+}
+
+/** Opens another app with the invite filled in. */
+function handOff(url: string, app: string): void {
+  window.open(url, '_blank', 'noopener');
+  notice.value = `Opened ${app} — watch the RSVPs roll in.`;
+}
+
 interface Channel {
   label: string;
   iconName: string;
   color: string;
-  onClick: () => void;
+  onClick: () => void | Promise<void>;
 }
 
 const channels: Channel[] = [
-  { label: 'Copy link', iconName: 'link', color: 'var(--accent)' },
-  { label: 'WhatsApp', iconName: 'message', color: '#25D366' },
-  { label: 'Email', iconName: 'mail', color: '#60A5FA' },
-  { label: 'Messages', iconName: 'message', color: '#34D399' },
-  { label: 'Instagram', iconName: 'instagram', color: '#E1306C' },
-  { label: 'QR code', iconName: 'qr', color: '#A78BFA' },
+  {
+    label: 'Copy link',
+    iconName: 'link',
+    color: 'var(--accent)',
+    onClick: () => copyLink('Link copied — paste it anywhere.'),
+  },
+  {
+    label: 'WhatsApp',
+    iconName: 'message',
+    color: '#25D366',
+    onClick: () =>
+      handOff(
+        `https://wa.me/?text=${encodeURIComponent(message.value)}`,
+        'WhatsApp',
+      ),
+  },
+  {
+    label: 'Email',
+    iconName: 'mail',
+    color: '#60A5FA',
+    onClick: () => {
+      const subject = `You're invited: ${party.value?.name ?? 'a party'}`;
+      window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message.value)}`;
+      notice.value = 'Opened your email app — watch the RSVPs roll in.';
+    },
+  },
+  {
+    label: 'Messages',
+    iconName: 'message',
+    color: '#34D399',
+    onClick: () => {
+      // `sms:?&body=` is the spelling both iOS and Android accept.
+      window.location.href = `sms:?&body=${encodeURIComponent(message.value)}`;
+      notice.value = 'Opened Messages — watch the RSVPs roll in.';
+    },
+  },
+  {
+    label: 'Instagram',
+    iconName: 'instagram',
+    color: '#E1306C',
+    onClick: async () => {
+      // Instagram has no link that opens a DM with text in it. On a phone the
+      // system share sheet lists it; anywhere else, copy and say where to put it.
+      if (typeof navigator.share === 'function') {
+        try {
+          await navigator.share({
+            title: party.value?.name,
+            text: message.value,
+          });
+          notice.value = 'Shared — watch the RSVPs roll in.';
+          return;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+        }
+      }
+      await copyLink('Link copied — paste it into a DM or your story.');
+    },
+  },
+  {
+    label: 'QR code',
+    iconName: 'qr',
+    color: '#A78BFA',
+    onClick: async () => {
+      if (qrDataUrl.value) {
+        qrDataUrl.value = null;
+        return;
+      }
+      qrDataUrl.value = await QRCode.toDataURL(inviteLink.value, {
+        width: 480,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+      });
+      notice.value = null;
+    },
+  },
 ].map((ch) => ({
   ...ch,
   onClick: () => {
     // Nothing to share until the party is published — sharing a blank link is
     // worse than the button doing nothing for the second it takes.
     if (!inviteLink.value) return;
-    if (ch.label === 'Copy link') {
-      navigator.clipboard
-        ?.writeText(`https://${inviteLink.value}`)
-        .catch(() => {});
-    }
-    sent.value = true;
+    return ch.onClick();
   },
 }));
 
+const qrFileName = computed(
+  () =>
+    `${(party.value?.name ?? 'party').replace(/[^\w-]+/g, '-').toLowerCase()}-invite.png`,
+);
+
+function reset(): void {
+  notice.value = null;
+  qrDataUrl.value = null;
+}
+
 function handleClose() {
-  sent.value = false;
+  reset();
   store.closeShare();
 }
 
 watch(
   () => store.state.shareOpen,
   (open) => {
-    if (!open) sent.value = false;
+    if (!open) reset();
   },
 );
+
+// A link minted for another party must not stay on screen as this one's.
+watch(inviteLink, () => (qrDataUrl.value = null));
 </script>
 
 <template>
@@ -172,9 +282,10 @@ watch(
         </button>
       </div>
 
-      <!-- Success banner -->
+      <!-- What the last channel did -->
       <div
-        v-if="sent"
+        v-if="notice"
+        role="status"
         style="
           display: flex;
           align-items: center;
@@ -190,7 +301,7 @@ watch(
         "
       >
         <Icon name="check" :size="16" />
-        Invite sent — watch the RSVPs roll in
+        {{ notice }}
       </div>
 
       <!-- Preview card -->
@@ -241,7 +352,12 @@ watch(
             <span v-else-if="publishFailed" style="color: var(--bad)">
               Couldn't reach the server — try again in a moment.
             </span>
-            <span v-else>{{ inviteLink }}</span>
+            <span
+              v-else
+              style="user-select: all; overflow-wrap: anywhere"
+              data-testid="invite-link"
+              >{{ inviteLinkLabel }}</span
+            >
           </div>
         </div>
       </div>
@@ -300,6 +416,46 @@ watch(
           </span>
           <span style="font-size: 11px; font-weight: 600">{{ ch.label }}</span>
         </button>
+      </div>
+
+      <!-- QR code, for a poster or a phone held up at the bar -->
+      <div
+        v-if="qrDataUrl"
+        style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          padding: 14px;
+          border-radius: var(--rs);
+          border: 1px solid var(--border);
+          background: var(--surface2);
+          margin-bottom: 16px;
+        "
+      >
+        <img
+          :src="qrDataUrl"
+          alt="QR code for the invite link"
+          width="200"
+          height="200"
+          style="border-radius: 8px; background: #fff"
+        />
+        <a
+          :href="qrDataUrl"
+          :download="qrFileName"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            text-decoration: none;
+          "
+        >
+          <Icon name="download" :size="13" />
+          Download PNG
+        </a>
       </div>
 
       <!-- Allow forward toggle -->

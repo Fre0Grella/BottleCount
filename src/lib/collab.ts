@@ -1,3 +1,4 @@
+import { toRaw } from 'vue';
 import type {
   CollaboratorInviteDTO,
   CollaboratorPreviewDTO,
@@ -47,11 +48,16 @@ function post<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
  * that are not, so a field added to `Party` later stays local until somebody
  * decides it should travel — the safe direction, since the alternative is
  * silently syncing a browser's private bookkeeping.
+ *
+ * Reads through `toRaw` because every caller passes the store's reactive party,
+ * and every object reached through a Vue proxy is itself a proxy — which
+ * structuredClone refuses with a DataCloneError.
  */
 export function documentOf(party: Party): PartyDocument {
+  const raw = toRaw(party);
   const document = {} as Record<string, unknown>;
   for (const field of DOCUMENT_FIELDS) {
-    document[field] = structuredClone(party[field]);
+    document[field] = structuredClone(raw[field]);
   }
   return document as unknown as PartyDocument;
 }

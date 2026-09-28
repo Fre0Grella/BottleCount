@@ -1,6 +1,7 @@
+import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import type { HostInviteDTO } from '../../shared/invites';
-import { mergeFunnel } from './invites';
+import { adoptRemoteGuest, mergeFunnel } from './invites';
 import type { Invite } from './types';
 
 function remote(overrides: Partial<HostInviteDTO> = {}): HostInviteDTO {
@@ -183,5 +184,74 @@ describe('mergeFunnel stability', () => {
     ]);
 
     expect(second).toEqual(first);
+  });
+});
+
+describe('mergeFunnel and the reactive guest list', () => {
+  it('returns rows that can be saved to IndexedDB', () => {
+    // The store passes `party.invites`, whose rows are Vue proxies. Carrying
+    // them into the result put proxies inside the raw party, and the next save
+    // failed with a DataCloneError — the party silently stopped persisting.
+    const existing = reactive([local({ id: 1 })]) as Invite[];
+
+    const merged = mergeFunnel(existing, [remote()]);
+
+    expect(() => structuredClone(merged)).not.toThrow();
+  });
+});
+
+describe('adoptRemoteGuest', () => {
+  const saved = remote({
+    id: 'remote-9',
+    name: 'Harry',
+    source: 'manual',
+    forwardToken: null,
+    ticketCode: 'HX7K2',
+    answeredAt: null,
+  });
+
+  it('gives the hand-typed row its server id, so a refresh updates it in place', () => {
+    const existing = [local({ id: 4, name: 'Harry', source: 'manual' })];
+
+    const adopted = adoptRemoteGuest(existing, 4, saved);
+
+    expect(adopted).toHaveLength(1);
+    expect(adopted[0]).toMatchObject({
+      id: 4,
+      name: 'Harry',
+      remoteId: 'remote-9',
+      ticketCode: 'HX7K2',
+    });
+  });
+
+  it('leaves exactly one Harry after the next funnel refresh', () => {
+    // Without the adoption the row kept no remoteId, mergeFunnel kept it as a
+    // hand-typed guest *and* added the server's copy: two Harrys, for good.
+    const existing = [local({ id: 4, name: 'Harry', source: 'manual' })];
+
+    const merged = mergeFunnel(adoptRemoteGuest(existing, 4, saved), [saved]);
+
+    expect(merged.filter((i) => i.name === 'Harry')).toHaveLength(1);
+    expect(merged[0]?.id).toBe(4);
+  });
+
+  it('drops the local row when a refresh already brought the server copy in', () => {
+    // A poll can land between the POST and its answer. The server's row is
+    // then already in the list, and keeping both would show Harry twice.
+    const existing = [
+      local({ id: 4, name: 'Harry', source: 'manual' }),
+      local({ id: 5, name: 'Harry', remoteId: 'remote-9', source: 'manual' }),
+    ];
+
+    const adopted = adoptRemoteGuest(existing, 4, saved);
+
+    expect(adopted).toHaveLength(1);
+    expect(adopted[0]?.remoteId).toBe('remote-9');
+  });
+
+  it('changes nothing when the row is gone', () => {
+    const existing = [local({ id: 1 })];
+
+    expect(adoptRemoteGuest(existing, 99, saved)).toEqual(existing);
   });
 });

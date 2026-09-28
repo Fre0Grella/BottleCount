@@ -68,6 +68,7 @@ const icons: Record<string, string> = {
   logout:
     '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h9"/>',
   key: '<circle cx="8" cy="14" r="4"/><path d="M11 11l8-8"/><path d="M16.5 5.5l2.5 2.5"/><path d="M14 8l2.5 2.5"/>',
+  download: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
 };
 </script>
 

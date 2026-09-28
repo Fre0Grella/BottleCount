@@ -85,7 +85,7 @@ const isDeclined = computed(() => data.value?.status === 'declined');
 const forwardLink = computed(() => {
   const token = data.value?.forwardToken;
   if (!token || !data.value) return '';
-  return inviteUrl(window.location.host, base, data.value.party.slug, token);
+  return inviteUrl(window.location.origin, base, data.value.party.slug, token);
 });
 
 /** A full party can still be declined, so the form stays — only yes is barred. */
@@ -163,7 +163,7 @@ function changeAnswer(): void {
 
 function copyForward(): void {
   navigator.clipboard
-    ?.writeText(`https://${forwardLink.value}`)
+    ?.writeText(forwardLink.value)
     .then(() => {
       copied.value = true;
       setTimeout(() => (copied.value = false), 2000);

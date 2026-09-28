@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from '../lib/store';
-import { logout } from '../lib/session';
+import { devSignIn, logout } from '../lib/session';
 import Icon from './Icon.vue';
 
 const store = useStore();
@@ -25,6 +25,34 @@ const label = computed(() => {
 
 const busy = ref(false);
 
+// ── Email sign-in, where the Worker offers it ─────────────────────────────
+//
+// Local development and self-hosted Workers sign people in without Google
+// (`POST /auth/dev`). Linking to /auth/google there would lead to a 500 on a
+// fresh clone, so the button opens this instead.
+const signInOpen = ref(false);
+const email = ref('');
+const signInError = ref<string | null>(null);
+
+async function handleDevSignIn(): Promise<void> {
+  const value = email.value.trim();
+  if (!value || busy.value) return;
+  busy.value = true;
+  signInError.value = null;
+  const result = await devSignIn(value);
+  if (result.ok) {
+    signInOpen.value = false;
+    email.value = '';
+    await store.refreshSession();
+  } else {
+    signInError.value =
+      result.error === 'network_error'
+        ? "Couldn't reach the server."
+        : 'Sign-in failed.';
+  }
+  busy.value = false;
+}
+
 async function handleLogout(): Promise<void> {
   if (busy.value) return;
   busy.value = true;
@@ -35,9 +63,89 @@ async function handleLogout(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="visible" style="display: flex; align-items: center; gap: 8px">
+  <div
+    v-if="visible"
+    style="position: relative; display: flex; align-items: center; gap: 8px"
+  >
+    <template v-if="!session.authenticated && session.devSignIn">
+      <button
+        type="button"
+        :aria-expanded="signInOpen"
+        style="
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 8px 13px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--dim);
+        "
+        @click="signInOpen = !signInOpen"
+      >
+        <Icon name="user" :size="14" />
+        <span style="white-space: nowrap">Sign in</span>
+      </button>
+      <form
+        v-if="signInOpen"
+        class="dev-signin"
+        @submit.prevent="handleDevSignIn"
+      >
+        <label
+          for="dev-signin-email"
+          style="font-size: 11.5px; color: var(--dim); line-height: 1.5"
+        >
+          This server signs you in by email — no Google account needed.
+        </label>
+        <input
+          id="dev-signin-email"
+          v-model="email"
+          type="email"
+          required
+          autocomplete="email"
+          placeholder="you@example.com"
+          style="
+            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: var(--rs);
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-family: inherit;
+          "
+          @keydown.escape="signInOpen = false"
+        />
+        <span
+          v-if="signInError"
+          role="alert"
+          style="font-size: 11.5px; color: var(--bad)"
+          >{{ signInError }}</span
+        >
+        <button
+          type="submit"
+          :disabled="busy || !email.trim()"
+          style="
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: none;
+            background: var(--accent);
+            color: var(--on-accent);
+          "
+          :style="{ opacity: busy || !email.trim() ? 0.55 : 1 }"
+        >
+          Continue
+        </button>
+      </form>
+    </template>
+
     <a
-      v-if="!session.authenticated"
+      v-else-if="!session.authenticated"
       href="/auth/google"
       style="
         display: flex;
@@ -126,3 +234,33 @@ async function handleLogout(): Promise<void> {
     </template>
   </div>
 </template>
+
+<style scoped>
+.dev-signin {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+/* The button is not flush right on a phone — Docs and the Theme Switch sit
+   beside it — so anchoring to it would push the form off the left edge. */
+@media (max-width: 600px) {
+  .dev-signin {
+    position: fixed;
+    top: 72px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+}
+</style>

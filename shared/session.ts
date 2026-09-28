@@ -26,6 +26,12 @@ export interface SessionDTO {
   selfHosted: boolean;
   /** False when no backend is reachable — the pure browser-only build. */
   backendAvailable: boolean;
+  /**
+   * True when `POST /auth/dev` is open — local development or a self-hosted
+   * Worker — so the app can offer an email sign-in rather than sending the user
+   * to a Google client that may not be registered.
+   */
+  devSignIn: boolean;
 }
 
 export type { Feature, FeatureSet, Tier };
