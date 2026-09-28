@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
+import ShareChannels from '../ShareChannels.vue';
 import { inviteUrl } from '../../../shared/invites';
-import { brandedQrDataUrl } from '../../lib/qr';
 
 const store = useStore();
-
-/** What the last channel did, in a line — or null before one is used. */
-const notice = ref<string | null>(null);
-const qrDataUrl = ref<string | null>(null);
 
 const party = computed(() => store.activeParty());
 
@@ -87,138 +83,14 @@ const message = computed(() => {
   return `You're invited to ${p.name} — ${partyDateShort.value}${where}. Let me know if you're coming: ${inviteLink.value}`;
 });
 
-async function copyLink(then: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(inviteLink.value);
-    notice.value = then;
-  } catch {
-    // Clipboard access can be refused (an insecure origin, a denied
-    // permission). The link is on the card, so point there instead.
-    notice.value = "Couldn't copy — select the link on the card instead.";
-  }
-}
-
-/** Opens another app with the invite filled in. */
-function handOff(url: string, app: string): void {
-  window.open(url, '_blank', 'noopener');
-  notice.value = `Opened ${app} — watch the RSVPs roll in.`;
-}
-
-interface Channel {
-  label: string;
-  iconName: string;
-  color: string;
-  onClick: () => void | Promise<void>;
-}
-
-const channels: Channel[] = [
-  {
-    label: 'Copy link',
-    iconName: 'link',
-    color: 'var(--accent)',
-    onClick: () => copyLink('Link copied — paste it anywhere.'),
-  },
-  {
-    label: 'WhatsApp',
-    iconName: 'message',
-    color: '#25D366',
-    onClick: () =>
-      handOff(
-        `https://wa.me/?text=${encodeURIComponent(message.value)}`,
-        'WhatsApp',
-      ),
-  },
-  {
-    label: 'Email',
-    iconName: 'mail',
-    color: '#60A5FA',
-    onClick: () => {
-      const subject = `You're invited: ${party.value?.name ?? 'a party'}`;
-      window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message.value)}`;
-      notice.value = 'Opened your email app — watch the RSVPs roll in.';
-    },
-  },
-  {
-    label: 'Messages',
-    iconName: 'message',
-    color: '#34D399',
-    onClick: () => {
-      // `sms:?&body=` is the spelling both iOS and Android accept.
-      window.location.href = `sms:?&body=${encodeURIComponent(message.value)}`;
-      notice.value = 'Opened Messages — watch the RSVPs roll in.';
-    },
-  },
-  {
-    label: 'Instagram',
-    iconName: 'instagram',
-    color: '#E1306C',
-    onClick: async () => {
-      // Instagram has no link that opens a DM with text in it. On a phone the
-      // system share sheet lists it; anywhere else, copy and say where to put it.
-      if (typeof navigator.share === 'function') {
-        try {
-          await navigator.share({
-            title: party.value?.name,
-            text: message.value,
-          });
-          notice.value = 'Shared — watch the RSVPs roll in.';
-          return;
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') return;
-        }
-      }
-      await copyLink('Link copied — paste it into a DM or your story.');
-    },
-  },
-  {
-    label: 'QR code',
-    iconName: 'qr',
-    color: '#A78BFA',
-    onClick: async () => {
-      if (qrDataUrl.value) {
-        qrDataUrl.value = null;
-        return;
-      }
-      // Branded like ticket QRs, which is also why it is level H: the logo
-      // covers the middle of the code.
-      qrDataUrl.value = await brandedQrDataUrl(inviteLink.value, 480);
-      notice.value = null;
-    },
-  },
-].map((ch) => ({
-  ...ch,
-  onClick: () => {
-    // Nothing to share until the party is published — sharing a blank link is
-    // worse than the button doing nothing for the second it takes.
-    if (!inviteLink.value) return;
-    return ch.onClick();
-  },
-}));
-
 const qrFileName = computed(
   () =>
     `${(party.value?.name ?? 'party').replace(/[^\w-]+/g, '-').toLowerCase()}-invite.png`,
 );
 
-function reset(): void {
-  notice.value = null;
-  qrDataUrl.value = null;
-}
-
 function handleClose() {
-  reset();
   store.closeShare();
 }
-
-watch(
-  () => store.state.shareOpen,
-  (open) => {
-    if (!open) reset();
-  },
-);
-
-// A link minted for another party must not stay on screen as this one's.
-watch(inviteLink, () => (qrDataUrl.value = null));
 </script>
 
 <template>
@@ -280,28 +152,6 @@ watch(inviteLink, () => (qrDataUrl.value = null));
         </button>
       </div>
 
-      <!-- What the last channel did -->
-      <div
-        v-if="notice"
-        role="status"
-        style="
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding: 11px 13px;
-          border-radius: var(--rs);
-          background: var(--good-soft);
-          border: 1px solid var(--good);
-          color: var(--good);
-          font-size: 13px;
-          font-weight: 600;
-          margin-bottom: 14px;
-        "
-      >
-        <Icon name="check" :size="16" />
-        {{ notice }}
-      </div>
-
       <!-- Preview card -->
       <div
         style="
@@ -360,101 +210,18 @@ watch(inviteLink, () => (qrDataUrl.value = null));
         </div>
       </div>
 
-      <!-- Share via -->
-      <div
-        style="
-          font-size: 12px;
-          color: var(--dim);
-          font-weight: 600;
-          margin-bottom: 9px;
-        "
-      >
-        Share via
-      </div>
-      <div
-        style="
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 9px;
-          margin-bottom: 16px;
-        "
-      >
-        <button
-          v-for="ch in channels"
-          :key="ch.label"
-          style="
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 7px;
-            padding: 14px 6px;
-            border-radius: var(--rs);
-            border: 1.5px solid var(--border);
-            background: var(--surface2);
-            color: var(--text);
-          "
-          @click="ch.onClick"
-        >
-          <span
-            style="
-              display: flex;
-              width: 38px;
-              height: 38px;
-              border-radius: 11px;
-              align-items: center;
-              justify-content: center;
-            "
-            :style="{
-              background: ch.color + '22',
-              color: ch.color,
-            }"
-          >
-            <Icon :name="ch.iconName" :size="18" />
-          </span>
-          <span style="font-size: 11px; font-weight: 600">{{ ch.label }}</span>
-        </button>
-      </div>
-
-      <!-- QR code, for a poster or a phone held up at the bar -->
-      <div
-        v-if="qrDataUrl"
-        style="
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 10px;
-          padding: 14px;
-          border-radius: var(--rs);
-          border: 1px solid var(--border);
-          background: var(--surface2);
-          margin-bottom: 16px;
-        "
-      >
-        <img
-          :src="qrDataUrl"
-          alt="QR code for the invite link"
-          width="200"
-          height="200"
-          style="border-radius: 8px; background: #fff"
-        />
-        <a
-          :href="qrDataUrl"
-          :download="qrFileName"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--accent);
-            text-decoration: none;
-          "
-        >
-          <Icon name="download" :size="13" />
-          Download PNG
-        </a>
-      </div>
+      <!--
+        The sheet closes by unmounting, so the channels' notice and QR start
+        fresh on every open without a reset of their own.
+      -->
+      <ShareChannels
+        :link="inviteLink"
+        :message="message"
+        :email-subject="`You're invited: ${party?.name ?? 'a party'}`"
+        :share-title="party?.name ?? ''"
+        :qr-file-name="qrFileName"
+        sent-note=" — watch the RSVPs roll in."
+      />
 
       <!-- Allow forward toggle -->
       <div
