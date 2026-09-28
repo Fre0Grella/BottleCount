@@ -5,6 +5,7 @@ import { inviteUrl } from '../../shared/invites';
 import { answerInvite, openInvite } from '../lib/invites';
 import { COVERS } from '../lib/store';
 import Icon from './Icon.vue';
+import ShareChannels from './ShareChannels.vue';
 
 /**
  * The page a guest lands on. It is the only screen in the app with no account
@@ -19,7 +20,6 @@ const data = ref<InviteOpenDTO | null>(null);
 const name = ref('');
 const submitting = ref(false);
 const error = ref<string | null>(null);
-const copied = ref(false);
 
 const base = import.meta.env.BASE_URL as string;
 
@@ -87,6 +87,27 @@ const forwardLink = computed(() => {
   if (!token || !data.value) return '';
   return inviteUrl(window.location.origin, base, data.value.party.slug, token);
 });
+
+/**
+ * What travels with the forward link. Worded from the guest's side — they are
+ * the one sending it, to their own friend — not the host's "you're invited".
+ */
+const forwardMessage = computed(() => {
+  const party = data.value?.party;
+  if (!party) return forwardLink.value;
+  const day = new Date(`${party.date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const where = whereLabel.value ? ` at ${whereLabel.value}` : '';
+  return `I'm going to ${party.name} on ${day}${where} — come along! RSVP here: ${forwardLink.value}`;
+});
+
+const forwardQrFileName = computed(
+  () =>
+    `${(data.value?.party.name ?? 'party').replace(/[^\w-]+/g, '-').toLowerCase()}-invite.png`,
+);
 
 /** A full party can still be declined, so the form stays — only yes is barred. */
 const full = computed(
@@ -160,16 +181,6 @@ function changeAnswer(): void {
   phase.value = 'ready';
   error.value = null;
 }
-
-function copyForward(): void {
-  navigator.clipboard
-    ?.writeText(forwardLink.value)
-    .then(() => {
-      copied.value = true;
-      setTimeout(() => (copied.value = false), 2000);
-    })
-    .catch(() => {});
-}
 </script>
 
 <template>
@@ -236,10 +247,13 @@ function copyForward(): void {
               The host is happy for you to invite a friend. Share your own link
               and they'll show up as yours.
             </p>
-            <button class="invite-btn invite-btn--ghost" @click="copyForward">
-              <Icon name="copy" :size="14" />
-              {{ copied ? 'Copied' : 'Copy my link' }}
-            </button>
+            <ShareChannels
+              :link="forwardLink"
+              :message="forwardMessage"
+              :email-subject="`Come to ${data.party.name}`"
+              :share-title="data.party.name"
+              :qr-file-name="forwardQrFileName"
+            />
           </div>
 
           <button class="invite-secondary" @click="changeAnswer">
@@ -432,16 +446,6 @@ function copyForward(): void {
   background: transparent;
   border-color: var(--border);
   color: var(--dim);
-}
-.invite-btn--ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text);
-  flex: none;
-  align-self: flex-start;
-  padding: 10px 15px;
-  min-height: 40px;
-  font-size: 13px;
 }
 
 .invite-verdict {
