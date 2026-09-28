@@ -42,14 +42,23 @@ export interface RequestOptions {
   cookie?: string;
   method?: string;
   body?: unknown;
+  /** Extra request headers, e.g. `origin` for the CORS tests. */
+  headers?: Record<string, string>;
 }
 
 export async function request(
   path: string,
-  { repositories, env, cookie, method = 'GET', body }: RequestOptions,
+  {
+    repositories,
+    env,
+    cookie,
+    method = 'GET',
+    body,
+    headers: extraHeaders,
+  }: RequestOptions,
 ): Promise<Response> {
   const app = createApp({ repositories });
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...extraHeaders };
   if (cookie) headers['cookie'] = cookie;
   if (body !== undefined) headers['content-type'] = 'application/json';
 

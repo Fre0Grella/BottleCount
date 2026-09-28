@@ -25,6 +25,7 @@ function aParty(): Party {
     checked: {},
     allowForward: true,
     includeSnacks: true,
+    barManaged: true,
     invites: [],
   };
 }

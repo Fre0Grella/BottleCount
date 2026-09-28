@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore, COVERS } from '../lib/store';
+import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
 
 const store = useStore();
 
 const party = computed(() => store.activeParty());
+const planningDrinks = computed(() =>
+  party.value ? runsBar(party.value) : true,
+);
 const emoji = computed(() => {
   const p = party.value;
   if (!p) return '🎉';
@@ -186,8 +190,9 @@ function onNameInput(e: Event): void {
         <span v-else-if="store.state.device === 'desktop'">Co-organisers</span>
       </button>
 
-      <!-- manage ingredients button -->
+      <!-- manage ingredients button — nothing to manage when the venue runs the bar -->
       <button
+        v-if="planningDrinks"
         style="
           cursor: pointer;
           display: flex;

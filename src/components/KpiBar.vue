@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from '../lib/store';
+import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
 
 const store = useStore();
@@ -21,14 +22,22 @@ const kpis = computed(() => {
   const beCovered = r.break_even !== null && p.settings.guests >= r.break_even;
   const avgProfit = (r.profit_min + r.profit_max) / 2;
 
+  // With the venue running the bar there is no drink spend, and "€0" would
+  // read as a mistake — what the host does spend is the fixed costs.
+  const spend = runsBar(p)
+    ? {
+        v: fmtRange(Math.round(r.total_min), Math.round(r.total_max)),
+        sub:
+          fmt((r.total_min + r.total_max) / 2 / (p.settings.guests || 1)) +
+          ' / guest',
+      }
+    : { v: fmt(r.fixed_costs), sub: 'venue + equipment' };
+
   return [
     {
       label: 'Spend',
       icon: 'cart' as const,
-      v: fmtRange(Math.round(r.total_min), Math.round(r.total_max)),
-      sub:
-        fmt((r.total_min + r.total_max) / 2 / (p.settings.guests || 1)) +
-        ' / guest',
+      ...spend,
       c: 'var(--text)',
     },
     {

@@ -7,6 +7,7 @@ import type { Repositories } from './repositories/repositories';
 import auth from './routes/auth';
 import collaborate from './routes/collaborate';
 import devAuth from './routes/devAuth';
+import { resolveFrontendUrl } from './routes/frontendUrl';
 import invites from './routes/invites';
 import licences from './routes/licences';
 import parties from './routes/parties';
@@ -31,6 +32,11 @@ export type Bindings = {
 
 export type App = Hono<{ Bindings: Bindings; Variables: AppVariables }>;
 
+/** The only origin CORS may grant: the frontend's, scheme and host alone. */
+function frontendOrigin(env: Bindings): string {
+  return new URL(resolveFrontendUrl(env)).origin;
+}
+
 /** `/api/*` paths served without a session. Trailing slashes are stripped first. */
 const PUBLIC_API_PATHS = new Set(['/api/session']);
 
@@ -50,12 +56,16 @@ export function createApp(overrides: AppOverrides = {}): App {
 
   // In production the Pages Function proxy puts the frontend and this Worker on
   // one origin, and in development the Astro dev server's proxy does the same
-  // (astro.config.mjs), so CORS normally never comes up. This covers a page
-  // that calls the Worker's own port directly.
+  // (astro.config.mjs), so CORS normally never comes up. It is kept for one
+  // origin only — the frontend's own, for a page that calls the Worker's port
+  // directly. Reflecting any origin with credentials, as this once did, would
+  // hand every website a credentialed read of the API the moment the session
+  // cookie stopped being SameSite.
   app.use(
     '*',
     cors({
-      origin: (origin) => origin,
+      origin: (origin, c) =>
+        origin === frontendOrigin(c.env as Bindings) ? origin : null,
       credentials: true,
     }),
   );

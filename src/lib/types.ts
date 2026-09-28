@@ -165,6 +165,13 @@ export interface Party {
   checked: Record<string, boolean>; // shopping check-off
   allowForward: boolean;
   includeSnacks: boolean; // include snack items in shopping/costs
+  /**
+   * False when the venue runs the bar: no menu, no shopping list, no drink
+   * costs. The menu is kept, so switching back restores it. Read it through
+   * `runsBar()` in `core.ts` — a party synced from a server that predates the
+   * field arrives without it, and that means true.
+   */
+  barManaged: boolean;
   invites: Invite[];
   /**
    * Set once the host turns the invite link on. Holds what the browser needs to

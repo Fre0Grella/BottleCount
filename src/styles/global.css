@@ -72,6 +72,10 @@ a {
   height: 58px;
 }
 
+.nav-brand__accent {
+  color: var(--accent);
+}
+
 .nav-brand {
   display: flex;
   align-items: center;
