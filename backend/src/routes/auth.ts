@@ -15,15 +15,21 @@ type Bindings = {
 const auth = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
 
 auth.use('/google', async (c, next) => {
-  if (!c.env.GOOGLE_CLIENT_ID) {
+  // Trimmed because these are pasted into `wrangler secret put` by hand, and a
+  // trailing newline or carriage return — easy to pick up from a terminal —
+  // makes Google reject the secret as invalid with nothing visibly wrong.
+  // Neither value can legitimately contain whitespace.
+  const clientId = c.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = c.env.GOOGLE_CLIENT_SECRET?.trim();
+  if (!clientId) {
     return c.json({ error: 'Missing GOOGLE_CLIENT_ID' }, 500);
   }
-  if (!c.env.GOOGLE_CLIENT_SECRET) {
+  if (!clientSecret) {
     return c.json({ error: 'Missing GOOGLE_CLIENT_SECRET' }, 500);
   }
   const handler = googleAuth({
-    client_id: c.env.GOOGLE_CLIENT_ID,
-    client_secret: c.env.GOOGLE_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
     scope: ['openid', 'email', 'profile'],
     // The redirect target is the *frontend* origin: the Pages Function at
     // functions/auth/google.ts proxies it straight back here, which is what

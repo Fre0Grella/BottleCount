@@ -86,11 +86,16 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # --functions-directory is explicit: the proxy in functions/ lives at
-          # the repo root, not inside dist/, and losing it would deploy a
-          # frontend that quietly falls back to the free tier.
+          # Pinned to the backend's wrangler. Left unset, the action installs
+          # its own default (3.90.0 at the time of writing), which is a major
+          # version behind and rejected the flags this step used to pass.
+          wranglerVersion: '4.134.0'
+          # No --functions-directory: wrangler has no such flag. `pages deploy`
+          # compiles ./functions from the working directory, which is the repo
+          # root here — the proxy lives there, not inside dist/, and deploying
+          # without it would serve a frontend that quietly falls back to the
+          # free tier.
           command: >-
             pages deploy dist
             --project-name=bottlecount
             --branch=main
-            --functions-directory=functions
