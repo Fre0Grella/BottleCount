@@ -16,17 +16,45 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # `npm ci` in both packages rather than `install:all`: CI should install
-      # exactly what the lockfiles say, not resolve fresh.
+      # `npm ci`, not `npm install`: CI installs exactly what the lockfile
+      # says. backend/ is an npm workspace, so this one lockfile covers it.
       - name: Install
-        run: npm ci && npm --prefix backend ci
+        run: npm ci
 
       # No `format:check` step yet: seven files predating the Husky/lint-staged
       # hook still carry CRLF line endings, so it fails on `main` today. Fixing
       # that is `git add --renormalize .` plus one commit — worth doing on its
       # own, not folded into an architecture change.
+      #
+      # Ratchet: `lint` runs with `--max-warnings` (package.json) at the
+      # warning count on the day it was added (inline styles and template
+      # accessibility). More warnings fail. When you fix some, lower the
+      # number in package.json to the new count in the same PR.
       - name: Lint
         run: npm run lint
+
+      # Ratchet: copy-paste share of src/, shared/, functions/ and backend/
+      # (tests excluded) may not exceed `threshold` in .jscpd.json, set to
+      # the duplicated-lines % on the day it was added. When you remove
+      # duplication, run `npm run check:dupes` and lower `threshold` to the
+      # new Total % in the same PR.
+      - name: Duplication
+        run: npm run check:dupes
+
+      # Ratchet: layer rules in .dependency-cruiser.cjs (shared/ imports no
+      # app code, ticket rules import no QR/canvas drawing, src/lib imports no
+      # .vue). Today's breaches sit in .dependency-cruiser-known-violations.json
+      # and pass; a new one fails. When you fix one, run
+      # `npm run check:deps:baseline` and commit the shorter file.
+      - name: Dependency rules
+        run: npm run check:deps
+
+      # Ratchet: knip flags unused files, exports and dependencies across the
+      # root, backend/ and functions/ (knip.jsonc). What it found on the day it
+      # was added is listed under `ignoreIssues`, per file; anything else
+      # fails. When you delete dead code, remove its line there too.
+      - name: Unused code
+        run: npm run check:unused
 
       - name: Typecheck
         run: npm run typecheck

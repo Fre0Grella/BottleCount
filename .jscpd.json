@@ -1,0 +1,13 @@
+{
+  "path": ["src", "shared", "functions", "backend/src", "backend/scripts"],
+  "format": ["typescript", "javascript", "tsx", "vue", "astro"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/*.spec.ts",
+    "backend/src/tests/**",
+    "docs/design/**"
+  ],
+  "reporters": ["console"],
+  "threshold": 4.46
+}

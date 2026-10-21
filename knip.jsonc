@@ -1,0 +1,45 @@
+// Unused files, exports and dependencies, checked in CI by `npm run check:unused`.
+// docs/design/ (the v2 mock-up) is HTML, outside every `project` glob below.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      // Every file under functions/ is a Pages Function route that Cloudflare
+      // compiles on its own; nothing imports it. _backend.ts is their shared
+      // proxy, which the routes import.
+      "entry": ["functions/**/*.ts"],
+      "project": [
+        "src/**/*.{ts,vue,astro}",
+        "shared/**/*.ts",
+        "functions/**/*.ts",
+      ],
+      // Run by .husky/pre-commit through `npx lint-staged`.
+      "ignoreDependencies": ["lint-staged"],
+    },
+    "backend": {
+      // The Worker entry (wrangler.jsonc's `main`) comes from knip's wrangler
+      // plugin; the tests and the licence script are entries of their own.
+      "entry": ["src/tests/**/*.spec.ts", "scripts/*.mjs"],
+      "project": ["src/**/*.ts", "scripts/**/*.mjs"],
+    },
+  },
+  // Ratchet baseline: what knip reported on the day it was added, per file and
+  // issue type. Do not add entries. When you remove the dead code, delete its
+  // line here in the same PR (knip then guards that file again).
+  "ignoreIssues": {
+    "backend/src/tests/support/harness.ts": ["exports"],
+    "shared/collab.ts": ["exports", "types"],
+    "shared/invites.ts": ["types"],
+    "shared/patch.ts": ["types"],
+    "shared/session.ts": ["types"],
+    "shared/ticketLinks.ts": ["exports"],
+    "shared/tickets.ts": ["types"],
+    "shared/tiers.ts": ["exports"],
+    "src/lib/core.ts": ["exports"],
+    "src/lib/db.ts": ["exports"],
+    "src/lib/menu.ts": ["exports"],
+    "src/lib/sync.ts": ["types"],
+    "src/lib/ticket.ts": ["exports"],
+    "src/lib/types.ts": ["types"],
+  },
+}

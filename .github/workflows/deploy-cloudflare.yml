@@ -46,19 +46,20 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - run: npm --prefix backend ci
+      # One lockfile at the root: backend/ is an npm workspace.
+      - run: npm ci
 
       # Migrations before the deploy: a Worker that is live against a schema it
       # expects and does not have is a broken sign-in, and D1 migrations here
       # only ever add.
       - name: Apply D1 migrations
-        run: npm --prefix backend run db:migrate:remote
+        run: npm run -w backend db:migrate:remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy Worker
-        run: npm --prefix backend run deploy:production
+        run: npm run -w backend deploy:production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
