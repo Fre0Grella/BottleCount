@@ -18,6 +18,14 @@ const prepareFailed = ref(false);
 const party = computed(() => store.activeParty());
 const guestName = computed(() => store.state.sendTicketFor ?? '');
 
+/** The guest being sent to, for the email and phone they left. */
+const guest = computed(
+  () =>
+    party.value?.invites.find(
+      (i) => i.name === guestName.value && i.status === 'confirmed',
+    ) ?? null,
+);
+
 const cover = computed(() => {
   const p = party.value;
   if (!p) return COVERS[0];
@@ -93,6 +101,13 @@ function showQR(): void {
 
 function handleClose(): void {
   store.closeSendTicket();
+}
+
+/** Off to the contact sheet, for a guest with nothing to send to yet. */
+function addContact(): void {
+  const id = guest.value?.id;
+  store.closeSendTicket();
+  if (id !== undefined) store.openGuestContact(id);
 }
 </script>
 
@@ -261,6 +276,39 @@ function handleClose(): void {
         off: a QR of the link beside "Show QR" — the ticket QR the door scans —
         would be two QRs that look alike and do different things.
       -->
+      <!-- Who WhatsApp and Email will open on, so the tap needs no typing. -->
+      <p
+        v-if="guest?.email || guest?.phone"
+        data-test="send-to"
+        style="margin: 0 0 12px; font-size: 12px; color: var(--dim)"
+      >
+        Opens already addressed to {{ guestName }}:
+        {{ [guest.phone, guest.email].filter(Boolean).join(' · ') }}
+      </p>
+      <p
+        v-else-if="guest"
+        style="margin: 0 0 12px; font-size: 12px; color: var(--faint)"
+      >
+        No email or phone saved for {{ guestName }}, so you'll pick the chat
+        yourself.
+        <button
+          v-if="guest.source === 'manual'"
+          type="button"
+          style="
+            cursor: pointer;
+            padding: 0;
+            border: none;
+            background: none;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+          "
+          @click="addContact"
+        >
+          Add one
+        </button>
+      </p>
+
       <ShareChannels
         :link="ticketLink"
         :message="shareText"
@@ -270,6 +318,8 @@ function handleClose(): void {
         :sent-note="` for ${guestName}.`"
         label="Send via"
         :show-qr="false"
+        :email="guest?.email ?? null"
+        :phone="guest?.phone ?? null"
       />
 
       <button
