@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
+import { awaitingPayment } from '../../lib/invites';
 import { useStore } from '../../lib/store';
 import Icon from '../Icon.vue';
 import ProLock from '../ProLock.vue';
@@ -32,6 +33,11 @@ const paidParty = computed(() => {
   const p = party.value;
   return !!p && isPaidParty(p.settings.ticket_price, p.payment);
 });
+/** Coming, but no ticket until they have paid. */
+function unpaid(inv: Parameters<typeof awaitingPayment>[1]): boolean {
+  return !!party.value && awaitingPayment(party.value, inv);
+}
+
 const paidCount = computed(
   () => confirmed.value.filter((i) => i.paidAt).length,
 );
@@ -1295,50 +1301,65 @@ const lastSyncedLabel = computed(() => {
                   inv.paidAt ? 'Paid' : 'Mark paid'
                 }}</span>
               </button>
-              <button
+              <!-- The ticket is what the payment buys: none until it's in. -->
+              <span
+                v-if="unpaid(inv)"
                 style="
-                  cursor: pointer;
                   display: flex;
                   align-items: center;
-                  gap: 5px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  padding: 8px 11px;
-                  border-radius: 999px;
-                  border: 1px solid var(--accent);
-                  background: transparent;
-                  color: var(--accent);
-                  min-height: 36px;
+                  font-size: 11px;
+                  color: var(--faint);
+                  padding: 0 4px;
                 "
-                @click="store.openTicket(inv.name)"
               >
-                <span style="display: flex"
-                  ><Icon name="ticket" :size="13"
-                /></span>
-                <span v-if="!isPhone">Ticket</span>
-              </button>
-              <button
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  padding: 8px 11px;
-                  border-radius: 999px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--dim);
-                  min-height: 36px;
-                "
-                @click="store.openSendTicket(inv.name)"
-              >
-                <span style="display: flex"
-                  ><Icon name="mail" :size="13"
-                /></span>
-                <span v-if="!isPhone">Send</span>
-              </button>
+                <span v-if="!isPhone">Ticket after payment</span>
+              </span>
+              <template v-else>
+                <button
+                  style="
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    padding: 8px 11px;
+                    border-radius: 999px;
+                    border: 1px solid var(--accent);
+                    background: transparent;
+                    color: var(--accent);
+                    min-height: 36px;
+                  "
+                  @click="store.openTicket(inv.name)"
+                >
+                  <span style="display: flex"
+                    ><Icon name="ticket" :size="13"
+                  /></span>
+                  <span v-if="!isPhone">Ticket</span>
+                </button>
+                <button
+                  style="
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    padding: 8px 11px;
+                    border-radius: 999px;
+                    border: 1px solid var(--border);
+                    background: transparent;
+                    color: var(--dim);
+                    min-height: 36px;
+                  "
+                  @click="store.openSendTicket(inv.name)"
+                >
+                  <span style="display: flex"
+                    ><Icon name="mail" :size="13"
+                  /></span>
+                  <span v-if="!isPhone">Send</span>
+                </button>
+              </template>
             </template>
 
             <!-- declined: Reset -->

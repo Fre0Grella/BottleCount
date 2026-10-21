@@ -14,6 +14,7 @@ import {
   fetchFunnel,
   mergeFunnel,
   adoptRemoteGuest,
+  awaitingPayment,
   sameInvites,
   setRemoteContact,
   setRemoteInviteStatus,
@@ -1242,7 +1243,22 @@ function closeShare(): void {
   state.shareOpen = false;
 }
 
+/**
+ * Whether the guest of this name may have their ticket made yet. On a party
+ * guests pay for, not before an organiser has marked them as paid — checked
+ * here rather than only by hiding buttons, so no screen can get round it.
+ */
+function ticketReady(name: string): boolean {
+  const party = activeParty();
+  if (!party) return false;
+  const invite = party.invites.find(
+    (i) => i.name === name && i.status === 'confirmed',
+  );
+  return !invite || !awaitingPayment(party, invite);
+}
+
 function openTicket(name: string): void {
+  if (!ticketReady(name)) return;
   state.ticketFor = name;
 }
 function closeTicket(): void {
@@ -1250,6 +1266,7 @@ function closeTicket(): void {
 }
 
 function openSendTicket(name: string): void {
+  if (!ticketReady(name)) return;
   state.sendTicketFor = name;
 }
 function closeSendTicket(): void {

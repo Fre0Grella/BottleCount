@@ -1,7 +1,13 @@
 import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import type { HostInviteDTO } from '../../shared/invites';
-import { adoptRemoteGuest, mergeFunnel, sameInvites } from './invites';
+import { emptyPaymentDetails } from '../../shared/payments';
+import {
+  adoptRemoteGuest,
+  awaitingPayment,
+  mergeFunnel,
+  sameInvites,
+} from './invites';
 import type { Invite } from './types';
 
 function remote(overrides: Partial<HostInviteDTO> = {}): HostInviteDTO {
@@ -308,5 +314,34 @@ describe('adoptRemoteGuest', () => {
     const existing = [local({ id: 1 })];
 
     expect(adoptRemoteGuest(existing, 99, saved)).toEqual(existing);
+  });
+});
+
+describe('awaitingPayment', () => {
+  const paid = {
+    settings: { ticket_price: 15 } as never,
+    payment: { ...emptyPaymentDetails(), paypal: 'marcog' },
+  };
+  const free = { ...paid, payment: emptyPaymentDetails() };
+
+  it('holds back the ticket of a guest who has not paid', () => {
+    expect(awaitingPayment(paid, { status: 'confirmed' })).toBe(true);
+  });
+
+  it('gives a ticket once they are marked paid', () => {
+    expect(
+      awaitingPayment(paid, {
+        status: 'confirmed',
+        paidAt: '2026-10-21T12:00:00.000Z',
+      }),
+    ).toBe(false);
+  });
+
+  it('never holds one back on a free party', () => {
+    expect(awaitingPayment(free, { status: 'confirmed' })).toBe(false);
+  });
+
+  it('is about confirmed guests only', () => {
+    expect(awaitingPayment(paid, { status: 'opened' })).toBe(false);
   });
 });
