@@ -42,7 +42,7 @@ import {
   sanitisePaymentDetails,
 } from '../../shared/payments';
 import type { SessionDTO } from '../../shared/session';
-import type { Feature } from '../../shared/tiers';
+import { canUse, type Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
 import { calculate, planFor, runsBar } from './core';
 import { rebalance, menuErrorKeys } from './menu';
@@ -242,7 +242,13 @@ function update(mutator: (p: Party) => void): void {
  * `shared/tiers.ts` instead of a hunt through components.
  */
 function can(feature: Feature): boolean {
-  return state.session.features[feature] === true;
+  // The open party's features first — a free co-organiser of a Pro party gets
+  // its Pro features — then the viewer's own. The rule lives in shared/tiers.ts.
+  return canUse(
+    feature,
+    state.session.features,
+    activeParty()?.publication?.features,
+  );
 }
 
 /** Opens the "this needs BottleCount Pro" prompt for a locked feature. */
@@ -694,6 +700,16 @@ async function pull(): Promise<void> {
   const shared = result.value;
   state.members = shared.members;
   state.role = shared.role;
+  // The owner's plan can change under a co-organiser (an upgrade, a refund);
+  // this is where their screen finds out.
+  if (
+    p.publication &&
+    JSON.stringify(p.publication.features) !== JSON.stringify(shared.features)
+  ) {
+    update((party) => {
+      if (party.publication) party.publication.features = shared.features;
+    });
+  }
   // A co-organiser's first pull is where they get the signing key, without
   // which their scanner rejects every guest.
   if (p.publication && shared.ticketKey) {
@@ -730,6 +746,7 @@ async function shareActiveParty(): Promise<boolean> {
     update((party) => {
       party.publication = {
         remoteId: shared.id,
+        features: shared.features,
         version: shared.version,
         slug: shared.publication?.slug ?? null,
         rootToken: shared.publication?.rootToken ?? null,
@@ -906,6 +923,7 @@ async function syncPartyList(): Promise<void> {
       invites: [],
       publication: {
         remoteId: shared.id,
+        features: shared.features,
         version: shared.version,
         slug: shared.publication?.slug ?? null,
         rootToken: shared.publication?.rootToken ?? null,

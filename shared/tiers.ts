@@ -107,3 +107,25 @@ export function resolveTier({ storedTier, selfHosted }: TierContext): Tier {
   if (storedTier === null) return 'free';
   return selfHosted ? 'pro' : storedTier;
 }
+
+// ── Inside somebody else's party ────────────────────────────────────────────
+
+/**
+ * Whether a feature is available on the screen being looked at.
+ *
+ * A party carries its owner's features: someone invited to co-organise a Pro
+ * party gets that party's Pro features without paying, because the owner
+ * already has — charging both people to run one party would make co-organising
+ * useless. Outside such a party (the home screen, their own parties) the
+ * viewer's own tier decides, so a free co-organiser's own parties stay free.
+ *
+ * `party` is null for a party that is not shared, and for one stored before the
+ * server reported its features.
+ */
+export function canUse(
+  feature: Feature,
+  session: FeatureSet,
+  party: FeatureSet | null | undefined,
+): boolean {
+  return party?.[feature] === true || session[feature];
+}

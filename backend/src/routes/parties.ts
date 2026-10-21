@@ -16,6 +16,7 @@ import type { HostInviteDTO, PublishedPartyDTO } from '../../../shared/invites';
 import { INVITE_STATUSES } from '../../../shared/invites';
 import type { InviteStatus } from '../../../shared/invites';
 import { featuresFor, resolveTier } from '../../../shared/tiers';
+import type { FeatureSet } from '../../../shared/tiers';
 import type { AppVariables } from '../appEnv';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type {
@@ -177,6 +178,25 @@ function ownerOnly(c: Context<Env>): boolean {
   return c.get('role') === 'owner';
 }
 
+/**
+ * What a party may do: its owner's features, whoever is asking.
+ *
+ * Read from the owner's row on every request, like `mayOwnCloudParties`, so a
+ * refund reaches every co-organiser's screen at their next pull. An owner that
+ * cannot be found reads as free, the state that claims the least.
+ */
+async function partyFeatures(
+  c: Context<Env>,
+  party: PublishedParty,
+): Promise<FeatureSet> {
+  const owner = await c.var.repositories.users.findById(party.ownerId);
+  const tier = resolveTier({
+    storedTier: owner.ok ? owner.value.tier : null,
+    selfHosted: c.env.SELF_HOSTED === 'true',
+  });
+  return featuresFor(tier);
+}
+
 async function sharedPartyDTO(
   c: Context<Env>,
   party: PublishedParty,
@@ -197,6 +217,7 @@ async function sharedPartyDTO(
       ? { slug: party.slug, rootToken: party.rootToken }
       : null,
     ticketKey: party.ticketKey,
+    features: await partyFeatures(c, party),
   };
 }
 
