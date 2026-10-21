@@ -99,16 +99,40 @@ async function guestList(as = 'user-1'): Promise<HostInviteDTO[]> {
 }
 
 describe('a guest confirming a paid party', () => {
-  it('tells the form an email will be needed, before anyone answers', async () => {
+  it('tells the form contact details will be needed, before anyone answers', async () => {
     const opened = (await (await open()).json()) as InviteOpenDTO;
     expect(opened.party.paid).toBe(true);
   });
 
-  it('is refused without an email', async () => {
+  it('is refused with neither an email nor a phone', async () => {
     const { res } = await rsvp({ name: 'Giulia', answer: 'confirmed' });
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: 'email_required' });
+    expect(await res.json()).toEqual({ error: 'contact_required' });
+  });
+
+  it('takes a phone number alone', async () => {
+    const { res } = await rsvp({
+      name: 'Giulia',
+      answer: 'confirmed',
+      phone: '333 123 4567',
+    });
+    expect(res.status).toBe(200);
+
+    const [giulia] = await guestList();
+    expect(giulia).toMatchObject({ email: null, phone: '+393331234567' });
+  });
+
+  it('takes an email alone', async () => {
+    const { res } = await rsvp({
+      name: 'Giulia',
+      answer: 'confirmed',
+      email: 'giulia@example.com',
+    });
+    expect(res.status).toBe(200);
+
+    const [giulia] = await guestList();
+    expect(giulia).toMatchObject({ email: 'giulia@example.com', phone: null });
   });
 
   it('is refused with an email that is not one', async () => {

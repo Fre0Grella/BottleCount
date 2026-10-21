@@ -58,8 +58,10 @@ first time. Link holders never see it.
 ### Where the ticket goes
 
 To send a ticket to someone who has paid, the app needs to reach them, so a
-guest confirming a paid party leaves an email (required) and a phone number
-(optional, for WhatsApp) — `invites.email` and `invites.phone`.
+guest confirming a paid party leaves an email, a phone number (for WhatsApp),
+or both — at least one — in `invites.email` and `invites.phone`. Either is
+enough because the organiser sends the ticket from their own phone, by hand,
+through whichever the guest gave.
 
 - They are organiser-only. No public endpoint returns them, not even to the
   guest who entered them: the invite id that identifies a guest is a bearer

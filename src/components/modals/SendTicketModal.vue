@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
-import { ticketCode, ticketPayload } from '../../lib/ticket';
-import { signTicket } from '../../lib/crypto';
-import { ticketUrl } from '../../lib/ticketLink';
+import { ticketCode } from '../../lib/ticket';
+import {
+  partyDateShort as shortDate,
+  signedTicketLink,
+  ticketEmailSubject,
+  ticketMessage,
+} from '../../lib/ticketMessage';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import ShareChannels from '../ShareChannels.vue';
@@ -32,14 +36,9 @@ const cover = computed(() => {
   return COVERS[p.cover] ?? COVERS[0];
 });
 
-const partyDateShort = computed(() => {
-  const p = party.value;
-  if (!p) return '';
-  return new Date(p.date).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  });
-});
+const partyDateShort = computed(() =>
+  party.value ? shortDate(party.value.date) : '',
+);
 
 const code = computed(() => {
   const p = party.value;
@@ -49,15 +48,11 @@ const code = computed(() => {
 
 const initial = computed(() => guestName.value.charAt(0).toUpperCase());
 
-/**
- * The words sent with the ticket. Every channel sends the link — never the
- * ticket image — so a guest gets the same thing however it reached them: a
- * page with their name, their code and a QR the door scans.
- */
+/** The words sent with the ticket — see `lib/ticketMessage.ts`. */
 const shareText = computed(() => {
   const p = party.value;
   if (!p || !ticketLink.value) return '';
-  return `🎫 ${guestName.value}, you're on the list for ${p.name} (${partyDateShort.value}). Your ticket — show the QR at the door: ${ticketLink.value}`;
+  return ticketMessage(p, guestName.value, ticketLink.value);
 });
 
 const qrFileName = computed(
@@ -70,13 +65,7 @@ async function prepare(): Promise<void> {
   const name = guestName.value;
   if (!p || !name) return;
   try {
-    const signed = await signTicket(p, ticketPayload(p, name));
-    ticketLink.value = ticketUrl(
-      window.location.origin,
-      import.meta.env.BASE_URL as string,
-      signed,
-      { party: p.name, date: p.date, cover: p.cover, time: p.venue.time },
-    );
+    ticketLink.value = await signedTicketLink(p, name);
   } catch {
     prepareFailed.value = true;
   }
@@ -312,7 +301,7 @@ function addContact(): void {
       <ShareChannels
         :link="ticketLink"
         :message="shareText"
-        :email-subject="`Your ticket — ${party?.name ?? 'the party'}`"
+        :email-subject="ticketEmailSubject(party)"
         :share-title="`Ticket — ${party?.name ?? ''}`"
         :qr-file-name="qrFileName"
         :sent-note="` for ${guestName}.`"

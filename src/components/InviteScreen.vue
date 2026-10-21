@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { normaliseEmail, normalisePhone } from '../../shared/contact';
+import { requireContact } from '../../shared/contact';
 import type { InviteAnswer, InviteOpenDTO } from '../../shared/invites';
 import { inviteUrl } from '../../shared/invites';
 import { formatIban, paymentReference } from '../../shared/payments';
@@ -267,7 +267,8 @@ onMounted(async () => {
 });
 
 const CONTACT_ERRORS: Record<string, string> = {
-  email_required: 'Add your email — it’s where your ticket goes.',
+  contact_required:
+    'Add an email or a phone number — it’s where your ticket goes.',
   invalid_email: 'That email doesn’t look right.',
   invalid_phone: 'That phone number doesn’t look right.',
 };
@@ -283,21 +284,10 @@ async function respond(answer: InviteAnswer): Promise<void> {
   // Checked here as well as on the server, so the guest hears what is wrong
   // before the round trip — with the same rules, so the two never disagree.
   const needsContact = answer === 'confirmed' && isPaid.value;
-  const cleanEmail = normaliseEmail(email.value);
-  const cleanPhone = normalisePhone(phone.value);
-  if (needsContact) {
-    if (cleanEmail === '') {
-      error.value = 'Add your email — it’s where your ticket goes.';
-      return;
-    }
-    if (cleanEmail === null) {
-      error.value = 'That email doesn’t look right.';
-      return;
-    }
-    if (cleanPhone === null) {
-      error.value = 'That phone number doesn’t look right.';
-      return;
-    }
+  const contact = requireContact(email.value, phone.value);
+  if (needsContact && 'error' in contact) {
+    error.value = CONTACT_ERRORS[contact.error] ?? null;
+    return;
   }
 
   submitting.value = true;
@@ -307,8 +297,8 @@ async function respond(answer: InviteAnswer): Promise<void> {
     inviteId: data.value.inviteId,
     name: trimmed,
     answer,
-    ...(needsContact
-      ? { email: cleanEmail ?? '', phone: cleanPhone ?? '' }
+    ...(needsContact && !('error' in contact)
+      ? { email: contact.email ?? '', phone: contact.phone ?? '' }
       : {}),
   });
 
@@ -322,7 +312,7 @@ async function respond(answer: InviteAnswer): Promise<void> {
     // The host made the party paid while this guest had the page open, or the
     // server read the details differently. Either way, say which field.
     error.value = CONTACT_ERRORS[result.error] ?? null;
-    if (data.value && result.error === 'email_required') {
+    if (data.value && result.error === 'contact_required') {
       data.value = {
         ...data.value,
         party: { ...data.value.party, paid: true },
@@ -655,6 +645,9 @@ function copy(text: string, key: string): void {
             <p v-if="fromGoogle" class="invite-contact-note">
               Filled in from Google. Check it, then confirm.
             </p>
+            <p class="invite-contact-note">
+              An email, a phone number, or both — at least one.
+            </p>
             <label class="invite-label" for="invite-email">Your email</label>
             <input
               id="invite-email"
@@ -670,7 +663,7 @@ function copy(text: string, key: string): void {
             />
             <label class="invite-label" for="invite-phone">
               Your phone
-              <span class="invite-optional">(optional, for WhatsApp)</span>
+              <span class="invite-optional">(for WhatsApp)</span>
             </label>
             <input
               id="invite-phone"
@@ -682,9 +675,51 @@ function copy(text: string, key: string): void {
               autocomplete="tel"
               @keyup.enter="submitChoice"
             />
-            <p class="invite-contact-note">
-              Used only to send your ticket for this party.
-            </p>
+            <!-- The phone is the field people hesitate over: say who uses it. -->
+            <div class="invite-reassure">
+              <svg
+                class="invite-reassure__art"
+                viewBox="0 0 48 48"
+                width="44"
+                height="44"
+                aria-hidden="true"
+              >
+                <rect
+                  x="9"
+                  y="5"
+                  width="20"
+                  height="36"
+                  rx="4"
+                  fill="var(--surface2)"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <line
+                  x1="16"
+                  y1="36"
+                  x2="22"
+                  y2="36"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M24 14h17a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9l-5 4v-4h-3a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3z"
+                  fill="var(--accent)"
+                />
+                <path
+                  d="M30 19.5h8M30 23.5h5"
+                  stroke="var(--on-accent)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <p>
+                The host sends your ticket from their own phone, by hand — no
+                bots, no spam.
+                <span>Used only to send your ticket for this party.</span>
+              </p>
+            </div>
           </template>
 
           <p v-if="error" class="invite-error">{{ error }}</p>
@@ -830,6 +865,32 @@ function copy(text: string, key: string): void {
   background: var(--surface2);
   color: var(--text);
   width: 100%;
+}
+
+.invite-reassure {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--rs);
+  background: var(--surface2);
+  color: var(--dim);
+}
+.invite-reassure__art {
+  flex-shrink: 0;
+  color: var(--dim);
+}
+.invite-reassure p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.invite-reassure span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--faint);
 }
 
 .invite-step {

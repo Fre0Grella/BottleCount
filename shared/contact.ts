@@ -1,8 +1,8 @@
 /**
  * How a guest can be reached, shared by the Worker and the frontend.
  *
- * A guest of a paid party leaves an email (and may leave a phone number) when
- * they confirm, so the host can send them their ticket once they have paid.
+ * A guest of a paid party leaves an email, a phone number, or both when they
+ * confirm, so the host can send them their ticket once they have paid.
  * Both sides run the same checks: the form, to say what is wrong before
  * sending, and the server, because the form is not the only thing that can
  * call it.
@@ -60,4 +60,26 @@ export function normalisePhone(input: string): string | null {
 export interface GuestContact {
   email: string | null;
   phone: string | null;
+}
+
+export type ContactError =
+  | 'contact_required'
+  | 'invalid_email'
+  | 'invalid_phone';
+
+/**
+ * What a guest confirming a paid party left to be reached at, or why it is
+ * refused: at least one of email and phone, and whichever is given must be
+ * real. The invite page and the server both ask this, so they cannot disagree.
+ */
+export function requireContact(
+  emailInput: string,
+  phoneInput: string,
+): GuestContact | { error: ContactError } {
+  const email = normaliseEmail(emailInput);
+  if (email === null) return { error: 'invalid_email' };
+  const phone = normalisePhone(phoneInput);
+  if (phone === null) return { error: 'invalid_phone' };
+  if (email === '' && phone === '') return { error: 'contact_required' };
+  return { email: email || null, phone: phone || null };
 }

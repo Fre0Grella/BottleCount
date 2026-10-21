@@ -3,6 +3,14 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
 import { venueFeeFor, venueFeePerPerson } from '../../lib/core';
 import { awaitingPayment } from '../../lib/invites';
+import { mailtoUrl, whatsappUrl } from '../../lib/sendLinks';
+import {
+  sendRoute,
+  signedTicketLink,
+  ticketEmailSubject,
+  ticketMessage,
+} from '../../lib/ticketMessage';
+import type { Invite } from '../../lib/types';
 import { useStore } from '../../lib/store';
 import Icon from '../Icon.vue';
 import ProLock from '../ProLock.vue';
@@ -37,6 +45,56 @@ const paidParty = computed(() => {
 /** Coming, but no ticket until they have paid. */
 function unpaid(inv: Parameters<typeof awaitingPayment>[1]): boolean {
   return !!party.value && awaitingPayment(party.value, inv);
+}
+
+/**
+ * Marks a guest as paid and, since the ticket is what they paid for, starts
+ * sending it: straight into WhatsApp or the mail app when they left only one
+ * way to reach them, the Send sheet otherwise. Un-marking only un-marks.
+ *
+ * Paid is set on this device first (see `setInvitePaid`), which is what lets
+ * the ticket be made at all. The WhatsApp tab is opened here, inside the tap,
+ * and pointed at the chat once the ticket is signed — opened after the await,
+ * a popup blocker would swallow it.
+ */
+async function togglePaid(inv: Invite): Promise<void> {
+  if (inv.paidAt) {
+    void store.setInvitePaid(inv.id, false);
+    return;
+  }
+
+  const route = sendRoute(inv);
+  const tab = route === 'whatsapp' ? window.open('', '_blank') : null;
+  const marked = store.setInvitePaid(inv.id, true);
+
+  if (route === 'sheet') {
+    store.openSendTicket(inv.name);
+    await marked;
+    return;
+  }
+
+  const p = party.value;
+  try {
+    if (!p) throw new Error('no party');
+    const link = await signedTicketLink(p, inv.name);
+    const message = ticketMessage(p, inv.name, link);
+    if (route === 'whatsapp') {
+      const url = whatsappUrl(message, inv.phone);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } else {
+      window.location.href = mailtoUrl(
+        ticketEmailSubject(p),
+        message,
+        inv.email,
+      );
+    }
+  } catch {
+    // No ticket to send: close the blank tab rather than leave it behind. The
+    // guest stays marked paid, and the Send button is there to try again.
+    tab?.close();
+  }
+  await marked;
 }
 
 const paidCount = computed(
@@ -1230,7 +1288,7 @@ const lastSyncedLabel = computed(() => {
               v-else-if="paidParty && inv.status === 'confirmed'"
               style="font-size: 11px; color: var(--faint); margin-top: 2px"
             >
-              No email yet
+              No email or phone yet
             </div>
             <button
               v-if="inv.source === 'manual'"
@@ -1328,7 +1386,7 @@ const lastSyncedLabel = computed(() => {
                     ? { background: 'var(--accent)', color: 'var(--on-accent)' }
                     : { background: 'transparent', color: 'var(--accent)' }
                 "
-                @click="store.setInvitePaid(inv.id, !inv.paidAt)"
+                @click="togglePaid(inv)"
               >
                 <span style="display: flex"
                   ><Icon :name="inv.paidAt ? 'check' : 'euro'" :size="13"

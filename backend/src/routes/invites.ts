@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { GuestContact } from '../../../shared/contact';
-import { normaliseEmail, normalisePhone } from '../../../shared/contact';
+import { requireContact } from '../../../shared/contact';
 import type {
   InviteOpenDTO,
   InviteOpenRequest,
@@ -80,18 +80,10 @@ function contactFor(
 ): GuestContact | { error: string } {
   if (answer !== 'confirmed' || !partyIsPaid(party)) return NO_CONTACT;
 
-  const email = normaliseEmail(
-    typeof body['email'] === 'string' ? body['email'] : '',
-  );
-  if (email === null) return { error: 'invalid_email' };
-  if (email === '') return { error: 'email_required' };
-
-  const phone = normalisePhone(
-    typeof body['phone'] === 'string' ? body['phone'] : '',
-  );
-  if (phone === null) return { error: 'invalid_phone' };
-
-  return { email, phone: phone || null };
+  // At least one of the two — whichever the guest is happier to give.
+  const text = (key: string) =>
+    typeof body[key] === 'string' ? (body[key] as string) : '';
+  return requireContact(text('email'), text('phone'));
 }
 
 /**
