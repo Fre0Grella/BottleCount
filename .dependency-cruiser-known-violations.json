@@ -1,0 +1,13 @@
+[
+  {
+    "type": "dependency",
+    "from": "src/lib/ticket.ts",
+    "to": "src/lib/qr.ts",
+    "unresolvedTo": "./qr",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "ticket-domain-no-drawing"
+    }
+  }
+]
