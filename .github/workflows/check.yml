@@ -48,6 +48,13 @@ jobs:
       - name: Dependency rules
         run: npm run check:deps
 
+      # Ratchet: knip flags unused files, exports and dependencies across the
+      # root, backend/ and functions/ (knip.jsonc). What it found on the day it
+      # was added is listed under `ignoreIssues`, per file; anything else
+      # fails. When you delete dead code, remove its line there too.
+      - name: Unused code
+        run: npm run check:unused
+
       - name: Typecheck
         run: npm run typecheck
 

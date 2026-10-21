@@ -17,6 +17,7 @@
     "check:dupes": "jscpd",
     "check:deps": "depcruise src shared functions backend/src --ignore-known",
     "check:deps:baseline": "depcruise src shared functions backend/src --output-type baseline --output-to .dependency-cruiser-known-violations.json",
+    "check:unused": "knip --no-progress",
     "backend": "npm run -w backend",
     "backend:dev": "npm run -w backend dev",
     "backend:test": "npm run -w backend test",
