@@ -192,7 +192,7 @@ N\_{\text{be}} = \left\lceil \frac{\text{fixed costs}}{\text{ticket price} - \te
 ```bash
 git clone https://github.com/fre0grella/BottleCount
 cd BottleCount
-npm run install:all
+npm install                  # one lockfile; npm workspaces install backend/ too
 ```
 
 **Frontend only** — the free tier, and all you need for anything on the planning
@@ -206,7 +206,7 @@ npm run dev
 
 ```bash
 cp backend/.dev.vars.example backend/.dev.vars   # set JWT_SECRET to anything
-npm --prefix backend run db:init:local           # apply migrations to local D1
+npm run -w backend db:init:local                 # apply migrations to local D1
 npm run backend:dev                              # wrangler dev --env local
 ```
 
@@ -300,7 +300,7 @@ the free plan is more than enough for a party.
 
 ```bash
 git clone https://github.com/fre0grella/BottleCount
-cd BottleCount && npm run install:all
+cd BottleCount && npm install
 
 npx wrangler d1 create db          # paste the id into the `selfhosted` env
 cd backend
@@ -325,7 +325,7 @@ without a Google client if you would rather not register one.
 Until a checkout provider is wired up, fulfilment on the hosted tier is manual:
 
 ```bash
-npm --prefix backend run licence:issue -- --env production --note "ko-fi #128"
+npm run -w backend licence:issue -- --env production --note "ko-fi #128"
 ```
 
 It prints a code like `BC-7K2M-QP4X-9DNR` and inserts it into D1. The buyer

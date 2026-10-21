@@ -16,10 +16,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # `npm ci` in both packages rather than `install:all`: CI should install
-      # exactly what the lockfiles say, not resolve fresh.
+      # `npm ci`, not `npm install`: CI installs exactly what the lockfile
+      # says. backend/ is an npm workspace, so this one lockfile covers it.
       - name: Install
-        run: npm ci && npm --prefix backend ci
+        run: npm ci
 
       # No `format:check` step yet: seven files predating the Husky/lint-staged
       # hook still carry CRLF line endings, so it fails on `main` today. Fixing
