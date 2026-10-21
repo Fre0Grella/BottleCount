@@ -23,7 +23,8 @@ const kpis = computed(() => {
   const avgProfit = (r.profit_min + r.profit_max) / 2;
 
   // With the venue running the bar there is no drink spend, and "€0" would
-  // read as a mistake — what the host does spend is the fixed costs.
+  // read as a mistake — what the host does spend is the venue: its fixed costs
+  // and, usually in this case, a fee per head.
   const spend = runsBar(p)
     ? {
         v: fmtRange(Math.round(r.total_min), Math.round(r.total_max)),
@@ -31,7 +32,7 @@ const kpis = computed(() => {
           fmt((r.total_min + r.total_max) / 2 / (p.settings.guests || 1)) +
           ' / guest',
       }
-    : { v: fmt(r.fixed_costs), sub: 'venue + equipment' };
+    : { v: fmt(r.fixed_costs + r.venue_fees), sub: 'venue + equipment' };
 
   return [
     {

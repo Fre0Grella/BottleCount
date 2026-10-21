@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculate, planFor, runsBar } from './core';
+import { calculate, planFor, runsBar, venueFeeFor } from './core';
 import type { Catalog, Settings } from './types';
 
 const catalog: Catalog = {
@@ -102,5 +102,49 @@ describe('planFor', () => {
   it('plans drinks again once the host runs the bar', () => {
     const r = calculate(planFor(settings(), true), catalog);
     expect(r.shopping_list.length).toBeGreaterThan(0);
+  });
+});
+
+describe('a venue fee per person', () => {
+  // The venue runs the bar here, so there are no drinks to buy and the numbers
+  // below are only tickets, fixed costs and the fee: 40 guests at €15, €300
+  // fixed, €8 a head.
+  function withFee(fee: number): Settings {
+    return planFor({ ...settings(), venue_fee_per_person: fee }, false);
+  }
+
+  it('costs the fee for every expected guest', () => {
+    const r = calculate(withFee(8), catalog);
+
+    expect(r.venue_fees).toBe(320);
+    expect(r.fixed_costs).toBe(300);
+    expect(r.profit_min).toBe(600 - 300 - 320);
+  });
+
+  it('counts against each ticket, not against the fixed costs, for break-even', () => {
+    // Each guest brings €15 and costs €8, so €7 a head pays off €300.
+    expect(calculate(withFee(8), catalog).break_even).toBe(43);
+  });
+
+  it('never breaks even when the fee is the whole ticket', () => {
+    expect(calculate(withFee(15), catalog).break_even).toBeNull();
+  });
+
+  it('changes nothing for a party saved before the fee existed', () => {
+    const r = calculate(planFor(settings(), false), catalog);
+
+    expect(r.venue_fees).toBe(0);
+    expect(r.profit_min).toBe(300);
+    expect(r.break_even).toBe(20);
+  });
+});
+
+describe('venueFeeFor', () => {
+  it('is the fee times the guests counted', () => {
+    expect(venueFeeFor({ venue_fee_per_person: 8 }, 12)).toBe(96);
+  });
+
+  it('is nothing without a fee', () => {
+    expect(venueFeeFor({}, 12)).toBe(0);
   });
 });

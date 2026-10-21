@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
+import { venueFeeFor, venueFeePerPerson } from '../../lib/core';
 import { awaitingPayment } from '../../lib/invites';
 import { useStore } from '../../lib/store';
 import Icon from '../Icon.vue';
@@ -41,6 +42,28 @@ function unpaid(inv: Parameters<typeof awaitingPayment>[1]): boolean {
 const paidCount = computed(
   () => confirmed.value.filter((i) => i.paidAt).length,
 );
+/**
+ * What the venue's per-person fee comes to for the guests the host is bringing.
+ *
+ * The Plan tab's figure is for the expected count. This one is what the host
+ * commits to: on a party guests pay for, everyone marked as paid — a paid guest
+ * who then stays home still counts, because the host told the venue a number
+ * and pays for it. A free party has no paid marks, so it counts who is coming.
+ */
+const venueFee = computed(() => {
+  const p = party.value;
+  if (!p) return null;
+  const fee = venueFeePerPerson(p.settings);
+  if (fee === 0) return null;
+  const guests = paidParty.value ? paidCount.value : confirmed.value.length;
+  return {
+    guests,
+    who: paidParty.value ? 'paid' : 'coming',
+    fee,
+    total: venueFeeFor(p.settings, guests),
+  };
+});
+
 const paidW = computed(() =>
   confirmed.value.length
     ? `${Math.min(100, (paidCount.value / confirmed.value.length) * 100)}%`
@@ -973,6 +996,19 @@ const lastSyncedLabel = computed(() => {
             "
           ></div>
         </div>
+      </div>
+
+      <!-- What the venue's per-head fee comes to for the guests counted. -->
+      <div
+        v-if="venueFee"
+        data-test="venue-fee"
+        style="margin: -4px 0 14px; font-size: 11px; color: var(--faint)"
+      >
+        Venue fee: {{ venueFee.guests }} {{ venueFee.who }} × €{{
+          venueFee.fee
+        }}
+        =
+        <strong style="color: var(--dim)">€{{ venueFee.total }}</strong>
       </div>
 
       <!-- add row -->

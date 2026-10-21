@@ -57,6 +57,10 @@ export function parseDocument(body: unknown): PublishPartyRequest | null {
       guests: num(settings['guests'], 0),
       ticket_price: num(settings['ticket_price'], 0),
       venue_cost: num(settings['venue_cost'], 0),
+      venue_fee_per_person: Math.max(
+        0,
+        num(settings['venue_fee_per_person'], 0),
+      ),
       equipment_cost: num(settings['equipment_cost'], 0),
       alcohol_ml_per_person: num(settings['alcohol_ml_per_person'], 0),
       buffer: num(settings['buffer'], 1),

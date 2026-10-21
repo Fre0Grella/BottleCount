@@ -33,6 +33,25 @@ export function planFor(settings: Settings, barManaged: boolean): Settings {
   return barManaged ? settings : { ...settings, menu: {}, extras: {} };
 }
 
+/** The per-person venue fee, or 0 for a party saved before it existed. */
+export function venueFeePerPerson(settings: {
+  venue_fee_per_person?: number;
+}): number {
+  const fee = settings.venue_fee_per_person;
+  return typeof fee === 'number' && Number.isFinite(fee) && fee > 0 ? fee : 0;
+}
+
+/**
+ * What the venue's per-person fee comes to for `guests` people — the guests
+ * the host is bringing, which on a paid party means the ones marked as paid.
+ */
+export function venueFeeFor(
+  settings: { venue_fee_per_person?: number },
+  guests: number,
+): number {
+  return Math.round(venueFeePerPerson(settings) * guests * 100) / 100;
+}
+
 export function calculate(
   settings: Settings,
   catalog: Catalog,
@@ -117,18 +136,26 @@ export function calculate(
   const totalMin = shoppingList.reduce((s, r) => s + r.cost_min, 0);
   const totalMax = shoppingList.reduce((s, r) => s + r.cost_max, 0);
   const fixedCosts = venue_cost + equipment_cost;
+  // A per-person fee grows with the guest list, so it is a cost per ticket
+  // rather than a fixed one: it comes off each guest's margin, which is what
+  // break-even divides the fixed costs by.
+  const feePerPerson = venueFeePerPerson(settings);
+  const venueFees = venueFeeFor(settings, n);
   const revenue = n * ticket_price;
   const avgVarCost = (totalMin + totalMax) / 2 / (n || 1);
-  const margin = ticket_price - avgVarCost;
+  const margin = ticket_price - avgVarCost - feePerPerson;
 
   return {
     shopping_list: shoppingList,
     total_min: Math.round(totalMin * 100) / 100,
     total_max: Math.round(totalMax * 100) / 100,
     fixed_costs: fixedCosts,
+    venue_fees: venueFees,
     revenue,
-    profit_min: Math.round((revenue - totalMax - fixedCosts) * 100) / 100,
-    profit_max: Math.round((revenue - totalMin - fixedCosts) * 100) / 100,
+    profit_min:
+      Math.round((revenue - totalMax - fixedCosts - venueFees) * 100) / 100,
+    profit_max:
+      Math.round((revenue - totalMin - fixedCosts - venueFees) * 100) / 100,
     break_even: margin > 0 ? Math.ceil(fixedCosts / margin) : null,
   };
 }
