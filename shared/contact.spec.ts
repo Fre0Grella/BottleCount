@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseEmail, normalisePhone } from './contact';
+import { normaliseEmail, normalisePhone, requireContact } from './contact';
 
 describe('normaliseEmail', () => {
   it('keeps one spelling per address', () => {
@@ -45,4 +45,40 @@ describe('normalisePhone', () => {
       expect(normalisePhone(input)).toBeNull();
     },
   );
+});
+
+describe('requireContact', () => {
+  it('takes an email alone', () => {
+    expect(requireContact('giulia@example.com', '')).toEqual({
+      email: 'giulia@example.com',
+      phone: null,
+    });
+  });
+
+  it('takes a phone alone', () => {
+    expect(requireContact('', '333 123 4567')).toEqual({
+      email: null,
+      phone: '+393331234567',
+    });
+  });
+
+  it('takes both', () => {
+    expect(requireContact('giulia@example.com', '+393331234567')).toEqual({
+      email: 'giulia@example.com',
+      phone: '+393331234567',
+    });
+  });
+
+  it('needs at least one', () => {
+    expect(requireContact('  ', '')).toEqual({ error: 'contact_required' });
+  });
+
+  it('refuses whichever is given and wrong', () => {
+    expect(requireContact('giulia', '+393331234567')).toEqual({
+      error: 'invalid_email',
+    });
+    expect(requireContact('giulia@example.com', 'call me')).toEqual({
+      error: 'invalid_phone',
+    });
+  });
 });
