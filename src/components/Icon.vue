@@ -3,7 +3,7 @@ defineProps<{ name: string; size?: number | string }>();
 
 const icons: Record<string, string> = {
   bottle:
-    '<path d="M10 2h4v3l1 3v12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8l1-3z"/><path d="M9 12h6"/>',
+    '<path d="M10 2h4v3l1 3v12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8l1-3z"/><path d="M9 12h6"/><path d="M30.5 16h6.5a8.5 8.5 0 0 1 0 17h-6.5"/><path d="M30.5 30h8a9 9 0 0 1 0 18h-8z"/><path d="M30.5 30h8a9 9 0 0 1 0 18h-8"/>',
   glass: '<path d="M4 4h16l-8 9-8-9z"/><path d="M12 13v7"/><path d="M8 20h8"/>',
   beer: '<path d="M6 8h9v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1z"/><path d="M15 10h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/><path d="M8 8V6a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v2"/>',
   wine: '<path d="M8 3h8l-1 7a3 3 0 0 1-6 0z"/><path d="M12 17v3"/><path d="M9 21h6"/>',

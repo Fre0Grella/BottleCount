@@ -10,13 +10,13 @@ import { qrCanvas } from './qr';
  */
 
 /**
- * The mark on the QR's centre plate. The light-theme logo, so it reads on the
- * white QR background. Change this line to take the mark from elsewhere.
+ * The mark on the QR's centre plate: the dark logo, a tile of its own on the
+ * white plate. Change this line to take the mark from elsewhere.
  */
-const QR_LOGO_SRC = `${import.meta.env.BASE_URL}logoLight.svg`;
+const QR_LOGO_SRC = `${import.meta.env.BASE_URL}logoDark.svg`;
 
 /** The plate's proportions, as fractions of the QR's width. */
-const QR_LOGO = { size: 0.2, pad: 0.022 };
+const QR_LOGO = { size: 0.25, pad: 0.022, radius: 0.0625 };
 
 /** Turns an image URL into something a canvas can draw. */
 export type ImageLoader = (src: string) => Promise<CanvasImageSource>;
@@ -63,7 +63,8 @@ function overlayLogo(canvas: HTMLCanvasElement, logo: CanvasImageSource): void {
   const y = (canvas.height - size) / 2;
   const pad = canvas.width * QR_LOGO.pad;
   ctx.fillStyle = '#ffffff';
-  roundRectPath(ctx, x - pad, y - pad, size + pad * 2, size + pad * 2, pad);
+  const radius = canvas.width * QR_LOGO.radius;
+  roundRectPath(ctx, x - pad, y - pad, size + pad * 2, size + pad * 2, radius);
   ctx.fill();
   ctx.drawImage(logo, x, y, size, size);
 }
