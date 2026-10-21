@@ -12,7 +12,7 @@ Run it free in your browser with no account, pay once for the hosted version, or
 [![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/pages/)
 [![License: PolyForm NC](https://img.shields.io/badge/License-PolyForm_NC-3db077)](LICENSE)
 
-**App:** https://bottlecount.pages.dev — the product, free and paid tiers alike
+**App:** https://bottlecount-epj.pages.dev — the product, free and paid tiers alike
 **Docs:** https://fre0grella.github.io/BottleCount — documentation only, no app
 
 ---

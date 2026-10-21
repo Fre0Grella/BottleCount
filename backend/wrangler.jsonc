@@ -74,7 +74,7 @@
         ],
       },
       "vars": {
-        "FRONTEND_URL": "https://preview.bottlecount.pages.dev",
+        "FRONTEND_URL": "https://preview.bottlecount-epj.pages.dev",
         "ENVIRONMENT": "preview",
         "SELF_HOSTED": "false",
         "GOOGLE_CLIENT_ID": "",
@@ -88,7 +88,7 @@
           "binding": "db",
           "database_name": "db",
           // Fill in after `wrangler d1 create db`.
-          "database_id": "",
+          "database_id": "c57cbc9b-0086-4d82-b7f1-b8f896bc50dd",
         },
       ],
       // Guards the two unauthenticated invite endpoints. They are the only
@@ -110,14 +110,14 @@
         ],
       },
       "vars": {
-        "FRONTEND_URL": "https://bottlecount.pages.dev",
+        "FRONTEND_URL": "https://bottlecount-epj.pages.dev",
         "ENVIRONMENT": "production",
         // The hosted deployment is the one people pay for, so this is the one
         // place it must stay "false" — see shared/tiers.ts.
         "SELF_HOSTED": "false",
         // Not a secret (GOOGLE_CLIENT_SECRET and JWT_SECRET are, and are set
         // with `wrangler secret put`).
-        "GOOGLE_CLIENT_ID": "",
+        "GOOGLE_CLIENT_ID": "402376254532-ji43fivhq1ksni3pahe1hrsblvsbsm7l.apps.googleusercontent.com",
       },
     },
 

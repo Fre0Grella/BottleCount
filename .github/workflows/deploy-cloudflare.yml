@@ -86,11 +86,10 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # --functions-directory is explicit: the proxy in functions/ lives at
-          # the repo root, not inside dist/, and losing it would deploy a
-          # frontend that quietly falls back to the free tier.
+          # No functions flag: wrangler picks up ./functions from the working
+          # directory (the repo root), which is where the /api and /auth proxy
+          # lives. `--functions-directory` is not a wrangler option and errors.
           command: >-
             pages deploy dist
             --project-name=bottlecount
             --branch=main
-            --functions-directory=functions

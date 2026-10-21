@@ -20,7 +20,9 @@ const isDocs = target === 'docs';
 
 const site =
   process.env.SITE ??
-  (isDocs ? 'https://fre0grella.github.io' : 'https://bottlecount.pages.dev');
+  (isDocs
+    ? 'https://fre0grella.github.io'
+    : 'https://bottlecount-epj.pages.dev');
 const base = process.env.BASE_PATH ?? (isDocs ? '/BottleCount/' : '/');
 
 /**
