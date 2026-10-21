@@ -1,3 +1,4 @@
+import type { FeatureSet } from './tiers';
 import type { MergePatch } from './patch';
 import type { PaymentDetails } from './payments';
 
@@ -127,6 +128,12 @@ export interface SharedPartyDTO {
    * nothing they did not have. It is never sent to a guest.
    */
   ticketKey: JsonWebKey | null;
+  /**
+   * What this party may do, from its **owner's** tier — not the caller's. A
+   * free co-organiser of a Pro party gets the Pro features within it (see
+   * `canUse` in `shared/tiers.ts`).
+   */
+  features: FeatureSet;
 }
 
 /** One entry in the list of parties a user can open. */

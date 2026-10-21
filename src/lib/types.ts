@@ -1,3 +1,4 @@
+import type { FeatureSet } from '../../shared/tiers';
 import type { InviteStatus } from '../../shared/invites';
 import type { PaymentDetails } from '../../shared/payments';
 import type { TicketQRPayload } from '../../shared/tickets';
@@ -196,6 +197,12 @@ export interface Party {
 export interface PartyPublication {
   /** The party's id on the server. */
   remoteId: string;
+  /**
+   * What this party may do, from its owner's tier, as the server last said.
+   * Absent on parties stored before the server reported it, which fall back to
+   * the viewer's own tier until the next pull.
+   */
+  features?: FeatureSet;
   /** The document version this browser's copy was built from. */
   version: number;
   /**
