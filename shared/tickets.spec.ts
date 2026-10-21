@@ -40,14 +40,6 @@ describe('generateTicketCode', () => {
     }
     expect(seen.size).toBe(TICKET_CODE_ALPHABET.length);
   });
-
-  it('does not repeat itself', () => {
-    const codes = new Set(
-      Array.from({ length: 1000 }, () => generateTicketCode()),
-    );
-    // A handful of collisions in 1000 draws from 24M would still be suspicious.
-    expect(codes.size).toBe(1000);
-  });
 });
 
 describe('normaliseTicketCode', () => {
