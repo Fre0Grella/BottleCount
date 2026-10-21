@@ -11,6 +11,7 @@ import type {
 } from '../../shared/collab';
 import { DOCUMENT_FIELDS } from '../../shared/collab';
 import type { MergePatch } from '../../shared/patch';
+import { sanitisePaymentDetails } from '../../shared/payments';
 import type { ApiResult } from './invites';
 import type { Party } from './types';
 
@@ -70,6 +71,10 @@ export function applyDocument(party: Party, document: PartyDocument): void {
     // PartyDocument where it is declared.
     party[field] = structuredClone(document[field]) as never;
   }
+  // A document stored before payments existed has no `payment`, and a merge
+  // patch onto one stores only the fields that changed. Either would leave the
+  // Plan tab's card reading and writing fields that are not there.
+  party.payment = sanitisePaymentDetails(document.payment);
 }
 
 // ── Parties ─────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
-import { documentOf } from './collab';
+import { applyDocument, documentOf } from './collab';
 import { emptyPaymentDetails } from '../../shared/payments';
 import type { Party } from './types';
 
@@ -64,5 +64,38 @@ describe('documentOf', () => {
 
     expect(document).not.toHaveProperty('invites');
     expect(document).not.toHaveProperty('id');
+  });
+});
+
+describe('applyDocument', () => {
+  it('gives empty payment details when the server copy predates them', () => {
+    // A party published before payments existed has no `payment` on the
+    // server. Copying that over left the Plan tab's card with nothing to save
+    // into, and every pull wiped what the host had typed.
+    const party = aParty();
+    party.payment.paypal = 'marcog';
+    const stale = documentOf(party) as unknown as Record<string, unknown>;
+    delete stale['payment'];
+
+    applyDocument(party, stale as never);
+
+    expect(party.payment).toEqual(emptyPaymentDetails());
+  });
+
+  it('fills in a payment the server only has part of', () => {
+    // A merge patch onto a document without `payment` stores only the fields
+    // that changed.
+    const party = aParty();
+    const partial = {
+      ...documentOf(party),
+      payment: { paypal: 'marcog' },
+    };
+
+    applyDocument(party, partial as never);
+
+    expect(party.payment).toEqual({
+      ...emptyPaymentDetails(),
+      paypal: 'marcog',
+    });
   });
 });

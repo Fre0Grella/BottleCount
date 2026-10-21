@@ -33,7 +33,10 @@ import {
 } from './collab';
 import { PartySync } from './sync';
 import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
-import { emptyPaymentDetails } from '../../shared/payments';
+import {
+  emptyPaymentDetails,
+  sanitisePaymentDetails,
+} from '../../shared/payments';
 import type { SessionDTO } from '../../shared/session';
 import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
@@ -889,8 +892,9 @@ async function syncPartyList(): Promise<void> {
       allowForward: shared.document.allowForward,
       includeSnacks: shared.document.includeSnacks,
       barManaged: runsBar(shared.document),
-      // A party stored before payments existed has no `payment` on the server.
-      payment: shared.document.payment ?? emptyPaymentDetails(),
+      // A party stored before payments existed has no `payment` on the server,
+      // or only the fields a patch has touched since.
+      payment: sanitisePaymentDetails(shared.document.payment),
       // The guest list is not in the document; it arrives through the funnel.
       invites: [],
       publication: {
