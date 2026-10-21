@@ -3,8 +3,12 @@ import type { PartyDocument, SharedPartyDTO } from '../../../../shared/collab';
 import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { Repositories } from '../../repositories/repositories';
 import { fakeInvites, fakeParties } from './fakeInvites';
-import { aUser, fakeLicences, fakeUsers } from './fakeRepositories';
-import { fakeMembers } from './fakeMembers';
+import {
+  aUser,
+  fakeLicences,
+  fakeRepositories,
+  fakeUsers,
+} from './fakeRepositories';
 import { request, sessionCookie } from './harness';
 
 /** A document with everything filled in, so tests only state what they vary. */
@@ -43,14 +47,7 @@ export function aDocument(
 export function repositoriesWith(
   users = fakeUsers([aUser({ tier: 'pro' })]),
 ): Repositories {
-  const parties = fakeParties();
-  return {
-    users,
-    licences: fakeLicences(),
-    parties,
-    invites: fakeInvites(),
-    members: fakeMembers(parties.memberships, () => users.rows),
-  };
+  return fakeRepositories(users, fakeLicences(), fakeParties(), fakeInvites());
 }
 
 /** Publishes a party as `userId` and returns what the server said. */

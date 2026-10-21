@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import type { GuestContact } from '../../../shared/contact';
+import { normaliseEmail, normalisePhone } from '../../../shared/contact';
 import type {
   InviteOpenDTO,
   InviteOpenRequest,
@@ -6,7 +8,7 @@ import type {
 } from '../../../shared/invites';
 import { isInviteAnswer } from '../../../shared/invites';
 import type { InvitePaymentDTO } from '../../../shared/payments';
-import { invitePayment } from '../../../shared/payments';
+import { invitePayment, isPaidParty } from '../../../shared/payments';
 import type { AppVariables } from '../appEnv';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type { Invite } from '../repositories/inviteRepository';
@@ -29,8 +31,18 @@ const invites = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
  * A guest has no account by design — being able to RSVP without signing up is
  * most of the value of an invite link. So the URL is the only credential, and
  * these handlers must never return anything the link holder should not see:
- * no other guests' names, no owner identity, no budget.
+ * no other guests' names, no owner identity, no budget — and no contact
+ * details, not even the guest's own.
  */
+
+/** Whether confirming needs an email. Read from the stored document, like payment. */
+function partyIsPaid(party: PublishedParty): boolean {
+  if (!party.document) return false;
+  return isPaidParty(
+    party.document.settings.ticket_price,
+    party.document.payment,
+  );
+}
 
 function toPartyDTO(party: PublishedParty, full: boolean): InvitePartyDTO {
   return {
@@ -41,7 +53,37 @@ function toPartyDTO(party: PublishedParty, full: boolean): InvitePartyDTO {
     venue: party.venue,
     allowForward: party.allowForward,
     full,
+    paid: partyIsPaid(party),
   };
+}
+
+const NO_CONTACT: GuestContact = { email: null, phone: null };
+
+/**
+ * The contact details an answer stores, or the error to refuse it with.
+ *
+ * Only a yes to a paid party keeps any: they are there to send a ticket to, and
+ * someone who declines, or confirms a free party, is not getting one.
+ */
+function contactFor(
+  party: PublishedParty,
+  answer: string,
+  body: Record<string, unknown>,
+): GuestContact | { error: string } {
+  if (answer !== 'confirmed' || !partyIsPaid(party)) return NO_CONTACT;
+
+  const email = normaliseEmail(
+    typeof body['email'] === 'string' ? body['email'] : '',
+  );
+  if (email === null) return { error: 'invalid_email' };
+  if (email === '') return { error: 'email_required' };
+
+  const phone = normalisePhone(
+    typeof body['phone'] === 'string' ? body['phone'] : '',
+  );
+  if (phone === null) return { error: 'invalid_phone' };
+
+  return { email, phone: phone || null };
 }
 
 /**
@@ -167,7 +209,8 @@ invites.post('/:slug/answer', async (c) => {
   if (typeof body !== 'object' || body === null) {
     return c.json({ error: 'invalid_answer' }, 400);
   }
-  const { inviteId, name, answer } = body as Record<string, unknown>;
+  const fields = body as Record<string, unknown>;
+  const { inviteId, name, answer } = fields;
 
   if (typeof inviteId !== 'string' || !isInviteAnswer(answer)) {
     return c.json({ error: 'invalid_answer' }, 400);
@@ -175,12 +218,16 @@ invites.post('/:slug/answer', async (c) => {
   const trimmed = typeof name === 'string' ? name.trim().slice(0, 60) : '';
   if (trimmed === '') return c.json({ error: 'name_required' }, 400);
 
+  const contact = contactFor(party, answer, fields);
+  if ('error' in contact) return c.json({ error: contact.error }, 400);
+
   const answered = await c.var.repositories.invites.answer({
     inviteId,
     partyId: party.id,
     name: trimmed,
     answer,
     maxCapacity: party.maxCapacity,
+    contact,
   });
 
   if (!answered.ok) {

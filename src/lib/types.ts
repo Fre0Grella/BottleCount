@@ -146,6 +146,12 @@ export interface Invite {
   source?: 'link' | 'manual';
   openedAt?: string;
   answeredAt?: string;
+  /** Where to send their ticket. Never shown to guests; see migration 0005. */
+  email?: string;
+  /** E.164, for WhatsApp. */
+  phone?: string;
+  /** When an organiser marked them as paid. Absent while unpaid. */
+  paidAt?: string;
 }
 
 // ── Tickets ────────────────────────────────────────────────────────────────

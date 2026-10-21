@@ -1,3 +1,4 @@
+import type { GuestContact } from '../../../shared/contact';
 import type { InviteAnswer, InviteStatus } from '../../../shared/invites';
 import type { Result } from './result';
 
@@ -17,6 +18,11 @@ export interface Invite {
   checkedInAt: string | null;
   openedAt: string;
   answeredAt: string | null;
+  /** Organisers only — never on a public endpoint. See migration 0005. */
+  email: string | null;
+  phone: string | null;
+  /** When an organiser marked them as paid; null while unpaid. */
+  paidAt: string | null;
 }
 
 /** Where an invite came from. Only 'link' counts towards "reached". */
@@ -58,6 +64,10 @@ export interface InviteRepository {
    * Records an answer. Confirming is refused once the party is full, and the
    * check has to be part of the write — two guests confirming the last place at
    * once must not both succeed.
+   *
+   * `contact` replaces whatever was stored, nulls included: a guest who
+   * declines, or answers a free party, leaves nothing behind to send a ticket
+   * to.
    */
   answer(args: {
     inviteId: string;
@@ -65,6 +75,7 @@ export interface InviteRepository {
     name: string;
     answer: InviteAnswer;
     maxCapacity: number | null;
+    contact: GuestContact;
   }): Promise<Result<Invite>>;
 
   /**
@@ -97,6 +108,24 @@ export interface InviteRepository {
     partyId: string;
     name: string;
     ticketCode: string;
+    contact: GuestContact;
+  }): Promise<Result<Invite>>;
+
+  /** An organiser setting how to reach a guest. Replaces both fields. */
+  setContact(args: {
+    inviteId: string;
+    partyId: string;
+    contact: GuestContact;
+  }): Promise<Result<Invite>>;
+
+  /**
+   * An organiser marking a guest as paid (`at`) or not (`null`), after checking
+   * their own account. BottleCount never sees the payment — see ADR 0005.
+   */
+  setPaid(args: {
+    inviteId: string;
+    partyId: string;
+    at: string | null;
   }): Promise<Result<Invite>>;
 
   /**

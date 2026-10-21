@@ -94,6 +94,28 @@ export function fakeRepositories(
   // from the same membership `roleFor` enforces, or a test could pass with a
   // party listed that its own guard refuses to open.
   const members = fakeMembers(parties.memberships, () => users.rows);
+
+  // D1 deletes a party's invites with it (ON DELETE CASCADE); the fakes are two
+  // separate maps, so the cascade is reproduced here. Without it a test that a
+  // deleted party leaves no guest emails behind would pass for the wrong reason.
+  const cascade = (partyId: string) => {
+    for (const [id, invite] of invites.rows) {
+      if (invite.partyId === partyId) invites.rows.delete(id);
+    }
+  };
+  const deleteById = parties.deleteById.bind(parties);
+  parties.deleteById = async (id) => {
+    const removed = await deleteById(id);
+    if (removed.ok) cascade(id);
+    return removed;
+  };
+  const unpublish = parties.unpublish.bind(parties);
+  parties.unpublish = async (ownerId, id) => {
+    const removed = await unpublish(ownerId, id);
+    if (removed.ok) cascade(id);
+    return removed;
+  };
+
   return { users, licences, parties, invites, members };
 }
 

@@ -428,6 +428,8 @@ describe('paying the host', () => {
       inviteId: opened.inviteId,
       name: 'Giulia',
       answer: 'confirmed',
+      // A party with a way to pay needs one to send the ticket to (#21).
+      email: 'giulia@example.com',
     });
     expect(res.status).toBe(200);
     return (await res.json()) as InviteOpenDTO;

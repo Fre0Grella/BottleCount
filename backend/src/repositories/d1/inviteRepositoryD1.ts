@@ -1,3 +1,4 @@
+import type { GuestContact } from '../../../../shared/contact';
 import type { InviteAnswer, InviteStatus } from '../../../../shared/invites';
 import { INVITE_STATUSES } from '../../../../shared/invites';
 import { newToken } from '../../lib/tokens';
@@ -25,6 +26,9 @@ interface InviteRow {
   checked_in_at: string | null;
   opened_at: string;
   answered_at: string | null;
+  email: string | null;
+  phone: string | null;
+  paid_at: string | null;
 }
 
 interface InviteJoinRow extends InviteRow {
@@ -57,6 +61,9 @@ function toInvite(row: InviteRow): Invite {
     checkedInAt: row.checked_in_at,
     openedAt: row.opened_at,
     answeredAt: row.answered_at,
+    email: row.email,
+    phone: row.phone,
+    paidAt: row.paid_at,
   };
 }
 
@@ -147,12 +154,14 @@ export class InviteRepositoryD1 implements InviteRepository {
     name,
     answer,
     maxCapacity,
+    contact,
   }: {
     inviteId: string;
     partyId: string;
     name: string;
     answer: InviteAnswer;
     maxCapacity: number | null;
+    contact: GuestContact;
   }): Promise<Result<Invite>> {
     const now = new Date().toISOString();
 
@@ -161,10 +170,19 @@ export class InviteRepositoryD1 implements InviteRepository {
     if (answer === 'declined' || maxCapacity === null) {
       const row = await this.db
         .prepare(
-          `UPDATE invites SET name = ?, status = ?, answered_at = ?
+          `UPDATE invites
+           SET name = ?, status = ?, answered_at = ?, email = ?, phone = ?
            WHERE id = ? AND party_id = ? RETURNING *`,
         )
-        .bind(name, answer, now, inviteId, partyId)
+        .bind(
+          name,
+          answer,
+          now,
+          contact.email,
+          contact.phone,
+          inviteId,
+          partyId,
+        )
         .first<InviteRow>();
       return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
     }
@@ -178,7 +196,8 @@ export class InviteRepositoryD1 implements InviteRepository {
     // already counted in.
     const row = await this.db
       .prepare(
-        `UPDATE invites SET name = ?, status = 'confirmed', answered_at = ?
+        `UPDATE invites
+         SET name = ?, status = 'confirmed', answered_at = ?, email = ?, phone = ?
          WHERE id = ? AND party_id = ?
            AND (
              SELECT COUNT(*) FROM invites others
@@ -188,7 +207,17 @@ export class InviteRepositoryD1 implements InviteRepository {
            ) < ?
          RETURNING *`,
       )
-      .bind(name, now, inviteId, partyId, partyId, inviteId, maxCapacity)
+      .bind(
+        name,
+        now,
+        contact.email,
+        contact.phone,
+        inviteId,
+        partyId,
+        partyId,
+        inviteId,
+        maxCapacity,
+      )
       .first<InviteRow>();
 
     if (row) return ok(toInvite(row));
@@ -229,10 +258,12 @@ export class InviteRepositoryD1 implements InviteRepository {
   async addManual({
     partyId,
     name,
+    contact,
   }: {
     partyId: string;
     name: string;
     ticketCode: string;
+    contact: GuestContact;
   }): Promise<Result<Invite>> {
     const now = new Date().toISOString();
 
@@ -244,16 +275,70 @@ export class InviteRepositoryD1 implements InviteRepository {
         .prepare(
           `INSERT INTO invites (
              id, party_id, name, status, depth, referrer_id,
-             forward_token, ticket_code, source, opened_at, answered_at
-           ) VALUES (?, ?, ?, 'confirmed', 0, NULL, ?, ?, 'manual', ?, ?)
+             forward_token, ticket_code, source, opened_at, answered_at,
+             email, phone
+           ) VALUES (?, ?, ?, 'confirmed', 0, NULL, ?, ?, 'manual', ?, ?, ?, ?)
            RETURNING *`,
         )
-        .bind(crypto.randomUUID(), partyId, name, newToken(), code, now, now)
+        .bind(
+          crypto.randomUUID(),
+          partyId,
+          name,
+          newToken(),
+          code,
+          now,
+          now,
+          contact.email,
+          contact.phone,
+        )
         .first<InviteRow>()
         .catch(() => null);
 
       return row ? ok(toInvite(row)) : err(INVITE_ERRORS.CODE_TAKEN);
     });
+  }
+
+  async setContact({
+    inviteId,
+    partyId,
+    contact,
+  }: {
+    inviteId: string;
+    partyId: string;
+    contact: GuestContact;
+  }): Promise<Result<Invite>> {
+    const row = await this.db
+      .prepare(
+        `UPDATE invites SET email = ?, phone = ?
+         WHERE id = ? AND party_id = ? RETURNING *`,
+      )
+      .bind(contact.email, contact.phone, inviteId, partyId)
+      .first<InviteRow>();
+
+    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
+  }
+
+  async setPaid({
+    inviteId,
+    partyId,
+    at,
+  }: {
+    inviteId: string;
+    partyId: string;
+    at: string | null;
+  }): Promise<Result<Invite>> {
+    // Marking twice keeps the first time: that is when the money was seen, and
+    // a second organiser tapping it later did not see it again.
+    const row = await this.db
+      .prepare(
+        `UPDATE invites
+         SET paid_at = CASE WHEN ? IS NULL THEN NULL ELSE COALESCE(paid_at, ?) END
+         WHERE id = ? AND party_id = ? RETURNING *`,
+      )
+      .bind(at, at, inviteId, partyId)
+      .first<InviteRow>();
+
+    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
   }
 
   async checkIn({

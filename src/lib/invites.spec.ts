@@ -1,7 +1,7 @@
 import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import type { HostInviteDTO } from '../../shared/invites';
-import { adoptRemoteGuest, mergeFunnel } from './invites';
+import { adoptRemoteGuest, mergeFunnel, sameInvites } from './invites';
 import type { Invite } from './types';
 
 function remote(overrides: Partial<HostInviteDTO> = {}): HostInviteDTO {
@@ -18,6 +18,9 @@ function remote(overrides: Partial<HostInviteDTO> = {}): HostInviteDTO {
     checkedInAt: null,
     openedAt: '2026-09-01T10:00:00.000Z',
     answeredAt: '2026-09-01T10:01:00.000Z',
+    email: null,
+    phone: null,
+    paidAt: null,
     ...overrides,
   };
 }
@@ -166,6 +169,58 @@ describe('mergeFunnel', () => {
     mergeFunnel(existing, [remote({ status: 'confirmed' })]);
 
     expect(existing).toEqual(before);
+  });
+});
+
+describe('mergeFunnel and paying guests', () => {
+  it('carries contact details and payment through for the organisers', () => {
+    const [giulia] = mergeFunnel(
+      [],
+      [
+        remote({
+          email: 'giulia@example.com',
+          phone: '+393331234567',
+          paidAt: '2026-09-02T12:00:00.000Z',
+        }),
+      ],
+    );
+
+    expect(giulia).toMatchObject({
+      email: 'giulia@example.com',
+      phone: '+393331234567',
+      paidAt: '2026-09-02T12:00:00.000Z',
+    });
+  });
+
+  it('takes paid back when the server no longer has it', () => {
+    const before = mergeFunnel(
+      [],
+      [remote({ paidAt: '2026-09-02T12:00:00.000Z' })],
+    );
+
+    const [after] = mergeFunnel(before, [remote({ paidAt: null })]);
+
+    expect(after).not.toHaveProperty('paidAt');
+  });
+});
+
+describe('sameInvites', () => {
+  // The guest list is only saved when this says something changed, so a field
+  // it ignores is another organiser's change that never shows up here.
+  it.each([
+    ['paid', { paidAt: '2026-09-02T12:00:00.000Z' }],
+    ['email', { email: 'giulia@example.com' }],
+    ['phone', { phone: '+393331234567' }],
+  ])('notices a change to %s', (_, change) => {
+    const before = mergeFunnel([], [remote()]);
+    const after = mergeFunnel(before, [remote(change)]);
+
+    expect(sameInvites(before, after)).toBe(false);
+  });
+
+  it('finds nothing new in an identical refresh', () => {
+    const before = mergeFunnel([], [remote()]);
+    expect(sameInvites(before, mergeFunnel(before, [remote()]))).toBe(true);
   });
 });
 

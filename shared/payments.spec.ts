@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatIban,
   invitePayment,
+  isPaidParty,
   normaliseIban,
   normalisePaypal,
   normaliseRevolut,
@@ -189,6 +190,20 @@ describe('invitePayment', () => {
     expect(
       invitePayment(15, { satispay: 'javascript:alert(1)', paypal: 'a b' }),
     ).toBeNull();
+  });
+});
+
+describe('isPaidParty', () => {
+  it('needs a price and a way to pay', () => {
+    expect(isPaidParty(15, { paypal: 'marcog' })).toBe(true);
+  });
+
+  it('is not paid on the default price alone', () => {
+    expect(isPaidParty(15, undefined)).toBe(false);
+  });
+
+  it('is not paid at €0, even with a method left in place', () => {
+    expect(isPaidParty(0, { paypal: 'marcog' })).toBe(false);
   });
 });
 

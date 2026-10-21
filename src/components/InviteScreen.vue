@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { normaliseEmail, normalisePhone } from '../../shared/contact';
 import type { InviteAnswer, InviteOpenDTO } from '../../shared/invites';
 import { inviteUrl } from '../../shared/invites';
 import { formatIban, paymentReference } from '../../shared/payments';
@@ -20,6 +21,8 @@ type Phase = 'loading' | 'ready' | 'answered' | 'gone' | 'error';
 const phase = ref<Phase>('loading');
 const data = ref<InviteOpenDTO | null>(null);
 const name = ref('');
+const email = ref('');
+const phone = ref('');
 const submitting = ref(false);
 const error = ref<string | null>(null);
 /** Which copy button last worked, so only that one says "Copied". */
@@ -65,6 +68,39 @@ function rememberInviteId(s: string, id: string): void {
   }
 }
 
+/**
+ * The email and phone this browser last confirmed with.
+ *
+ * Kept here because the server never hands them back — the invite id that
+ * identifies a guest is a bearer token, and a page that echoed contact details
+ * to whoever holds it would leak them. Remembering them locally is what saves a
+ * guest who changes their answer from typing them again.
+ */
+function contactKey(s: string): string {
+  return `bc-invite-contact:${s}`;
+}
+
+function rememberedContact(s: string): { email: string; phone: string } {
+  try {
+    const raw = localStorage.getItem(contactKey(s));
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    return {
+      email: typeof parsed['email'] === 'string' ? parsed['email'] : '',
+      phone: typeof parsed['phone'] === 'string' ? parsed['phone'] : '',
+    };
+  } catch {
+    return { email: '', phone: '' };
+  }
+}
+
+function rememberContact(s: string, contact: { email: string; phone: string }) {
+  try {
+    localStorage.setItem(contactKey(s), JSON.stringify(contact));
+  } catch {
+    /* see rememberedInviteId */
+  }
+}
+
 const cover = computed(() => COVERS[data.value?.party.cover ?? 0] ?? COVERS[0]);
 
 const dateLabel = computed(() => {
@@ -84,6 +120,8 @@ const whereLabel = computed(() => {
 });
 
 const isConfirmed = computed(() => data.value?.status === 'confirmed');
+/** Guests pay for this party, so saying yes needs somewhere to send the ticket. */
+const isPaid = computed(() => data.value?.party.paid === true);
 const isDeclined = computed(() => data.value?.status === 'declined');
 
 /** Their own link to forward, once they have said yes and if the host allows it. */
@@ -158,8 +196,17 @@ onMounted(async () => {
   data.value = result.value;
   rememberInviteId(slug.value, result.value.inviteId);
   name.value = result.value.name ?? '';
+  const contact = rememberedContact(slug.value);
+  email.value = contact.email;
+  phone.value = contact.phone;
   phase.value = result.value.status === 'opened' ? 'ready' : 'answered';
 });
+
+const CONTACT_ERRORS: Record<string, string> = {
+  email_required: 'Add your email — it’s where your ticket goes.',
+  invalid_email: 'That email doesn’t look right.',
+  invalid_phone: 'That phone number doesn’t look right.',
+};
 
 async function respond(answer: InviteAnswer): Promise<void> {
   if (submitting.value || !data.value) return;
@@ -169,6 +216,26 @@ async function respond(answer: InviteAnswer): Promise<void> {
     return;
   }
 
+  // Checked here as well as on the server, so the guest hears what is wrong
+  // before the round trip — with the same rules, so the two never disagree.
+  const needsContact = answer === 'confirmed' && isPaid.value;
+  const cleanEmail = normaliseEmail(email.value);
+  const cleanPhone = normalisePhone(phone.value);
+  if (needsContact) {
+    if (cleanEmail === '') {
+      error.value = 'Add your email — it’s where your ticket goes.';
+      return;
+    }
+    if (cleanEmail === null) {
+      error.value = 'That email doesn’t look right.';
+      return;
+    }
+    if (cleanPhone === null) {
+      error.value = 'That phone number doesn’t look right.';
+      return;
+    }
+  }
+
   submitting.value = true;
   error.value = null;
 
@@ -176,11 +243,27 @@ async function respond(answer: InviteAnswer): Promise<void> {
     inviteId: data.value.inviteId,
     name: trimmed,
     answer,
+    ...(needsContact
+      ? { email: cleanEmail ?? '', phone: cleanPhone ?? '' }
+      : {}),
   });
 
   if (result.ok && result.value) {
     data.value = result.value;
     phase.value = 'answered';
+    if (needsContact) {
+      rememberContact(slug.value, { email: email.value, phone: phone.value });
+    }
+  } else if (result.error && CONTACT_ERRORS[result.error]) {
+    // The host made the party paid while this guest had the page open, or the
+    // server read the details differently. Either way, say which field.
+    error.value = CONTACT_ERRORS[result.error] ?? null;
+    if (data.value && result.error === 'email_required') {
+      data.value = {
+        ...data.value,
+        party: { ...data.value.party, paid: true },
+      };
+    }
   } else if (result.error === 'party_full') {
     // Re-read so the card flips to "full" — someone took the last place while
     // this guest was typing.
@@ -416,6 +499,40 @@ function copy(text: string, key: string): void {
             @keyup.enter="respond('confirmed')"
           />
 
+          <!-- A paid party: somewhere to send the ticket once they've paid. -->
+          <template v-if="isPaid">
+            <label class="invite-label" for="invite-email">Your email</label>
+            <input
+              id="invite-email"
+              v-model="email"
+              class="invite-input"
+              type="email"
+              inputmode="email"
+              placeholder="Where your ticket goes"
+              autocomplete="email"
+              spellcheck="false"
+              maxlength="254"
+              @keyup.enter="respond('confirmed')"
+            />
+            <label class="invite-label" for="invite-phone">
+              Your phone
+              <span class="invite-optional">(optional, for WhatsApp)</span>
+            </label>
+            <input
+              id="invite-phone"
+              v-model="phone"
+              class="invite-input"
+              type="tel"
+              inputmode="tel"
+              placeholder="+39 333 123 4567"
+              autocomplete="tel"
+              @keyup.enter="respond('confirmed')"
+            />
+            <p class="invite-contact-note">
+              Used only to send your ticket for this party.
+            </p>
+          </template>
+
           <p v-if="error" class="invite-error">{{ error }}</p>
 
           <div class="invite-actions">
@@ -551,6 +668,17 @@ function copy(text: string, key: string): void {
   background: var(--surface2);
   color: var(--text);
   width: 100%;
+}
+
+.invite-optional {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.invite-contact-note {
+  margin: -6px 0 0;
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.5;
 }
 
 .invite-actions {

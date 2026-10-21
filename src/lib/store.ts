@@ -14,7 +14,10 @@ import {
   fetchFunnel,
   mergeFunnel,
   adoptRemoteGuest,
+  sameInvites,
+  setRemoteContact,
   setRemoteInviteStatus,
+  setRemotePaid,
   undoCheckInRemote,
 } from './invites';
 import {
@@ -33,6 +36,7 @@ import {
 } from './collab';
 import { PartySync } from './sync';
 import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
+import type { GuestContact } from '../../shared/contact';
 import {
   emptyPaymentDetails,
   sanitisePaymentDetails,
@@ -125,6 +129,8 @@ interface StoreState {
   ticketFor: string | null;
   sendTicketFor: string | null;
   addGuestOpen: boolean;
+  /** The guest whose email and phone the add-guest sheet is editing, if any. */
+  contactFor: number | null;
   doorOpen: boolean;
   scanResult: { ok: boolean; name: string; sub?: string } | null;
   scanHistory: { name: string; time: string }[];
@@ -171,6 +177,7 @@ const state = reactive<StoreState>({
   ticketFor: null,
   sendTicketFor: null,
   addGuestOpen: false,
+  contactFor: null,
   doorOpen: false,
   scanResult: null,
   scanHistory: [],
@@ -915,29 +922,6 @@ async function syncPartyList(): Promise<void> {
 // ── The funnel ─────────────────────────────────────────────────────────────
 
 /**
- * Whether a merge produced anything worth persisting.
- *
- * Compares only the fields the server owns — a local check-in is not a reason
- * to think the funnel moved.
- */
-function sameInvites(before: Invite[], after: Invite[]): boolean {
-  if (before.length !== after.length) return false;
-  return before.every((a, i) => {
-    const b = after[i];
-    return (
-      b !== undefined &&
-      a.id === b.id &&
-      a.remoteId === b.remoteId &&
-      a.name === b.name &&
-      a.status === b.status &&
-      a.depth === b.depth &&
-      a.referrer === b.referrer &&
-      a.forwardToken === b.forwardToken
-    );
-  });
-}
-
-/**
  * Pulls the funnel and folds it into the party's guest list.
  *
  * Silent on failure. This runs on a timer while the guests tab is open, and an
@@ -977,7 +961,10 @@ async function syncFunnel(): Promise<void> {
  * typing them in otherwise — and deliberately carries no `remoteId`, which is
  * what keeps a funnel refresh from deleting them.
  */
-function addInvite(name: string): void {
+function addInvite(
+  name: string,
+  contact: GuestContact = { email: null, phone: null },
+): void {
   const party = activeParty();
   const remoteId = party?.publication?.remoteId;
   const localId =
@@ -992,6 +979,8 @@ function addInvite(name: string): void {
       referrer: null,
       source: 'manual',
       used: false,
+      ...(contact.email ? { email: contact.email } : {}),
+      ...(contact.phone ? { phone: contact.phone } : {}),
     });
   });
 
@@ -1001,7 +990,7 @@ function addInvite(name: string): void {
   // then takes the server's id — without it the next sync would add the
   // server's copy beside it rather than recognising it (see adoptRemoteGuest).
   if (party && remoteId) {
-    void addRemoteGuest(remoteId, name).then((result) => {
+    void addRemoteGuest(remoteId, name, contact).then((result) => {
       if (!result.ok || !result.value) return;
       party.invites = adoptRemoteGuest(
         toRaw(party).invites,
@@ -1049,6 +1038,84 @@ function setInviteStatus(id: number, status: Invite['status']): void {
   if (remoteId && partyRemoteId) {
     void setRemoteInviteStatus(partyRemoteId, remoteId, status);
   }
+}
+
+/**
+ * Sets where to send a guest's ticket.
+ *
+ * On a shared party the server is written first and the guest list follows its
+ * answer, unlike a status change: a contact detail the server refused, or never
+ * got, would otherwise sit on this screen until the next refresh quietly put
+ * the old one back. Returns the server's error, or null.
+ *
+ * A hand-typed guest still waiting for their server row cannot be edited yet —
+ * there is no row to write to, and a local-only edit would be overwritten by
+ * the merge that follows.
+ */
+async function setInviteContact(
+  id: number,
+  contact: GuestContact,
+): Promise<string | null> {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return 'invite_not_found';
+
+  const apply = (email: string | null, phone: string | null) =>
+    update((p) => {
+      const target = p.invites.find((i) => i.id === id);
+      if (!target) return;
+      if (email) target.email = email;
+      else delete target.email;
+      if (phone) target.phone = phone;
+      else delete target.phone;
+    });
+
+  const partyRemoteId = party.publication?.remoteId;
+  if (!partyRemoteId) {
+    apply(contact.email, contact.phone);
+    return null;
+  }
+  if (!invite.remoteId) return 'not_saved_yet';
+
+  const result = await setRemoteContact(
+    partyRemoteId,
+    invite.remoteId,
+    contact,
+  );
+  if (!result.ok || !result.value) return result.error ?? 'save_failed';
+  apply(result.value.email, result.value.phone);
+  return null;
+}
+
+/**
+ * Marks a guest as paid, or takes it back.
+ *
+ * Applied locally first so the toggle responds at once, like check-in; on a
+ * shared party the server's answer then replaces the guess, which keeps the
+ * time the money was *first* marked when another organiser got there earlier.
+ */
+async function setInvitePaid(id: number, paid: boolean): Promise<void> {
+  const party = activeParty();
+  const invite = party?.invites.find((i) => i.id === id);
+  if (!party || !invite) return;
+
+  const setPaidAt = (at: string | null) =>
+    update((p) => {
+      const target = p.invites.find((i) => i.id === id);
+      if (!target) return;
+      if (at) target.paidAt = at;
+      else delete target.paidAt;
+    });
+
+  setPaidAt(paid ? new Date().toISOString() : null);
+
+  const partyRemoteId = party.publication?.remoteId;
+  if (!partyRemoteId || !invite.remoteId) return;
+
+  const result = await setRemotePaid(partyRemoteId, invite.remoteId, paid);
+  // A failed request leaves the local mark standing; the next funnel refresh
+  // reconciles it with what the server holds.
+  if (result.ok && result.value) setPaidAt(result.value.paidAt);
 }
 
 /**
@@ -1190,10 +1257,17 @@ function closeSendTicket(): void {
 }
 
 function openAddGuest(): void {
+  state.contactFor = null;
+  state.addGuestOpen = true;
+}
+/** The same sheet, for where to send an existing guest's ticket. */
+function openGuestContact(id: number): void {
+  state.contactFor = id;
   state.addGuestOpen = true;
 }
 function closeAddGuest(): void {
   state.addGuestOpen = false;
+  state.contactFor = null;
 }
 
 function openDoor(): void {
@@ -1265,6 +1339,8 @@ export const store = {
   // invites
   addInvite,
   setInviteStatus,
+  setInviteContact,
+  setInvitePaid,
   checkInGuest,
   undoCheckIn,
   // shopping
@@ -1283,6 +1359,7 @@ export const store = {
   openSendTicket,
   closeSendTicket,
   openAddGuest,
+  openGuestContact,
   closeAddGuest,
   openDoor,
   closeDoor,

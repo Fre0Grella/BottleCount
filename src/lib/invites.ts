@@ -1,3 +1,4 @@
+import type { GuestContact } from '../../shared/contact';
 import type {
   HostInviteDTO,
   InviteAnswer,
@@ -128,6 +129,7 @@ export async function undoCheckInRemote(
 export async function addRemoteGuest(
   partyId: string,
   name: string,
+  contact: GuestContact,
 ): Promise<ApiResult<HostInviteDTO>> {
   try {
     const res = await fetch(
@@ -136,7 +138,7 @@ export async function addRemoteGuest(
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, ...contact }),
       },
     );
     if (!res.ok) return { ok: false, error: `http_${res.status}` };
@@ -144,6 +146,49 @@ export async function addRemoteGuest(
   } catch {
     return { ok: false, error: 'network_error' };
   }
+}
+
+async function inviteRequest(
+  partyId: string,
+  inviteId: string,
+  path: string,
+  init: RequestInit,
+): Promise<ApiResult<HostInviteDTO>> {
+  try {
+    const res = await fetch(
+      `/api/parties/${encodeURIComponent(partyId)}/invites/${encodeURIComponent(inviteId)}/${path}`,
+      { credentials: 'include', ...init },
+    );
+    if (res.ok) return { ok: true, value: (await res.json()) as HostInviteDTO };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: body.error ?? `http_${res.status}` };
+  } catch {
+    return { ok: false, error: 'network_error' };
+  }
+}
+
+/** Sets where to send a guest's ticket. Replaces both fields. */
+export function setRemoteContact(
+  partyId: string,
+  inviteId: string,
+  contact: GuestContact,
+): Promise<ApiResult<HostInviteDTO>> {
+  return inviteRequest(partyId, inviteId, 'contact', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(contact),
+  });
+}
+
+/** Marks a guest as paid, or not. The server keeps the answer (ADR 0005). */
+export function setRemotePaid(
+  partyId: string,
+  inviteId: string,
+  paid: boolean,
+): Promise<ApiResult<HostInviteDTO>> {
+  return inviteRequest(partyId, inviteId, 'paid', {
+    method: paid ? 'POST' : 'DELETE',
+  });
 }
 
 export function openInvite(
@@ -155,7 +200,13 @@ export function openInvite(
 
 export function answerInvite(
   slug: string,
-  args: { inviteId: string; name: string; answer: InviteAnswer },
+  args: {
+    inviteId: string;
+    name: string;
+    answer: InviteAnswer;
+    email?: string;
+    phone?: string;
+  },
 ): Promise<ApiResult<InviteOpenDTO>> {
   return post<InviteOpenDTO>(
     `/invite/${encodeURIComponent(slug)}/answer`,
@@ -219,12 +270,44 @@ export function mergeFunnel(
       ...(row.checkedInAt ? { usedAt: row.checkedInAt } : {}),
       openedAt: row.openedAt,
       ...(row.answeredAt ? { answeredAt: row.answeredAt } : {}),
+      ...(row.email ? { email: row.email } : {}),
+      ...(row.phone ? { phone: row.phone } : {}),
+      // Paid is the server's answer too, for the same reason as check-in: a
+      // co-organiser who saw the money arrive marked it on their phone.
+      ...(row.paidAt ? { paidAt: row.paidAt } : {}),
     } satisfies Invite;
   });
 
   // Hand-typed guests first: they were there before the link existed, and the
   // server list grows at the end as people open it.
   return [...localOnly, ...merged];
+}
+
+/**
+ * Whether a merge produced anything worth persisting.
+ *
+ * Compares only the fields the server owns — a local check-in is not a reason
+ * to think the funnel moved. Every one of them has to be here: a field left
+ * out is a change another organiser made that never reaches this screen.
+ */
+export function sameInvites(before: Invite[], after: Invite[]): boolean {
+  if (before.length !== after.length) return false;
+  return before.every((a, i) => {
+    const b = after[i];
+    return (
+      b !== undefined &&
+      a.id === b.id &&
+      a.remoteId === b.remoteId &&
+      a.name === b.name &&
+      a.status === b.status &&
+      a.depth === b.depth &&
+      a.referrer === b.referrer &&
+      a.forwardToken === b.forwardToken &&
+      a.email === b.email &&
+      a.phone === b.phone &&
+      a.paidAt === b.paidAt
+    );
+  });
 }
 
 /**
@@ -258,6 +341,8 @@ export function adoptRemoteGuest(
           ticketCode: row.ticketCode,
           source: row.source,
           openedAt: row.openedAt,
+          ...(row.email ? { email: row.email } : {}),
+          ...(row.phone ? { phone: row.phone } : {}),
         }
       : i,
   );

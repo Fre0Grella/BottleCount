@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { isPaidParty } from '../../../shared/payments';
 import { useStore } from '../../lib/store';
 import Icon from '../Icon.vue';
 import ProLock from '../ProLock.vue';
@@ -21,6 +22,24 @@ const confirmed = computed(() =>
   invites.value.filter((i) => i.status === 'confirmed'),
 );
 const checkedIn = computed(() => confirmed.value.filter((i) => i.used).length);
+
+/**
+ * Whether guests pay for this party — a price and a way to pay the host. The
+ * same test the invite page uses to ask for an email, so "paid" only appears
+ * where guests were actually asked for money.
+ */
+const paidParty = computed(() => {
+  const p = party.value;
+  return !!p && isPaidParty(p.settings.ticket_price, p.payment);
+});
+const paidCount = computed(
+  () => confirmed.value.filter((i) => i.paidAt).length,
+);
+const paidW = computed(() =>
+  confirmed.value.length
+    ? `${Math.min(100, (paidCount.value / confirmed.value.length) * 100)}%`
+    : '0%',
+);
 // Opened the link and stopped there. The funnel's "maybe" column — not people
 // the host invited and is waiting on, but people who looked and did not answer.
 const opened = computed(() =>
@@ -892,6 +911,64 @@ const lastSyncedLabel = computed(() => {
         </div>
       </div>
 
+      <!-- paid progress bar, for a party guests pay for -->
+      <div v-if="paidParty" style="margin: -4px 0 14px">
+        <div
+          style="
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 6px;
+          "
+        >
+          <span
+            style="
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              font-size: 11px;
+              font-weight: 600;
+              color: var(--dim);
+            "
+          >
+            <span style="display: flex; color: var(--accent)"
+              ><Icon name="euro" :size="12"
+            /></span>
+            Paid
+          </span>
+          <span
+            style="font-size: 11px; font-weight: 700; color: var(--accent)"
+            data-test="paid-count"
+          >
+            {{ paidCount }}/{{ confirmed.length }}
+            <span
+              v-if="confirmed.length > paidCount"
+              style="font-weight: 500; color: var(--faint)"
+            >
+              · {{ confirmed.length - paidCount }} to pay
+            </span>
+          </span>
+        </div>
+        <div
+          style="
+            height: 8px;
+            border-radius: 999px;
+            background: var(--track);
+            overflow: hidden;
+          "
+        >
+          <div
+            :style="{ width: paidW }"
+            style="
+              height: 100%;
+              border-radius: 999px;
+              background: var(--accent);
+              transition: width 0.25s ease;
+            "
+          ></div>
+        </div>
+      </div>
+
       <!-- add row -->
       <div style="display: flex; gap: 8px; margin-bottom: 6px">
         <input
@@ -1053,6 +1130,9 @@ const lastSyncedLabel = computed(() => {
                 ><Icon name="check" :size="11"
               /></span>
               Coming
+              <span v-if="paidParty && inv.paidAt" style="color: var(--accent)">
+                · Paid
+              </span>
             </div>
             <div
               v-else-if="inv.status === 'opened'"
@@ -1086,6 +1166,48 @@ const lastSyncedLabel = computed(() => {
               <span style="display: flex"><Icon name="x" :size="11" /></span>
               Can't make it
             </div>
+
+            <!--
+              Where to send their ticket. Organisers only: the invite page
+              never shows it, not even to the guest it belongs to.
+            -->
+            <div
+              v-if="inv.email || inv.phone"
+              style="
+                font-size: 11px;
+                color: var(--faint);
+                margin-top: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              "
+            >
+              {{ [inv.email, inv.phone].filter(Boolean).join(' · ') }}
+            </div>
+            <div
+              v-else-if="paidParty && inv.status === 'confirmed'"
+              style="font-size: 11px; color: var(--faint); margin-top: 2px"
+            >
+              No email yet
+            </div>
+            <button
+              v-if="inv.source === 'manual'"
+              style="
+                cursor: pointer;
+                padding: 0;
+                margin-top: 2px;
+                border: none;
+                background: none;
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--accent);
+              "
+              @click="store.openGuestContact(inv.id)"
+            >
+              {{
+                inv.email || inv.phone ? 'Edit contact' : 'Add email or phone'
+              }}
+            </button>
           </div>
 
           <!-- action buttons -->
@@ -1141,8 +1263,38 @@ const lastSyncedLabel = computed(() => {
               </button>
             </template>
 
-            <!-- confirmed: Ticket + Send -->
+            <!-- confirmed: Paid (when guests pay) + Ticket + Send -->
             <template v-else-if="inv.status === 'confirmed'">
+              <button
+                v-if="paidParty"
+                :aria-pressed="!!inv.paidAt"
+                :title="inv.paidAt ? 'Paid — tap to undo' : 'Mark as paid'"
+                style="
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  padding: 8px 11px;
+                  border-radius: 999px;
+                  border: 1px solid var(--accent);
+                  min-height: 36px;
+                "
+                :style="
+                  inv.paidAt
+                    ? { background: 'var(--accent)', color: 'var(--on-accent)' }
+                    : { background: 'transparent', color: 'var(--accent)' }
+                "
+                @click="store.setInvitePaid(inv.id, !inv.paidAt)"
+              >
+                <span style="display: flex"
+                  ><Icon :name="inv.paidAt ? 'check' : 'euro'" :size="13"
+                /></span>
+                <span v-if="!isPhone">{{
+                  inv.paidAt ? 'Paid' : 'Mark paid'
+                }}</span>
+              </button>
               <button
                 style="
                   cursor: pointer;
