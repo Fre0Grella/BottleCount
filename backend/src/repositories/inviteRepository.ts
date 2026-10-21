@@ -23,6 +23,10 @@ export interface Invite {
   phone: string | null;
   /** When an organiser marked them as paid; null while unpaid. */
   paidAt: string | null;
+  /** Their short ticket link's slug, once one has been sent (#41). */
+  ticketSlug: string | null;
+  /** The signed ticket the short link serves — exactly what the QR encodes. */
+  ticketSigned: string | null;
 }
 
 /** Where an invite came from. Only 'link' counts towards "reached". */
@@ -43,6 +47,8 @@ export const INVITE_ERRORS = {
   CODE_UNAVAILABLE: 'ticket_code_unavailable',
   /** Someone already walked in on this ticket. */
   ALREADY_CHECKED_IN: 'already_checked_in',
+  /** The drawn ticket slug was taken — 60 bits, so in practice never. */
+  SLUG_TAKEN: 'ticket_slug_taken',
 } as const;
 
 export interface InviteRepository {
@@ -141,6 +147,21 @@ export interface InviteRepository {
     partyId: string;
     at: string;
   }): Promise<Result<Invite>>;
+
+  /**
+   * Stores the guest's signed ticket for their short link. Keeps the slug the
+   * invite already has, so a link already sent keeps working; `slug` is only
+   * used for an invite that has none yet.
+   */
+  setTicket(args: {
+    inviteId: string;
+    partyId: string;
+    signed: string;
+    slug: string;
+  }): Promise<Result<Invite>>;
+
+  /** The invite a short ticket link names, whichever party it is in. */
+  findByTicketSlug(slug: string): Promise<Result<Invite>>;
 
   /** Undoes a check-in, for the guest who was waved through by mistake. */
   undoCheckIn(args: {

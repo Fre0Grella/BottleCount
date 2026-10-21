@@ -34,6 +34,15 @@
             "namespace_id": "2001",
             "simple": { "limit": 30, "period": 60 },
           },
+          {
+            // Ticket pages (/ticket/:slug). Generous on purpose: guests at
+            // the door share a venue's Wi-Fi, and the slug's 60 bits, not
+            // this, are what stop enumeration. See routes/tickets.ts.
+            "name": "TICKET_RATE_LIMITER",
+            "type": "ratelimit",
+            "namespace_id": "2002",
+            "simple": { "limit": 600, "period": 60 },
+          },
         ],
       },
       "vars": {
@@ -76,6 +85,15 @@
             "namespace_id": "2001",
             "simple": { "limit": 30, "period": 60 },
           },
+          {
+            // Ticket pages (/ticket/:slug). Generous on purpose: guests at
+            // the door share a venue's Wi-Fi, and the slug's 60 bits, not
+            // this, are what stop enumeration. See routes/tickets.ts.
+            "name": "TICKET_RATE_LIMITER",
+            "type": "ratelimit",
+            "namespace_id": "2002",
+            "simple": { "limit": 600, "period": 60 },
+          },
         ],
       },
       "vars": {
@@ -112,6 +130,15 @@
             // Namespace ids only have to be unique within the Worker.
             "namespace_id": "2001",
             "simple": { "limit": 30, "period": 60 },
+          },
+          {
+            // Ticket pages (/ticket/:slug). Generous on purpose: guests at
+            // the door share a venue's Wi-Fi, and the slug's 60 bits, not
+            // this, are what stop enumeration. See routes/tickets.ts.
+            "name": "TICKET_RATE_LIMITER",
+            "type": "ratelimit",
+            "namespace_id": "2002",
+            "simple": { "limit": 600, "period": 60 },
           },
         ],
       },
@@ -153,6 +180,15 @@
             // Namespace ids only have to be unique within the Worker.
             "namespace_id": "2001",
             "simple": { "limit": 30, "period": 60 },
+          },
+          {
+            // Ticket pages (/ticket/:slug). Generous on purpose: guests at
+            // the door share a venue's Wi-Fi, and the slug's 60 bits, not
+            // this, are what stop enumeration. See routes/tickets.ts.
+            "name": "TICKET_RATE_LIMITER",
+            "type": "ratelimit",
+            "namespace_id": "2002",
+            "simple": { "limit": 600, "period": 60 },
           },
         ],
       },

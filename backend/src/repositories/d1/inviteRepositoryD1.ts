@@ -29,6 +29,8 @@ interface InviteRow {
   email: string | null;
   phone: string | null;
   paid_at: string | null;
+  ticket_slug: string | null;
+  ticket_signed: string | null;
 }
 
 interface InviteJoinRow extends InviteRow {
@@ -64,6 +66,8 @@ function toInvite(row: InviteRow): Invite {
     email: row.email,
     phone: row.phone,
     paidAt: row.paid_at,
+    ticketSlug: row.ticket_slug,
+    ticketSigned: row.ticket_signed,
   };
 }
 
@@ -372,6 +376,43 @@ export class InviteRepositoryD1 implements InviteRepository {
     return err(
       existing ? INVITE_ERRORS.ALREADY_CHECKED_IN : INVITE_ERRORS.NOT_FOUND,
     );
+  }
+
+  async setTicket({
+    inviteId,
+    partyId,
+    signed,
+    slug,
+  }: {
+    inviteId: string;
+    partyId: string;
+    signed: string;
+    slug: string;
+  }): Promise<Result<Invite>> {
+    // COALESCE keeps a slug the invite already has: re-sending a ticket must
+    // not break the link in the guest's chat. The unique index refuses a slug
+    // another invite holds, which at 60 bits does not happen; the caller
+    // redraws if it ever does.
+    const row = await this.db
+      .prepare(
+        `UPDATE invites
+         SET ticket_signed = ?, ticket_slug = COALESCE(ticket_slug, ?)
+         WHERE id = ? AND party_id = ? RETURNING *`,
+      )
+      .bind(signed, slug, inviteId, partyId)
+      .first<InviteRow>()
+      .catch(() => undefined);
+
+    if (row === undefined) return err(INVITE_ERRORS.SLUG_TAKEN);
+    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
+  }
+
+  async findByTicketSlug(slug: string): Promise<Result<Invite>> {
+    const row = await this.db
+      .prepare('SELECT * FROM invites WHERE ticket_slug = ?')
+      .bind(slug)
+      .first<InviteRow>();
+    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
   }
 
   async undoCheckIn({

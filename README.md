@@ -358,6 +358,7 @@ Because browser storage is still local storage, export/import backup tools are a
 - [ADR 0003 — Co-organisers, and how two people edit one party](docs/adr/0003-co-organisers.md)
 - [ADR 0004 — Shared doors, and a code you can read out loud](docs/adr/0004-shared-doors-and-ticket-codes.md)
 - [ADR 0005 — BottleCount never handles the money](docs/adr/0005-bottlecount-never-handles-money.md)
+- [ADR 0006 — Short ticket links](docs/adr/0006-short-ticket-links.md)
 
 The backend has [its own README](backend/README.md) covering routes, local
 setup, deployment and what the tests do and do not cover.

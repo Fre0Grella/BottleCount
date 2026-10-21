@@ -284,6 +284,8 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         email: null,
         phone: null,
         paidAt: null,
+        ticketSlug: null,
+        ticketSigned: null,
       };
       rows.set(invite.id, invite);
       return ok(invite);
@@ -375,6 +377,8 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         answeredAt: now,
         ...contact,
         paidAt: null,
+        ticketSlug: null,
+        ticketSigned: null,
       };
       rows.set(invite.id, invite);
       return ok(invite);
@@ -430,6 +434,41 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
       const updated: Invite = { ...row, checkedIn: true, checkedInAt: at };
       rows.set(inviteId, updated);
       return ok(updated);
+    },
+
+    async setTicket({
+      inviteId,
+      partyId,
+      signed,
+      slug,
+    }: {
+      inviteId: string;
+      partyId: string;
+      signed: string;
+      slug: string;
+    }): Promise<Result<Invite>> {
+      const row = rows.get(inviteId);
+      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
+      const nextSlug = row.ticketSlug ?? slug;
+      for (const other of rows.values()) {
+        if (other.id !== inviteId && other.ticketSlug === nextSlug) {
+          return err(INVITE_ERRORS.SLUG_TAKEN);
+        }
+      }
+      const updated: Invite = {
+        ...row,
+        ticketSigned: signed,
+        ticketSlug: nextSlug,
+      };
+      rows.set(inviteId, updated);
+      return ok(updated);
+    },
+
+    async findByTicketSlug(slug: string): Promise<Result<Invite>> {
+      for (const row of rows.values()) {
+        if (row.ticketSlug === slug) return ok(row);
+      }
+      return err(INVITE_ERRORS.NOT_FOUND);
     },
 
     async undoCheckIn({
