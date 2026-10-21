@@ -217,6 +217,21 @@ function isNameless(inv: { name: string }) {
   return inv.name.trim() === '';
 }
 
+/**
+ * A check-in time for the row. The server's is ISO; one scanned on this device
+ * before the sync answered is already HH:MM, so that passes through.
+ */
+function checkInTime(value: string | undefined): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+}
+
 function referrerFirst(referrer: string | null) {
   if (!referrer) return '';
   return referrer.trim().split(' ')[0];
@@ -1212,7 +1227,7 @@ const lastSyncedLabel = computed(() => {
               <span style="display: flex"
                 ><Icon name="check" :size="11"
               /></span>
-              Checked in · {{ inv.usedAt }}
+              Checked in · {{ checkInTime(inv.usedAt) }}
             </div>
             <div
               v-else-if="inv.status === 'confirmed'"

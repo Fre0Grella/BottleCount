@@ -287,9 +287,11 @@ export function mergeFunnel(
 /**
  * Whether a merge produced anything worth persisting.
  *
- * Compares only the fields the server owns — a local check-in is not a reason
- * to think the funnel moved. Every one of them has to be here: a field left
- * out is a change another organiser made that never reaches this screen.
+ * Compares every field the merge takes from the server, check-in included:
+ * since ADR 0004 the server arbitrates the door, so a guest scanned on another
+ * phone is a change like any other. A field left out here is a change another
+ * organiser made that never reaches this screen (#42: check-ins from the door
+ * never showed on the host's other devices).
  */
 export function sameInvites(before: Invite[], after: Invite[]): boolean {
   if (before.length !== after.length) return false;
@@ -306,7 +308,13 @@ export function sameInvites(before: Invite[], after: Invite[]): boolean {
       a.forwardToken === b.forwardToken &&
       a.email === b.email &&
       a.phone === b.phone &&
-      a.paidAt === b.paidAt
+      a.paidAt === b.paidAt &&
+      a.used === b.used &&
+      a.usedAt === b.usedAt &&
+      a.ticketCode === b.ticketCode &&
+      a.source === b.source &&
+      a.openedAt === b.openedAt &&
+      a.answeredAt === b.answeredAt
     );
   });
 }
