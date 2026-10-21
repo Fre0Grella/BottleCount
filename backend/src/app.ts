@@ -7,6 +7,7 @@ import type { Repositories } from './repositories/repositories';
 import auth from './routes/auth';
 import collaborate from './routes/collaborate';
 import devAuth from './routes/devAuth';
+import guestGoogle from './routes/guestGoogle';
 import { resolveFrontendUrl } from './routes/frontendUrl';
 import invites from './routes/invites';
 import licences from './routes/licences';
@@ -83,6 +84,9 @@ export function createApp(overrides: AppOverrides = {}): App {
   // Mounted beside the Google flow because it produces the identical session;
   // the route itself refuses to run outside local/self-hosted builds.
   app.route('/auth', devAuth);
+  // A guest's "Continue with Google". Creates no user and no session — see the
+  // route for why it is not the host sign-in above.
+  app.route('/auth', guestGoogle);
 
   // `/api/*` needs a session — except `/api/session` itself, which has to answer
   // for logged-out browsers because that is the free tier, not an error. The

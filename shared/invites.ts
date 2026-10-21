@@ -54,6 +54,12 @@ export interface InvitePartyDTO {
    * the guest confirms.
    */
   paid: boolean;
+  /**
+   * Whether this deployment can offer "Continue with Google" to guests. False
+   * without a Google client (a self-hosted install on `/auth/dev`), where the
+   * typed email is the only way.
+   */
+  googleSignIn: boolean;
 }
 
 /** What `POST /invite/:slug/open` answers with. */

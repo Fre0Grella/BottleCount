@@ -20,6 +20,12 @@ type Phase = 'loading' | 'ready' | 'answered' | 'gone' | 'error';
 
 const phase = ref<Phase>('loading');
 const data = ref<InviteOpenDTO | null>(null);
+/**
+ * The answer the guest picked on the first screen, or null while they have
+ * not. The RSVP is two steps on purpose: the choice alone first, so nobody is
+ * met with a form before deciding, then only the details that answer needs.
+ */
+const choice = ref<InviteAnswer | null>(null);
 const name = ref('');
 const email = ref('');
 const phone = ref('');
@@ -122,6 +128,63 @@ const whereLabel = computed(() => {
 const isConfirmed = computed(() => data.value?.status === 'confirmed');
 /** Guests pay for this party, so saying yes needs somewhere to send the ticket. */
 const isPaid = computed(() => data.value?.party.paid === true);
+
+/** Offered on a paid party, when this deployment has a Google client. */
+const offerGoogle = computed(
+  () => isPaid.value && data.value?.party.googleSignIn === true,
+);
+const fromGoogle = ref(false);
+
+/** Hands the guest to Google; they come back to this page with the form filled. */
+function continueWithGoogle(): void {
+  if (!data.value) return;
+  const params = new URLSearchParams({
+    slug: slug.value,
+    invite: data.value.inviteId,
+  });
+  window.location.href = `${base}auth/guest-google?${params.toString()}`;
+}
+
+/**
+ * What Google sent back, read off the URL fragment and then erased from it.
+ * The fragment never reaches a server, and the invite endpoints never return a
+ * guest's email (#21), so this is how the verified one gets into the form.
+ */
+function takeGoogleResult(): void {
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const encoded = hash.get('google');
+  const failed = hash.get('google_error');
+  if (!encoded && !failed) return;
+  history.replaceState(
+    null,
+    '',
+    window.location.pathname + window.location.search,
+  );
+  // Google is only offered on the "I'm in" details step, so that is where the
+  // guest goes back to, whether it worked or not.
+  choice.value = 'confirmed';
+
+  if (failed) {
+    error.value =
+      failed === 'email'
+        ? 'Google didn’t share a verified email. Type yours below.'
+        : 'Google sign-in didn’t finish. Try again, or type your email.';
+    return;
+  }
+  try {
+    const padded = encoded!.replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(padded), (ch) => ch.charCodeAt(0));
+    const profile = JSON.parse(new TextDecoder().decode(bytes)) as {
+      name?: string;
+      email?: string;
+    };
+    if (profile.email) email.value = profile.email;
+    if (profile.name && !name.value.trim()) name.value = profile.name;
+    fromGoogle.value = !!profile.email;
+  } catch {
+    /* a mangled fragment: the form is still there to type into */
+  }
+}
 const isDeclined = computed(() => data.value?.status === 'declined');
 
 /** Their own link to forward, once they have said yes and if the host allows it. */
@@ -199,6 +262,7 @@ onMounted(async () => {
   const contact = rememberedContact(slug.value);
   email.value = contact.email;
   phone.value = contact.phone;
+  takeGoogleResult();
   phase.value = result.value.status === 'opened' ? 'ready' : 'answered';
 });
 
@@ -285,8 +349,31 @@ async function respond(answer: InviteAnswer): Promise<void> {
 
 function changeAnswer(): void {
   phase.value = 'ready';
+  choice.value = null;
   error.value = null;
 }
+
+/** First step: the answer. The details step follows. */
+function choose(answer: InviteAnswer): void {
+  choice.value = answer;
+  error.value = null;
+}
+
+/** Back from the details to the choice, keeping whatever was typed. */
+function backToChoice(): void {
+  choice.value = null;
+  error.value = null;
+}
+
+/** On the details step, Enter sends the answer they picked. */
+function submitChoice(): void {
+  if (choice.value) void respond(choice.value);
+}
+
+/** Whether the details step asks how to reach them: a yes to a paid party. */
+const asksContact = computed(
+  () => choice.value === 'confirmed' && isPaid.value,
+);
 
 function copy(text: string, key: string): void {
   navigator.clipboard
@@ -481,11 +568,44 @@ function copy(text: string, key: string): void {
           </button>
         </template>
 
-        <!-- Not yet answered -->
-        <template v-else>
+        <!-- Not yet answered, step 1: only the choice. -->
+        <template v-else-if="choice === null">
           <p v-if="full" class="invite-full">
             <Icon name="info" :size="14" />
             This party is full. You can still let the host know you can't come.
+          </p>
+
+          <p v-if="error" class="invite-error">{{ error }}</p>
+
+          <div class="invite-actions">
+            <button
+              class="invite-btn invite-btn--yes"
+              :disabled="full"
+              @click="choose('confirmed')"
+            >
+              <Icon name="check" :size="15" />
+              I'm in
+            </button>
+            <button
+              class="invite-btn invite-btn--no"
+              @click="choose('declined')"
+            >
+              <Icon name="x" :size="15" />
+              Can't make it
+            </button>
+          </div>
+        </template>
+
+        <!-- Step 2: the details that answer needs. -->
+        <template v-else>
+          <p class="invite-step">
+            {{
+              choice === 'confirmed'
+                ? asksContact
+                  ? 'Great! Tell the host who you are and where to send your ticket.'
+                  : 'Great! Tell the host who you are.'
+                : 'Sorry to miss you. Let the host know who you are.'
+            }}
           </p>
 
           <label class="invite-label" for="invite-name">Your name</label>
@@ -496,11 +616,45 @@ function copy(text: string, key: string): void {
             placeholder="How the host knows you"
             autocomplete="name"
             maxlength="60"
-            @keyup.enter="respond('confirmed')"
+            @keyup.enter="submitChoice"
           />
 
-          <!-- A paid party: somewhere to send the ticket once they've paid. -->
-          <template v-if="isPaid">
+          <!-- A yes to a paid party: somewhere to send the ticket once they've paid. -->
+          <template v-if="asksContact">
+            <button
+              v-if="offerGoogle && !fromGoogle"
+              type="button"
+              class="invite-google"
+              @click="continueWithGoogle"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="17"
+                height="17"
+                aria-hidden="true"
+              >
+                <path
+                  fill="#4285F4"
+                  d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9h-4v3.1A12 12 0 0 0 12 24z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6h-4a12 12 0 0 0 0 10.9l4-3.1z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"
+                />
+              </svg>
+              Continue with Google
+            </button>
+            <p v-if="fromGoogle" class="invite-contact-note">
+              Filled in from Google. Check it, then confirm.
+            </p>
             <label class="invite-label" for="invite-email">Your email</label>
             <input
               id="invite-email"
@@ -512,7 +666,7 @@ function copy(text: string, key: string): void {
               autocomplete="email"
               spellcheck="false"
               maxlength="254"
-              @keyup.enter="respond('confirmed')"
+              @keyup.enter="submitChoice"
             />
             <label class="invite-label" for="invite-phone">
               Your phone
@@ -526,7 +680,7 @@ function copy(text: string, key: string): void {
               inputmode="tel"
               placeholder="+39 333 123 4567"
               autocomplete="tel"
-              @keyup.enter="respond('confirmed')"
+              @keyup.enter="submitChoice"
             />
             <p class="invite-contact-note">
               Used only to send your ticket for this party.
@@ -537,22 +691,30 @@ function copy(text: string, key: string): void {
 
           <div class="invite-actions">
             <button
-              class="invite-btn invite-btn--yes"
-              :disabled="submitting || full"
-              @click="respond('confirmed')"
+              class="invite-btn"
+              :class="
+                choice === 'confirmed' ? 'invite-btn--yes' : 'invite-btn--no'
+              "
+              :disabled="submitting || (choice === 'confirmed' && full)"
+              @click="submitChoice"
             >
-              <Icon name="check" :size="15" />
-              {{ submitting ? 'Sending…' : "I'm in" }}
-            </button>
-            <button
-              class="invite-btn invite-btn--no"
-              :disabled="submitting"
-              @click="respond('declined')"
-            >
-              <Icon name="x" :size="15" />
-              Can't make it
+              <Icon :name="choice === 'confirmed' ? 'check' : 'x'" :size="15" />
+              {{
+                submitting
+                  ? 'Sending…'
+                  : choice === 'confirmed'
+                    ? 'Confirm I’m in'
+                    : 'Send my answer'
+              }}
             </button>
           </div>
+          <button
+            class="invite-secondary"
+            :disabled="submitting"
+            @click="backToChoice"
+          >
+            Back
+          </button>
         </template>
       </div>
 
@@ -668,6 +830,30 @@ function copy(text: string, key: string): void {
   background: var(--surface2);
   color: var(--text);
   width: 100%;
+}
+
+.invite-step {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+.invite-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 11px 14px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #1f1f1f;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .invite-optional {
