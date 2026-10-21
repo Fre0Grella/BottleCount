@@ -30,3 +30,6 @@ backend/.dev.vars
 .idea/
 # vscode setting folder
 .vscode/
+
+# Windows crash dumps (bash.exe.stackdump and friends)
+*.stackdump

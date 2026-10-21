@@ -4,3 +4,4 @@ dist
 coverage
 .wrangler
 backend/node_modules
+docs/design/*.html
