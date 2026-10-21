@@ -5,6 +5,8 @@ import type {
   InvitePartyDTO,
 } from '../../../shared/invites';
 import { isInviteAnswer } from '../../../shared/invites';
+import type { InvitePaymentDTO } from '../../../shared/payments';
+import { invitePayment } from '../../../shared/payments';
 import type { AppVariables } from '../appEnv';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type { Invite } from '../repositories/inviteRepository';
@@ -50,6 +52,25 @@ function toPartyDTO(party: PublishedParty, full: boolean): InvitePartyDTO {
 function forwardTokenFor(invite: Invite, party: PublishedParty): string | null {
   if (!party.allowForward) return null;
   return invite.status === 'confirmed' ? invite.forwardToken : null;
+}
+
+/**
+ * How to pay the host, for a guest who has said yes.
+ *
+ * Built from the stored document on every read rather than trusted from it: a
+ * co-organiser's merge patch reaches the document without passing the publish
+ * checks, so this is the one place every identifier is guaranteed to be
+ * validated before a guest sees it.
+ */
+function paymentFor(
+  invite: Invite,
+  party: PublishedParty,
+): InvitePaymentDTO | null {
+  if (invite.status !== 'confirmed' || !party.document) return null;
+  return invitePayment(
+    party.document.settings.ticket_price,
+    party.document.payment,
+  );
 }
 
 async function isFull(
@@ -117,6 +138,7 @@ invites.post('/:slug/open', async (c) => {
     status: invite.status,
     name: invite.name,
     depth: invite.depth,
+    payment: paymentFor(invite, party),
   };
   return c.json(dto);
 });
@@ -178,6 +200,7 @@ invites.post('/:slug/answer', async (c) => {
     status: invite.status,
     name: invite.name,
     depth: invite.depth,
+    payment: paymentFor(invite, party),
   };
   return c.json(dto);
 });

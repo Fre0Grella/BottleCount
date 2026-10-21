@@ -1,5 +1,6 @@
 import { expect } from 'vitest';
 import type { PartyDocument, SharedPartyDTO } from '../../../../shared/collab';
+import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { Repositories } from '../../repositories/repositories';
 import { fakeInvites, fakeParties } from './fakeInvites';
 import { aUser, fakeLicences, fakeUsers } from './fakeRepositories';
@@ -30,6 +31,7 @@ export function aDocument(
     allowForward: true,
     includeSnacks: true,
     barManaged: true,
+    payment: emptyPaymentDetails(),
     ...overrides,
   };
 }

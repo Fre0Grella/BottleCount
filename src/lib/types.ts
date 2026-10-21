@@ -1,4 +1,5 @@
 import type { InviteStatus } from '../../shared/invites';
+import type { PaymentDetails } from '../../shared/payments';
 import type { TicketQRPayload } from '../../shared/tickets';
 
 /**
@@ -172,6 +173,7 @@ export interface Party {
    * field arrives without it, and that means true.
    */
   barManaged: boolean;
+  payment: PaymentDetails;
   invites: Invite[];
   /**
    * Set once the host turns the invite link on. Holds what the browser needs to

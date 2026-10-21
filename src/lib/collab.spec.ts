@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import { documentOf } from './collab';
+import { emptyPaymentDetails } from '../../shared/payments';
 import type { Party } from './types';
 
 function aParty(): Party {
@@ -26,6 +27,7 @@ function aParty(): Party {
     allowForward: true,
     includeSnacks: true,
     barManaged: true,
+    payment: emptyPaymentDetails(),
     invites: [],
   };
 }

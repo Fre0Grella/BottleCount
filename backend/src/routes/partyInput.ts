@@ -1,6 +1,7 @@
 import type { PartyDocument } from '../../../shared/collab';
 import type { MergePatch } from '../../../shared/patch';
 import type { PublishPartyRequest } from '../../../shared/invites';
+import { sanitisePaymentDetails } from '../../../shared/payments';
 
 /**
  * Validation for everything a client sends about a party.
@@ -70,6 +71,9 @@ export function parseDocument(body: unknown): PublishPartyRequest | null {
     allowForward: d['allowForward'] !== false,
     includeSnacks: d['includeSnacks'] !== false,
     barManaged: d['barManaged'] !== false,
+    // These end up on a page every confirmed guest opens, so an identifier that
+    // does not validate is dropped rather than stored.
+    payment: sanitisePaymentDetails(d['payment']),
   };
 
   // A menu is user-authored and unbounded in principle. Cap the stored size so
