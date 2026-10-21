@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { TicketQRPayload } from '../../shared/tickets';
-import { parseTicketHash, ticketUrl } from './ticketLink';
+import {
+  openTicket,
+  parseTicketHash,
+  shortTicketUrl,
+  ticketSlugFromPath,
+  ticketUrl,
+} from './ticketLink';
 
 const payload: TicketQRPayload = {
   code: 'AB23C',
@@ -94,5 +100,61 @@ describe('parseTicketHash', () => {
       'c=-2',
     );
     expect(parseTicketHash(hashOf(url))?.cover).toBe(0);
+  });
+});
+
+describe('short ticket links', () => {
+  const SLUG = 'k3fq9zpx2m7a';
+
+  it('are the origin, the base and the slug', () => {
+    expect(shortTicketUrl('https://bc.example', '/', SLUG)).toBe(
+      `https://bc.example/t/${SLUG}`,
+    );
+    expect(shortTicketUrl('https://x.io', '/BottleCount', SLUG)).toBe(
+      `https://x.io/BottleCount/t/${SLUG}`,
+    );
+  });
+
+  it('read their slug back off the path', () => {
+    expect(ticketSlugFromPath(`/t/${SLUG}`, '/')).toBe(SLUG);
+    expect(ticketSlugFromPath(`/t/${SLUG}/`, '/')).toBe(SLUG);
+    expect(ticketSlugFromPath(`/BottleCount/t/${SLUG}`, '/BottleCount/')).toBe(
+      SLUG,
+    );
+  });
+
+  it('find no slug on the bare page the long links use', () => {
+    expect(ticketSlugFromPath('/t/', '/')).toBe('');
+  });
+
+  it('find no slug in something that is not one', () => {
+    expect(ticketSlugFromPath('/t/xqk8', '/')).toBe('');
+    expect(ticketSlugFromPath('/t/../../etc', '/')).toBe('');
+  });
+});
+
+describe('openTicket', () => {
+  it('opens what a short link served, the same as a fragment link', () => {
+    const payload = {
+      code: 'AB23C',
+      partyId: 'p1',
+      guestName: 'Giulia',
+      expiresAt: '2026-11-15T05:00:00.000Z',
+    };
+    const signed = `${btoa(JSON.stringify(payload))}.${btoa('sig')}`;
+    const display = {
+      party: 'Rooftop',
+      date: '2026-11-14',
+      cover: 2,
+      time: '21:00',
+    };
+
+    const fromServer = openTicket(signed, display);
+    const fromFragment = parseTicketHash(
+      new URL(ticketUrl('https://x.io', '/', signed, display)).hash,
+    );
+
+    expect(fromServer).toEqual(fromFragment);
+    expect(fromServer?.signed).toBe(signed);
   });
 });

@@ -15,6 +15,7 @@ import type {
 import type { HostInviteDTO, PublishedPartyDTO } from '../../../shared/invites';
 import { INVITE_STATUSES } from '../../../shared/invites';
 import type { InviteStatus } from '../../../shared/invites';
+import { newTicketSlug, signedTicketCode } from '../../../shared/ticketLinks';
 import { featuresFor, resolveTier } from '../../../shared/tiers';
 import type { FeatureSet } from '../../../shared/tiers';
 import type { AppVariables } from '../appEnv';
@@ -28,6 +29,7 @@ import type { PartyMember } from '../repositories/memberRepository';
 import { PARTY_ERRORS } from '../repositories/partyRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
 import { parseDocument, parsePatch } from './partyInput';
+import { ticketIsLive } from './tickets';
 
 type Bindings = {
   SELF_HOSTED?: string;
@@ -472,6 +474,56 @@ parties.delete('/:partyId/invites/:inviteId/paid', async (c) => {
   });
   if (!unmarked.ok) return c.json({ error: unmarked.error }, 404);
   return c.json(toInviteDTO({ ...unmarked.value, referrerName: null }));
+});
+
+/**
+ * `PUT /api/parties/:partyId/invites/:inviteId/ticket` — store the guest's
+ * signed ticket and hand back the short link's slug (#41).
+ *
+ * The organiser's browser signs the ticket, as it always has (ADR 0004); this
+ * only keeps the result so `/t/<slug>` can serve it. It refuses a ticket the
+ * guest should not have yet — someone not coming, or not paid on a party
+ * guests pay for — so #33's rule holds on the server too, and a ticket whose
+ * code is another guest's.
+ */
+parties.put('/:partyId/invites/:inviteId/ticket', async (c) => {
+  const body = await c.req
+    .json<{ signed?: unknown }>()
+    .catch(() => ({}) as { signed?: unknown });
+  const signed = typeof body.signed === 'string' ? body.signed : '';
+  const code = signedTicketCode(signed);
+  if (code === null) return c.json({ error: 'invalid_ticket' }, 400);
+
+  const party = c.get('party');
+  const found = await c.var.repositories.invites.findById(
+    c.req.param('inviteId'),
+  );
+  if (!found.ok || found.value.partyId !== party.id) {
+    return c.json({ error: INVITE_ERRORS.NOT_FOUND }, 404);
+  }
+  const invite = found.value;
+
+  if (invite.ticketCode && code !== invite.ticketCode) {
+    return c.json({ error: 'ticket_mismatch' }, 400);
+  }
+  if (!ticketIsLive({ ...invite, ticketSigned: signed }, party)) {
+    return c.json({ error: 'ticket_not_ready' }, 409);
+  }
+
+  // 60 bits do not collide in practice; three draws make "in practice" moot.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const stored = await c.var.repositories.invites.setTicket({
+      inviteId: invite.id,
+      partyId: party.id,
+      signed,
+      slug: newTicketSlug(),
+    });
+    if (stored.ok) return c.json({ slug: stored.value.ticketSlug });
+    if (stored.error !== INVITE_ERRORS.SLUG_TAKEN) {
+      return c.json({ error: stored.error }, 404);
+    }
+  }
+  return c.json({ error: INVITE_ERRORS.SLUG_TAKEN }, 500);
 });
 
 /** `PATCH /api/parties/:partyId/invites/:inviteId` — override an answer. */

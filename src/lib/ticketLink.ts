@@ -1,3 +1,4 @@
+import { isTicketSlug } from '../../shared/ticketLinks';
 import type { TicketQRPayload } from '../../shared/tickets';
 
 /**
@@ -12,6 +13,11 @@ import type { TicketQRPayload } from '../../shared/tickets';
  * a guest's name travels only between the host's phone and the guest's. The
  * party's name, date and cover ride along for display only; they are not
  * signed, and do not need to be — the door checks the QR, not the page.
+ *
+ * That is the long form, and it is still how a local-only party sends tickets
+ * and how every link sent before #41 opens. A shared party sends a short link
+ * instead (`/t/<slug>`, see `shared/ticketLinks.ts`): the server keeps the same
+ * signed string and the page fetches it. Either way the QR is identical.
  */
 
 /** What the ticket page shows that the signed payload does not carry. */
@@ -54,6 +60,27 @@ export function ticketUrl(
   return `${origin}${prefix}t/#${params.toString()}`;
 }
 
+/** A short ticket link: `<origin><base>t/<slug>`. */
+export function shortTicketUrl(
+  origin: string,
+  base: string,
+  slug: string,
+): string {
+  const prefix = base.endsWith('/') ? base : `${base}/`;
+  return `${origin}${prefix}t/${slug}`;
+}
+
+/** The slug of a short ticket link's path, or '' on the bare `/t/` page. */
+export function ticketSlugFromPath(pathname: string, base: string): string {
+  const prefix = base.endsWith('/') ? base : `${base}/`;
+  const rest = pathname.startsWith(prefix)
+    ? pathname.slice(prefix.length)
+    : pathname.replace(/^\//, '');
+  const match = /^t\/([^/?#]+)\/?$/.exec(rest);
+  const slug = match?.[1] ?? '';
+  return isTicketSlug(slug) ? slug : '';
+}
+
 function isPayload(value: unknown): value is TicketQRPayload {
   if (typeof value !== 'object' || value === null) return false;
   const p = value as Record<string, unknown>;
@@ -77,6 +104,24 @@ export function parseTicketHash(hash: string): OpenedTicket | null {
   const signed = params.get('t');
   if (!signed) return null;
 
+  const time = params.get('h');
+  return openTicket(signed, {
+    party: params.get('p') ?? '',
+    date: params.get('d') ?? '',
+    cover: Number(params.get('c')),
+    ...(time ? { time } : {}),
+  });
+}
+
+/**
+ * A ticket from its signed string and what the page shows beside it — the
+ * fragment's fields, or what a short link's server answered. Null when the
+ * string is not a ticket.
+ */
+export function openTicket(
+  signed: string,
+  display: TicketDisplay,
+): OpenedTicket | null {
   const [payloadB64, signature, extra] = signed.split('.');
   if (!payloadB64 || !signature || extra !== undefined) return null;
 
@@ -88,14 +133,13 @@ export function parseTicketHash(hash: string): OpenedTicket | null {
   }
   if (!isPayload(payload)) return null;
 
-  const cover = Number(params.get('c'));
-  const time = params.get('h');
+  const cover = display.cover;
   return {
     signed,
     payload,
-    party: params.get('p') ?? '',
-    date: params.get('d') ?? '',
+    party: display.party,
+    date: display.date,
     cover: Number.isInteger(cover) && cover >= 0 ? cover : 0,
-    ...(time ? { time } : {}),
+    ...(display.time ? { time: display.time } : {}),
   };
 }

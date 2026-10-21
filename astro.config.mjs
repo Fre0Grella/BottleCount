@@ -28,11 +28,12 @@ const base = process.env.BASE_PATH ?? (isDocs ? '/BottleCount/' : '/');
 /**
  * Routes that are the application rather than documentation.
  *
- * All but one need the Worker: `/app` for sign-in and every paid feature,
+ * All need the Worker: `/app` for sign-in and every paid feature,
  * `/auth/callback` for the end of the OAuth round trip, `/i` for guest invite
- * links, `/join` for co-organiser invitations. `/t`, a guest's ticket, needs
- * none — but ticket links are only ever minted by the app, so a copy on the
- * documentation host would be a page nothing points at.
+ * links, `/join` for co-organiser invitations, and `/t` for a guest's ticket,
+ * whose short links (`/t/<slug>`) are fetched from it. Ticket links are only
+ * ever minted by the app anyway, so a copy on the documentation host would be
+ * a page nothing points at.
  * Publishing them to a host with no backend produces a site that looks like the
  * product and then fails halfway through it, which is worse than not being
  * there at all. Links to the app in the documentation point at the real one
@@ -89,21 +90,24 @@ const backendDevUrl = process.env.BACKEND_DEV_URL ?? 'http://localhost:8787';
 const DEV_PROXY_PATHS = [
   '/api',
   '/invite',
+  '/ticket',
   '/auth/dev',
   '/auth/google',
   '/auth/logout',
 ];
 
 /**
- * `/i/<slug>` and `/join/<token>` are minted at runtime, so the build has one
- * page for each and `functions/i/` and `functions/join/` rewrite the whole
- * space onto it. This is that rewrite for the dev server; the browser's URL is
- * untouched and the page still reads the slug off it.
+ * `/i/<slug>`, `/join/<token>` and `/t/<slug>` are minted at runtime, so the
+ * build has one page for each and `functions/i/`, `functions/join/` and
+ * `functions/t/` rewrite the whole space onto it. This is that rewrite for the
+ * dev server; the browser's URL is untouched and the page still reads the slug
+ * off it.
  */
 function devRewrites() {
   const REWRITES = [
     [/^\/i\/[^/?#]+/, '/i/'],
     [/^\/join\/[^/?#]+/, '/join/'],
+    [/^\/t\/[^/?#]+/, '/t/'],
   ];
   return {
     name: 'bottlecount:dev-rewrites',

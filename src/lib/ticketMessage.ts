@@ -1,6 +1,7 @@
 import { signTicket } from './crypto';
 import { ticketPayload } from './ticket';
-import { ticketUrl } from './ticketLink';
+import { storeTicketLink } from './invites';
+import { shortTicketUrl, ticketUrl } from './ticketLink';
 import type { Invite, Party } from './types';
 
 /**
@@ -38,23 +39,44 @@ export function ticketEmailSubject(
   return `Your ticket — ${party?.name ?? 'the party'}`;
 }
 
-/** Signs the guest's ticket and builds the link to their ticket page. */
+/**
+ * Signs the guest's ticket and builds the link to their ticket page.
+ *
+ * On a shared party that is a short link (`/t/<slug>`, #41): the server keeps
+ * the signed ticket and the page fetches it. A local-only party has no server,
+ * and a hand-typed guest may not have their server row yet, so either gets the
+ * long link with the ticket in its fragment — as does any failure to store it,
+ * since a long link that works beats no link at all.
+ */
 export async function signedTicketLink(
   party: Party,
   guestName: string,
 ): Promise<string> {
   const signed = await signTicket(party, ticketPayload(party, guestName));
-  return ticketUrl(
-    window.location.origin,
-    import.meta.env.BASE_URL as string,
-    signed,
-    {
-      party: party.name,
-      date: party.date,
-      cover: party.cover,
-      time: party.venue.time,
-    },
+  const origin = window.location.origin;
+  const base = import.meta.env.BASE_URL as string;
+
+  const partyRemoteId = party.publication?.remoteId;
+  const invite = party.invites.find(
+    (i) => i.name === guestName && i.status === 'confirmed',
   );
+  if (partyRemoteId && invite?.remoteId) {
+    const stored = await storeTicketLink(
+      partyRemoteId,
+      invite.remoteId,
+      signed,
+    );
+    if (stored.ok && stored.value) {
+      return shortTicketUrl(origin, base, stored.value);
+    }
+  }
+
+  return ticketUrl(origin, base, signed, {
+    party: party.name,
+    date: party.date,
+    cover: party.cover,
+    time: party.venue.time,
+  });
 }
 
 /** How a ticket goes out once a guest is marked as paid. */

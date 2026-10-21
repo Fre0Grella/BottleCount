@@ -10,6 +10,7 @@ import devAuth from './routes/devAuth';
 import guestGoogle from './routes/guestGoogle';
 import { resolveFrontendUrl } from './routes/frontendUrl';
 import invites from './routes/invites';
+import tickets from './routes/tickets';
 import licences from './routes/licences';
 import parties from './routes/parties';
 import session from './routes/session';
@@ -27,6 +28,10 @@ export type Bindings = {
   TEST_LICENCE_CODE?: string;
   /** Guards the unauthenticated invite endpoints. Absent locally. */
   INVITE_RATE_LIMITER?: {
+    limit(o: { key: string }): Promise<{ success: boolean }>;
+  };
+  /** Guards the short ticket links, generously — see routes/tickets.ts. */
+  TICKET_RATE_LIMITER?: {
     limit(o: { key: string }): Promise<{ success: boolean }>;
   };
 };
@@ -114,6 +119,9 @@ export function createApp(overrides: AppOverrides = {}): App {
   // to RSVP without signing up is most of what an invite link is for. The
   // handlers are written knowing the URL is the only credential.
   app.route('/invite', invites);
+  // Same reasoning: whoever holds a short ticket link opens it without an
+  // account, so the slug is the credential (see routes/tickets.ts).
+  app.route('/ticket', tickets);
 
   return app;
 }

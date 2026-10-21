@@ -6,6 +6,7 @@ import type {
   InviteStatus,
 } from '../../shared/invites';
 import { isPaidParty } from '../../shared/payments';
+import type { TicketLinkDTO } from '../../shared/ticketLinks';
 import type { Invite, Party } from './types';
 
 // ── Host-side API ───────────────────────────────────────────────────────────
@@ -190,6 +191,48 @@ export function setRemotePaid(
   return inviteRequest(partyId, inviteId, 'paid', {
     method: paid ? 'POST' : 'DELETE',
   });
+}
+
+/**
+ * Hands the server a guest's signed ticket for their short link (#41) and
+ * returns its slug. The same slug every time for the same guest.
+ */
+export async function storeTicketLink(
+  partyId: string,
+  inviteId: string,
+  signed: string,
+): Promise<ApiResult<string>> {
+  try {
+    const res = await fetch(
+      `/api/parties/${encodeURIComponent(partyId)}/invites/${encodeURIComponent(inviteId)}/ticket`,
+      {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ signed }),
+      },
+    );
+    if (!res.ok) return { ok: false, error: `http_${res.status}` };
+    const body = (await res.json()) as { slug?: string };
+    return body.slug ? { ok: true, value: body.slug } : { ok: false };
+  } catch {
+    return { ok: false, error: 'network_error' };
+  }
+}
+
+/** The ticket a short link names. `http_404` when it is gone or never was. */
+export async function fetchTicketLink(
+  slug: string,
+): Promise<ApiResult<TicketLinkDTO>> {
+  try {
+    const res = await fetch(`/ticket/${encodeURIComponent(slug)}`, {
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return { ok: false, error: `http_${res.status}` };
+    return { ok: true, value: (await res.json()) as TicketLinkDTO };
+  } catch {
+    return { ok: false, error: 'network_error' };
+  }
 }
 
 export function openInvite(

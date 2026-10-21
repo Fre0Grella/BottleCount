@@ -3,7 +3,14 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { COVERS } from '../lib/store';
 import { brandedQrDataUrl } from '../lib/qr';
 import { buildTicketFile, downloadFile } from '../lib/ticket';
-import { parseTicketHash, type OpenedTicket } from '../lib/ticketLink';
+import type { TicketLinkDTO } from '../../shared/ticketLinks';
+import { fetchTicketLink } from '../lib/invites';
+import {
+  openTicket,
+  parseTicketHash,
+  ticketSlugFromPath,
+  type OpenedTicket,
+} from '../lib/ticketLink';
 import Icon from './Icon.vue';
 
 /**
@@ -18,6 +25,12 @@ import Icon from './Icon.vue';
 const ticket = ref<OpenedTicket | null>(null);
 const qr = ref<string | null>(null);
 const broken = ref(false);
+/**
+ * Why there is no ticket to show. `incomplete` is a fragment link a chat app
+ * cut short; `gone` a short link the host took down or that never existed;
+ * `offline` a short link that could not be fetched and was never seen here.
+ */
+const problem = ref<'incomplete' | 'gone' | 'offline'>('incomplete');
 const saving = ref(false);
 
 const base = import.meta.env.BASE_URL as string;
@@ -51,8 +64,11 @@ let loads = 0;
 
 async function load(): Promise<void> {
   const current = ++loads;
-  const opened = parseTicketHash(window.location.hash);
   qr.value = null;
+  const opened = window.location.hash.includes('t=')
+    ? parseTicketHash(window.location.hash)
+    : await fromShortLink();
+  if (current !== loads) return;
   ticket.value = opened;
   broken.value = opened === null;
   if (!opened) return;
@@ -61,6 +77,52 @@ async function load(): Promise<void> {
   // A newer fragment may have arrived while this one was drawing. (Compared by
   // counter, not by object: `ticket` holds a reactive proxy, never `opened`.)
   if (current === loads) qr.value = drawn;
+}
+
+/**
+ * The short-link half of `load`: the slug in the path, fetched from the server.
+ *
+ * What it fetched is kept on this phone, so a guest who opened their ticket
+ * once can open it again at the door with no signal. A link the server says is
+ * gone is forgotten here too — the host took it down for a reason.
+ */
+async function fromShortLink(): Promise<OpenedTicket | null> {
+  problem.value = 'incomplete';
+  const slug = ticketSlugFromPath(window.location.pathname, base);
+  if (!slug) return null;
+
+  const key = `bc-ticket:${slug}`;
+  const result = await fetchTicketLink(slug);
+  if (result.ok && result.value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(result.value));
+    } catch {
+      /* private mode: it still opens, just not offline */
+    }
+    return openTicket(result.value.signed, result.value);
+  }
+
+  if (result.error === 'http_404') {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* nothing to forget */
+    }
+    problem.value = 'gone';
+    return null;
+  }
+
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const dto = JSON.parse(cached) as TicketLinkDTO;
+      return openTicket(dto.signed, dto);
+    }
+  } catch {
+    /* fall through to offline */
+  }
+  problem.value = 'offline';
+  return null;
 }
 
 onMounted(() => {
@@ -97,11 +159,27 @@ async function saveImage(): Promise<void> {
 <template>
   <div class="ticket-page">
     <div v-if="broken" class="ticket-state">
-      <h1>This ticket link is incomplete</h1>
-      <p>
-        Part of it went missing on the way — some chat apps cut long links
-        short. Ask the host to send your ticket again.
-      </p>
+      <template v-if="problem === 'gone'">
+        <h1>This ticket isn't available</h1>
+        <p>
+          The host may have taken it back, or the link is wrong. Ask them to
+          send your ticket again.
+        </p>
+      </template>
+      <template v-else-if="problem === 'offline'">
+        <h1>Couldn't load your ticket</h1>
+        <p>
+          It needs a connection the first time. Try again with signal — after
+          that it opens on this phone without one.
+        </p>
+      </template>
+      <template v-else>
+        <h1>This ticket link is incomplete</h1>
+        <p>
+          Part of it went missing on the way — some chat apps cut long links
+          short. Ask the host to send your ticket again.
+        </p>
+      </template>
       <a class="ticket-secondary" :href="base">What is BottleCount?</a>
     </div>
 
