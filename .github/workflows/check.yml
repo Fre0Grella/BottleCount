@@ -25,6 +25,10 @@ jobs:
       # hook still carry CRLF line endings, so it fails on `main` today. Fixing
       # that is `git add --renormalize .` plus one commit — worth doing on its
       # own, not folded into an architecture change.
+      # Ratchet: `lint` runs with `--max-warnings` (package.json) at the
+      # warning count on the day it was added (inline styles and template
+      # accessibility). More warnings fail. When you fix some, lower the
+      # number in package.json to the new count in the same PR.
       - name: Lint
         run: npm run lint
 
