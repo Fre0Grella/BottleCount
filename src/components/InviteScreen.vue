@@ -20,6 +20,12 @@ type Phase = 'loading' | 'ready' | 'answered' | 'gone' | 'error';
 
 const phase = ref<Phase>('loading');
 const data = ref<InviteOpenDTO | null>(null);
+/**
+ * The answer the guest picked on the first screen, or null while they have
+ * not. The RSVP is two steps on purpose: the choice alone first, so nobody is
+ * met with a form before deciding, then only the details that answer needs.
+ */
+const choice = ref<InviteAnswer | null>(null);
 const name = ref('');
 const email = ref('');
 const phone = ref('');
@@ -154,6 +160,9 @@ function takeGoogleResult(): void {
     '',
     window.location.pathname + window.location.search,
   );
+  // Google is only offered on the "I'm in" details step, so that is where the
+  // guest goes back to, whether it worked or not.
+  choice.value = 'confirmed';
 
   if (failed) {
     error.value =
@@ -340,8 +349,31 @@ async function respond(answer: InviteAnswer): Promise<void> {
 
 function changeAnswer(): void {
   phase.value = 'ready';
+  choice.value = null;
   error.value = null;
 }
+
+/** First step: the answer. The details step follows. */
+function choose(answer: InviteAnswer): void {
+  choice.value = answer;
+  error.value = null;
+}
+
+/** Back from the details to the choice, keeping whatever was typed. */
+function backToChoice(): void {
+  choice.value = null;
+  error.value = null;
+}
+
+/** On the details step, Enter sends the answer they picked. */
+function submitChoice(): void {
+  if (choice.value) void respond(choice.value);
+}
+
+/** Whether the details step asks how to reach them: a yes to a paid party. */
+const asksContact = computed(
+  () => choice.value === 'confirmed' && isPaid.value,
+);
 
 function copy(text: string, key: string): void {
   navigator.clipboard
@@ -536,11 +568,44 @@ function copy(text: string, key: string): void {
           </button>
         </template>
 
-        <!-- Not yet answered -->
-        <template v-else>
+        <!-- Not yet answered, step 1: only the choice. -->
+        <template v-else-if="choice === null">
           <p v-if="full" class="invite-full">
             <Icon name="info" :size="14" />
             This party is full. You can still let the host know you can't come.
+          </p>
+
+          <p v-if="error" class="invite-error">{{ error }}</p>
+
+          <div class="invite-actions">
+            <button
+              class="invite-btn invite-btn--yes"
+              :disabled="full"
+              @click="choose('confirmed')"
+            >
+              <Icon name="check" :size="15" />
+              I'm in
+            </button>
+            <button
+              class="invite-btn invite-btn--no"
+              @click="choose('declined')"
+            >
+              <Icon name="x" :size="15" />
+              Can't make it
+            </button>
+          </div>
+        </template>
+
+        <!-- Step 2: the details that answer needs. -->
+        <template v-else>
+          <p class="invite-step">
+            {{
+              choice === 'confirmed'
+                ? asksContact
+                  ? 'Great! Tell the host who you are and where to send your ticket.'
+                  : 'Great! Tell the host who you are.'
+                : 'Sorry to miss you. Let the host know who you are.'
+            }}
           </p>
 
           <label class="invite-label" for="invite-name">Your name</label>
@@ -551,11 +616,11 @@ function copy(text: string, key: string): void {
             placeholder="How the host knows you"
             autocomplete="name"
             maxlength="60"
-            @keyup.enter="respond('confirmed')"
+            @keyup.enter="submitChoice"
           />
 
-          <!-- A paid party: somewhere to send the ticket once they've paid. -->
-          <template v-if="isPaid">
+          <!-- A yes to a paid party: somewhere to send the ticket once they've paid. -->
+          <template v-if="asksContact">
             <button
               v-if="offerGoogle && !fromGoogle"
               type="button"
@@ -588,7 +653,7 @@ function copy(text: string, key: string): void {
               Continue with Google
             </button>
             <p v-if="fromGoogle" class="invite-contact-note">
-              Filled in from Google. Check it, then tap “I’m in”.
+              Filled in from Google. Check it, then confirm.
             </p>
             <label class="invite-label" for="invite-email">Your email</label>
             <input
@@ -601,7 +666,7 @@ function copy(text: string, key: string): void {
               autocomplete="email"
               spellcheck="false"
               maxlength="254"
-              @keyup.enter="respond('confirmed')"
+              @keyup.enter="submitChoice"
             />
             <label class="invite-label" for="invite-phone">
               Your phone
@@ -615,7 +680,7 @@ function copy(text: string, key: string): void {
               inputmode="tel"
               placeholder="+39 333 123 4567"
               autocomplete="tel"
-              @keyup.enter="respond('confirmed')"
+              @keyup.enter="submitChoice"
             />
             <p class="invite-contact-note">
               Used only to send your ticket for this party.
@@ -626,22 +691,30 @@ function copy(text: string, key: string): void {
 
           <div class="invite-actions">
             <button
-              class="invite-btn invite-btn--yes"
-              :disabled="submitting || full"
-              @click="respond('confirmed')"
+              class="invite-btn"
+              :class="
+                choice === 'confirmed' ? 'invite-btn--yes' : 'invite-btn--no'
+              "
+              :disabled="submitting || (choice === 'confirmed' && full)"
+              @click="submitChoice"
             >
-              <Icon name="check" :size="15" />
-              {{ submitting ? 'Sending…' : "I'm in" }}
-            </button>
-            <button
-              class="invite-btn invite-btn--no"
-              :disabled="submitting"
-              @click="respond('declined')"
-            >
-              <Icon name="x" :size="15" />
-              Can't make it
+              <Icon :name="choice === 'confirmed' ? 'check' : 'x'" :size="15" />
+              {{
+                submitting
+                  ? 'Sending…'
+                  : choice === 'confirmed'
+                    ? 'Confirm I’m in'
+                    : 'Send my answer'
+              }}
             </button>
           </div>
+          <button
+            class="invite-secondary"
+            :disabled="submitting"
+            @click="backToChoice"
+          >
+            Back
+          </button>
         </template>
       </div>
 
@@ -757,6 +830,13 @@ function copy(text: string, key: string): void {
   background: var(--surface2);
   color: var(--text);
   width: 100%;
+}
+
+.invite-step {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dim);
 }
 
 .invite-google {
