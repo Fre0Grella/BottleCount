@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { brandedQrDataUrl } from '../lib/qr';
+import { mailtoUrl, smsUrl, whatsappUrl } from '../lib/sendLinks';
 import Icon from './Icon.vue';
 
 /**
@@ -32,8 +33,22 @@ const props = withDefaults(
      * the door scans; a QR that merely opens the ticket page would be refused.
      */
     showQr?: boolean;
+    /**
+     * Who it is for, when we know: WhatsApp and Messages then open on their
+     * chat, and the mail app with them as the recipient — so sending a ticket
+     * is one tap rather than typing a number for every guest.
+     */
+    email?: string | null;
+    phone?: string | null;
   }>(),
-  { shareTitle: '', sentNote: '.', label: 'Share via', showQr: true },
+  {
+    shareTitle: '',
+    sentNote: '.',
+    label: 'Share via',
+    showQr: true,
+    email: null,
+    phone: null,
+  },
 );
 
 /** What the last channel did, in a line — or null before one is used. */
@@ -82,11 +97,7 @@ const channels: Channel[] = [
     iconName: 'message',
     color: '#25D366',
     onClick: () =>
-      openApp(
-        `https://wa.me/?text=${encodeURIComponent(props.message)}`,
-        'WhatsApp',
-        true,
-      ),
+      openApp(whatsappUrl(props.message, props.phone), 'WhatsApp', true),
   },
   {
     label: 'Email',
@@ -94,7 +105,7 @@ const channels: Channel[] = [
     color: '#60A5FA',
     onClick: () =>
       openApp(
-        `mailto:?subject=${encodeURIComponent(props.emailSubject)}&body=${encodeURIComponent(props.message)}`,
+        mailtoUrl(props.emailSubject, props.message, props.email),
         'your email app',
       ),
   },
@@ -102,9 +113,7 @@ const channels: Channel[] = [
     label: 'Messages',
     iconName: 'message',
     color: '#34D399',
-    // `sms:?&body=` is the spelling both iOS and Android accept.
-    onClick: () =>
-      openApp(`sms:?&body=${encodeURIComponent(props.message)}`, 'Messages'),
+    onClick: () => openApp(smsUrl(props.message, props.phone), 'Messages'),
   },
   {
     label: 'Instagram',
