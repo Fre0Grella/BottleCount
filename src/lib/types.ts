@@ -68,6 +68,8 @@ export interface Settings {
   guests: number;
   ticket_price: number;
   venue_cost: number;
+  /** See {@link PartySettings.venue_fee_per_person}. */
+  venue_fee_per_person?: number;
   equipment_cost: number;
   alcohol_ml_per_person: number;
   buffer: number;
@@ -80,6 +82,12 @@ export interface PartySettings {
   guests: number;
   ticket_price: number;
   venue_cost: number;
+  /**
+   * What the venue charges for each guest, on top of `venue_cost` — common
+   * when the venue runs the bar. Absent on parties saved before it existed,
+   * which read as no fee; go through `venueFeePerPerson()`.
+   */
+  venue_fee_per_person?: number;
   equipment_cost: number;
   alcohol_ml_per_person: number;
   buffer: number;
@@ -103,6 +111,8 @@ export interface CalculationResult {
   total_min: number;
   total_max: number;
   fixed_costs: number;
+  /** The per-person venue fee for the expected guest count. */
+  venue_fees: number;
   revenue: number;
   profit_min: number;
   profit_max: number;

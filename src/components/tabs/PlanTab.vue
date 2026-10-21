@@ -152,6 +152,13 @@ function onVenueCost(e: Event): void {
   });
 }
 
+function onVenueFee(e: Event): void {
+  const val = Math.max(0, Number((e.target as HTMLInputElement).value) || 0);
+  store.update((party) => {
+    party.settings.venue_fee_per_person = val;
+  });
+}
+
 function onEquipmentCost(e: Event): void {
   const val = Number((e.target as HTMLInputElement).value) || 0;
   store.update((party) => {
@@ -198,6 +205,15 @@ const pnlRows = computed(() => {
       bt: '1px solid var(--border)',
     },
     {
+      label: `Venue fee (${p.value?.settings.guests ?? 0} × €${p.value?.settings.venue_fee_per_person ?? 0})`,
+      v: fmtEur(r.venue_fees),
+      lc: 'var(--dim)',
+      lw: '400',
+      vc: 'var(--dim)',
+      size: '13px',
+      bt: '1px solid var(--border)',
+    },
+    {
       label: 'Net profit',
       v: fmtEur(profitAvg),
       lc: 'var(--text)',
@@ -207,9 +223,11 @@ const pnlRows = computed(() => {
       bt: '1px solid var(--border)',
     },
   ];
-  return planningDrinks.value
-    ? rows
-    : rows.filter((row) => row.label !== 'Drinks');
+  return rows.filter(
+    (row) =>
+      (planningDrinks.value || row.label !== 'Drinks') &&
+      (r.venue_fees > 0 || !row.label.startsWith('Venue fee')),
+  );
 });
 </script>
 
@@ -1160,6 +1178,74 @@ const pnlRows = computed(() => {
                   min-height: unset;
                 "
                 @input="onVenueCost"
+              />
+            </div>
+          </div>
+
+          <!-- Venue fee per person -->
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span
+              style="
+                display: flex;
+                width: 32px;
+                height: 32px;
+                flex-shrink: 0;
+                border-radius: 9px;
+                align-items: center;
+                justify-content: center;
+                background: var(--surface2);
+                color: var(--dim);
+              "
+            >
+              <Icon name="users" :size="15" />
+            </span>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-size: 12px; color: var(--dim); font-weight: 600">
+                Venue fee per guest
+              </div>
+              <div style="font-size: 10px; color: var(--faint)">
+                {{
+                  planningDrinks
+                    ? 'if the venue charges per head'
+                    : 'what the venue asks per head for the bar'
+                }}
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border: 1px solid var(--border);
+                border-radius: var(--rs);
+                background: var(--surface2);
+                overflow: hidden;
+                width: 104px;
+              "
+            >
+              <span
+                style="
+                  padding: 0 0 0 11px;
+                  color: var(--faint);
+                  font-size: 13px;
+                "
+                >€</span
+              >
+              <input
+                inputmode="decimal"
+                aria-label="Venue fee per guest"
+                :value="p.settings.venue_fee_per_person ?? 0"
+                style="
+                  font-weight: 600;
+                  font-size: 15px;
+                  padding: 10px 8px;
+                  border: none;
+                  background: transparent;
+                  color: var(--text);
+                  width: 100%;
+                  min-width: 0;
+                  min-height: unset;
+                "
+                @input="onVenueFee"
               />
             </div>
           </div>

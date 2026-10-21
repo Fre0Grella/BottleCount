@@ -54,6 +54,8 @@ export interface PartyDocument {
     guests: number;
     ticket_price: number;
     venue_cost: number;
+    /** Per guest, on top of `venue_cost`. Absent on older documents: no fee. */
+    venue_fee_per_person?: number;
     equipment_cost: number;
     alcohol_ml_per_person: number;
     buffer: number;

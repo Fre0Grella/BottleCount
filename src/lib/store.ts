@@ -566,6 +566,7 @@ const ZERO_RESULT: CalculationResult = {
   total_min: 0,
   total_max: 0,
   fixed_costs: 0,
+  venue_fees: 0,
   revenue: 0,
   profit_min: 0,
   profit_max: 0,
