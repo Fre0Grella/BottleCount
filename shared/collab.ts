@@ -1,4 +1,5 @@
 import type { MergePatch } from './patch';
+import type { PaymentDetails } from './payments';
 
 /**
  * Co-organisers: the contract for a party two people run together.
@@ -69,6 +70,8 @@ export interface PartyDocument {
    * stored before it existed, which read as true.
    */
   barManaged: boolean;
+  /** Where guests pay the host. Public to confirmed guests; see `payments.ts`. */
+  payment: PaymentDetails;
 }
 
 /** The fields of a local `Party` that belong in the shared document. */
@@ -84,6 +87,7 @@ export const DOCUMENT_FIELDS = [
   'allowForward',
   'includeSnacks',
   'barManaged',
+  'payment',
 ] as const satisfies readonly (keyof PartyDocument)[];
 
 // ── Members ─────────────────────────────────────────────────────────────────

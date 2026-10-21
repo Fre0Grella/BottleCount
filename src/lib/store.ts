@@ -33,6 +33,7 @@ import {
 } from './collab';
 import { PartySync } from './sync';
 import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
+import { emptyPaymentDetails } from '../../shared/payments';
 import type { SessionDTO } from '../../shared/session';
 import type { Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
@@ -276,6 +277,7 @@ async function load(): Promise<void> {
     if (p.settings.max_capacity === undefined) p.settings.max_capacity = null;
     if (p.includeSnacks === undefined) p.includeSnacks = true;
     if (p.barManaged === undefined) p.barManaged = true;
+    if (p.payment === undefined) p.payment = emptyPaymentDetails();
     if (p.publication === undefined) p.publication = null;
 
     // Invite statuses were renamed when guests gained the ability to answer for
@@ -331,6 +333,7 @@ async function createParty(): Promise<void> {
     allowForward: true,
     includeSnacks: true,
     barManaged: true,
+    payment: emptyPaymentDetails(),
     invites: [],
   };
   const newId = await db.parties.add(newParty);
@@ -886,6 +889,8 @@ async function syncPartyList(): Promise<void> {
       allowForward: shared.document.allowForward,
       includeSnacks: shared.document.includeSnacks,
       barManaged: runsBar(shared.document),
+      // A party stored before payments existed has no `payment` on the server.
+      payment: shared.document.payment ?? emptyPaymentDetails(),
       // The guest list is not in the document; it arrives through the funnel.
       invites: [],
       publication: {

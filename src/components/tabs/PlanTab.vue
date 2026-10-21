@@ -4,6 +4,7 @@ import { useStore, COVERS, VIBES, BUFFERS } from '../../lib/store';
 import { runsBar } from '../../lib/core';
 import Icon from '../Icon.vue';
 import Slider from '../Slider.vue';
+import PaymentSettings from '../PaymentSettings.vue';
 
 const store = useStore();
 
@@ -1271,5 +1272,8 @@ const pnlRows = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- ── 5. Getting paid ───────────────────────────────────────────── -->
+    <PaymentSettings />
   </div>
 </template>

@@ -7,6 +7,7 @@
  */
 
 import type { PartyDocument } from './collab';
+import type { InvitePaymentDTO } from './payments';
 
 // ── Status ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,11 @@ export interface InviteOpenDTO {
   status: InviteStatus;
   name: string | null;
   depth: number;
+  /**
+   * How to pay the host, or null when they offer no way to. Withheld until the
+   * guest confirms, so nobody pays for a party that turns out to be full.
+   */
+  payment: InvitePaymentDTO | null;
 }
 
 export interface InviteAnswerRequest {

@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue';
 import type { InviteAnswer, InviteOpenDTO } from '../../shared/invites';
 import { inviteUrl } from '../../shared/invites';
+import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/invites';
 import { COVERS } from '../lib/store';
+import BrandMark from './BrandMark.vue';
 import Icon from './Icon.vue';
 import ShareChannels from './ShareChannels.vue';
 
@@ -20,6 +22,9 @@ const data = ref<InviteOpenDTO | null>(null);
 const name = ref('');
 const submitting = ref(false);
 const error = ref<string | null>(null);
+/** Which copy button last worked, so only that one says "Copied". */
+const copied = ref<string | null>(null);
+const showBank = ref(false);
 
 const base = import.meta.env.BASE_URL as string;
 
@@ -109,6 +114,24 @@ const forwardQrFileName = computed(
     `${(data.value?.party.name ?? 'party').replace(/[^\w-]+/g, '-').toLowerCase()}-invite.png`,
 );
 
+/** How to pay the host. The server only sends it once they have said yes. */
+const payment = computed(() =>
+  isConfirmed.value ? (data.value?.payment ?? null) : null,
+);
+
+const priceLabel = computed(() => {
+  const price = payment.value?.price ?? 0;
+  if (price <= 0) return '';
+  return `€${Number.isInteger(price) ? price : price.toFixed(2)}`;
+});
+
+/** The causale, so the host can tell whose transfer is whose. */
+const reference = computed(() =>
+  data.value
+    ? paymentReference(data.value.party.name, data.value.name ?? '')
+    : '',
+);
+
 /** A full party can still be declined, so the form stays — only yes is barred. */
 const full = computed(
   () => data.value?.party.full === true && !isConfirmed.value,
@@ -181,6 +204,18 @@ function changeAnswer(): void {
   phase.value = 'ready';
   error.value = null;
 }
+
+function copy(text: string, key: string): void {
+  navigator.clipboard
+    ?.writeText(text)
+    .then(() => {
+      copied.value = key;
+      setTimeout(() => {
+        if (copied.value === key) copied.value = null;
+      }, 2000);
+    })
+    .catch(() => {});
+}
 </script>
 
 <template>
@@ -235,6 +270,108 @@ function changeAnswer(): void {
               <strong>You've said you can't make it.</strong>
               <span>No hard feelings.</span>
             </div>
+          </div>
+
+          <!-- Paying the host. BottleCount only shows the way; the money goes
+               straight to them. -->
+          <div v-if="payment" class="invite-pay">
+            <div class="invite-pay__head">
+              <span>Pay for your ticket</span>
+              <strong v-if="priceLabel">{{ priceLabel }}</strong>
+            </div>
+
+            <a
+              v-if="payment.paypalUrl"
+              class="pay-btn pay-btn--paypal"
+              :href="payment.paypalUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Pay with PayPal"
+            >
+              <span>Pay with</span>
+              <span class="paypal-mark" aria-hidden="true"
+                ><span class="paypal-mark__pay">Pay</span
+                ><span class="paypal-mark__pal">Pal</span></span
+              >
+            </a>
+
+            <a
+              v-if="payment.satispayUrl"
+              class="pay-btn pay-btn--satispay"
+              :href="payment.satispayUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Pay with <BrandMark name="satispay" :size="17" />
+              <strong>Satispay</strong>
+            </a>
+
+            <a
+              v-if="payment.revolutUrl"
+              class="pay-btn pay-btn--revolut"
+              :href="payment.revolutUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Pay with <BrandMark name="revolut" :size="16" />
+              <strong>Revolut</strong>
+            </a>
+
+            <template v-if="payment.bank">
+              <button
+                class="pay-btn pay-btn--bank"
+                :aria-expanded="showBank"
+                @click="showBank = !showBank"
+              >
+                <Icon name="euro" :size="15" />
+                Bank transfer
+                <Icon :name="showBank ? 'chevU' : 'chevD'" :size="14" />
+              </button>
+
+              <dl v-if="showBank" class="invite-bank">
+                <div class="invite-bank__row">
+                  <dt>Account holder</dt>
+                  <dd>{{ payment.bank.holder }}</dd>
+                  <button
+                    class="invite-bank__copy"
+                    @click="copy(payment.bank.holder, 'holder')"
+                  >
+                    {{ copied === 'holder' ? 'Copied' : 'Copy' }}
+                  </button>
+                </div>
+                <div class="invite-bank__row">
+                  <dt>IBAN</dt>
+                  <dd class="invite-bank__mono">
+                    {{ formatIban(payment.bank.iban) }}
+                  </dd>
+                  <button
+                    class="invite-bank__copy"
+                    @click="copy(payment.bank.iban, 'iban')"
+                  >
+                    {{ copied === 'iban' ? 'Copied' : 'Copy' }}
+                  </button>
+                </div>
+                <div v-if="priceLabel" class="invite-bank__row">
+                  <dt>Amount</dt>
+                  <dd>{{ priceLabel }}</dd>
+                </div>
+                <div class="invite-bank__row">
+                  <dt>Causale</dt>
+                  <dd>{{ reference }}</dd>
+                  <button
+                    class="invite-bank__copy"
+                    @click="copy(reference, 'reference')"
+                  >
+                    {{ copied === 'reference' ? 'Copied' : 'Copy' }}
+                  </button>
+                </div>
+              </dl>
+            </template>
+
+            <p class="invite-pay__note">
+              The money goes straight to the host, who marks you as paid once it
+              arrives.
+            </p>
           </div>
 
           <!-- Their own link to pass on. Only appears once confirmed. -->
@@ -493,6 +630,133 @@ function changeAnswer(): void {
   font-size: 12px;
   color: var(--dim);
   line-height: 1.55;
+}
+
+.invite-pay {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.invite-pay__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+}
+.invite-pay__head strong {
+  font-family: var(--font-disp);
+  font-size: 18px;
+}
+.invite-pay__note {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+.pay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+/* The colours of PayPal's own button, so it reads as the one people know. */
+.pay-btn--paypal {
+  background: #ffc439;
+  color: #111;
+}
+.pay-btn--paypal:hover {
+  background: #f2ba36;
+}
+.paypal-mark {
+  font-family: Verdana, 'DejaVu Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+.paypal-mark__pay {
+  color: #003087;
+}
+.paypal-mark__pal {
+  color: #009cde;
+}
+.pay-btn--satispay {
+  background: #ef373e;
+  color: #fff;
+}
+.pay-btn--satispay:hover {
+  background: #db2f36;
+}
+/* Revolut's own near-black, with an edge so it still reads on a dark card. */
+.pay-btn--revolut {
+  background: #191c1f;
+  border-color: #3d4249;
+  color: #fff;
+}
+.pay-btn--revolut:hover {
+  background: #2c3035;
+}
+.pay-btn--bank {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.invite-bank {
+  margin: 0;
+  padding: 4px 13px;
+  border-radius: var(--rs);
+  background: var(--surface2);
+}
+.invite-bank__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 9px 0;
+}
+.invite-bank__row + .invite-bank__row {
+  border-top: 1px solid var(--border);
+}
+.invite-bank__row dt {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.invite-bank__row dd {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.invite-bank__mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.invite-bank__copy {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .invite-full {

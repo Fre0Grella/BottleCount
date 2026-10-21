@@ -4,6 +4,8 @@ import type {
   PublishedPartyDTO,
 } from '../../../../shared/invites';
 import type { SharedPartyDTO } from '../../../../shared/collab';
+import type { PaymentDetails } from '../../../../shared/payments';
+import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { Repositories } from '../../repositories/repositories';
 import { resetFakeIds } from '../support/fakeInvites';
 import { aUser, fakeUsers } from '../support/fakeRepositories';
@@ -16,11 +18,16 @@ import { request, sessionCookie } from '../support/harness';
 
 /** A pro host with one published party whose invite link is open. */
 async function aPublishedParty(
-  overrides: { maxCapacity?: number | null; allowForward?: boolean } = {},
+  overrides: {
+    maxCapacity?: number | null;
+    allowForward?: boolean;
+    payment?: Partial<PaymentDetails>;
+  } = {},
 ): Promise<{ repositories: Repositories; party: PublishedPartyDTO }> {
   const repositories = repositoriesWith();
   const document = aDocument({
     allowForward: overrides.allowForward ?? true,
+    payment: { ...emptyPaymentDetails(), ...overrides.payment },
     settings: {
       ...aDocument().settings,
       max_capacity: overrides.maxCapacity ?? null,
@@ -406,5 +413,142 @@ describe('capacity', () => {
 
     const second = await open(repositories, party.slug);
     expect(second.party.full).toBe(true);
+  });
+});
+
+describe('paying the host', () => {
+  const IBAN = 'IT60X0542811101000000123456';
+
+  async function confirm(
+    repositories: Repositories,
+    slug: string,
+  ): Promise<InviteOpenDTO> {
+    const opened = await open(repositories, slug);
+    const res = await answer(repositories, slug, {
+      inviteId: opened.inviteId,
+      name: 'Giulia',
+      answer: 'confirmed',
+    });
+    expect(res.status).toBe(200);
+    return (await res.json()) as InviteOpenDTO;
+  }
+
+  it('shows a confirmed guest every way to pay, with the price', async () => {
+    const { repositories, party } = await aPublishedParty({
+      payment: {
+        paypal: 'marcog',
+        satispay: 'https://web.satispay.com/app/match/abc',
+        revolut: 'https://revolut.me/marcog',
+        bank_holder: 'Marco Galeri',
+        bank_iban: IBAN,
+      },
+    });
+
+    const dto = await confirm(repositories, party.slug);
+
+    expect(dto.payment).toEqual({
+      price: 15,
+      paypalUrl: 'https://paypal.me/marcog/15EUR',
+      satispayUrl: 'https://web.satispay.com/app/match/abc',
+      revolutUrl: 'https://revolut.me/marcog',
+      bank: { holder: 'Marco Galeri', iban: IBAN },
+    });
+  });
+
+  it('withholds payment until the guest confirms', async () => {
+    // Someone who has only opened the link might still find the party full.
+    const { repositories, party } = await aPublishedParty({
+      payment: { paypal: 'marcog' },
+    });
+
+    expect((await open(repositories, party.slug)).payment).toBeNull();
+  });
+
+  it('withholds payment from a guest who declined', async () => {
+    const { repositories, party } = await aPublishedParty({
+      payment: { paypal: 'marcog' },
+    });
+    const opened = await open(repositories, party.slug);
+
+    const res = await answer(repositories, party.slug, {
+      inviteId: opened.inviteId,
+      name: 'Giulia',
+      answer: 'declined',
+    });
+
+    expect(((await res.json()) as InviteOpenDTO).payment).toBeNull();
+  });
+
+  it('keeps showing it when a confirmed guest comes back', async () => {
+    const { repositories, party } = await aPublishedParty({
+      payment: { paypal: 'marcog' },
+    });
+    const confirmed = await confirm(repositories, party.slug);
+
+    const back = await open(repositories, party.slug, {
+      inviteId: confirmed.inviteId,
+    });
+
+    expect(back.payment?.paypalUrl).toBe('https://paypal.me/marcog/15EUR');
+  });
+
+  it('asks for nothing when the host set a price but no way to pay', async () => {
+    // Every party has a ticket price for the budget maths; that alone must not
+    // turn into a request for money.
+    const { repositories, party } = await aPublishedParty();
+
+    expect((await confirm(repositories, party.slug)).payment).toBeNull();
+  });
+
+  it('drops identifiers that do not validate when the party is published', async () => {
+    const { repositories, party } = await aPublishedParty({
+      payment: {
+        paypal: 'javascript:alert(1)',
+        satispay: 'https://satispay.com.evil.example/x',
+        revolut: 'http://revolut.me/marcog',
+        bank_holder: 'Marco Galeri',
+        bank_iban: 'IT60X0542811101000000123465',
+      },
+    });
+
+    const stored = await repositories.parties.findById(party.id);
+    expect(stored.ok && stored.value.document?.payment).toEqual({
+      paypal: '',
+      satispay: '',
+      revolut: '',
+      bank_holder: 'Marco Galeri',
+      bank_iban: '',
+    });
+    expect((await confirm(repositories, party.slug)).payment).toBeNull();
+  });
+
+  it('never shows a guest a link an organiser patched in unchecked', async () => {
+    // Patches skip the publish checks, so the invite has to validate on read.
+    const { repositories, party } = await aPublishedParty({
+      payment: { paypal: 'marcog' },
+    });
+    const stored = await repositories.parties.findById(party.id);
+    const version = stored.ok ? stored.value.version : 0;
+
+    const patched = await request(`/api/parties/${party.id}`, {
+      repositories,
+      cookie: await sessionCookie('user-1'),
+      method: 'PATCH',
+      body: {
+        baseVersion: version,
+        patch: {
+          payment: {
+            satispay: 'javascript:alert(1)',
+            revolut: 'javascript:alert(1)',
+          },
+        },
+      },
+    });
+    expect(patched.status).toBe(200);
+
+    const dto = await confirm(repositories, party.slug);
+    expect(dto.payment?.satispayUrl).toBeNull();
+    expect(dto.payment?.revolutUrl).toBeNull();
+    expect(dto.payment?.paypalUrl).toBe('https://paypal.me/marcog/15EUR');
   });
 });
