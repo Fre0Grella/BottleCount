@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { JwtVariables } from 'hono/jwt';
+import type { GuestContact } from '../../../shared/contact';
+import { normaliseEmail, normalisePhone } from '../../../shared/contact';
 import type {
   CollaboratorInviteDTO,
   PartyDocument,
@@ -64,7 +66,31 @@ function toInviteDTO(
     checkedInAt: invite.checkedInAt,
     openedAt: invite.openedAt,
     answeredAt: invite.answeredAt,
+    email: invite.email,
+    phone: invite.phone,
+    paidAt: invite.paidAt,
   };
+}
+
+/**
+ * Contact details an organiser typed, or the error to refuse them with.
+ * Blank or absent clears a field; the guest list is where they are corrected.
+ */
+function parseContact(body: unknown): GuestContact | { error: string } {
+  const fields =
+    typeof body === 'object' && body !== null
+      ? (body as Record<string, unknown>)
+      : {};
+  const text = (key: string): string => {
+    const value = fields[key];
+    return typeof value === 'string' ? value : '';
+  };
+
+  const email = normaliseEmail(text('email'));
+  if (email === null) return { error: 'invalid_email' };
+  const phone = normalisePhone(text('phone'));
+  if (phone === null) return { error: 'invalid_phone' };
+  return { email: email || null, phone: phone || null };
 }
 
 function toMemberDTO(member: PartyMember): PartyMemberDTO {
@@ -327,10 +353,14 @@ parties.post('/:partyId/invites', async (c) => {
   const name = body.name?.trim().slice(0, 60);
   if (!name) return c.json({ error: 'name_required' }, 400);
 
+  const contact = parseContact(body);
+  if ('error' in contact) return c.json({ error: contact.error }, 400);
+
   const added = await c.var.repositories.invites.addManual({
     partyId: c.get('party').id,
     name,
     ticketCode: '',
+    contact,
   });
   if (!added.ok) return c.json({ error: added.error }, 500);
 
@@ -378,6 +408,49 @@ parties.delete('/:partyId/invites/:inviteId/check-in', async (c) => {
   });
   if (!undone.ok) return c.json({ error: undone.error }, 404);
   return c.json(toInviteDTO({ ...undone.value, referrerName: null }));
+});
+
+/**
+ * `PUT /api/parties/:partyId/invites/:inviteId/contact` — where to send their
+ * ticket. Any organiser; replaces both fields.
+ */
+parties.put('/:partyId/invites/:inviteId/contact', async (c) => {
+  const contact = parseContact(await c.req.json().catch(() => null));
+  if ('error' in contact) return c.json({ error: contact.error }, 400);
+
+  const updated = await c.var.repositories.invites.setContact({
+    inviteId: c.req.param('inviteId'),
+    partyId: c.get('party').id,
+    contact,
+  });
+  if (!updated.ok) return c.json({ error: updated.error }, 404);
+  return c.json(toInviteDTO({ ...updated.value, referrerName: null }));
+});
+
+/**
+ * `POST /api/parties/:partyId/invites/:inviteId/paid` — an organiser saw the
+ * money arrive. Any organiser, like check-in: the server holds the answer, so
+ * every organiser's phone agrees on who has paid (ADR 0005).
+ */
+parties.post('/:partyId/invites/:inviteId/paid', async (c) => {
+  const marked = await c.var.repositories.invites.setPaid({
+    inviteId: c.req.param('inviteId'),
+    partyId: c.get('party').id,
+    at: new Date().toISOString(),
+  });
+  if (!marked.ok) return c.json({ error: marked.error }, 404);
+  return c.json(toInviteDTO({ ...marked.value, referrerName: null }));
+});
+
+/** `DELETE …/paid` — marked by mistake, or the payment was refunded. */
+parties.delete('/:partyId/invites/:inviteId/paid', async (c) => {
+  const unmarked = await c.var.repositories.invites.setPaid({
+    inviteId: c.req.param('inviteId'),
+    partyId: c.get('party').id,
+    at: null,
+  });
+  if (!unmarked.ok) return c.json({ error: unmarked.error }, 404);
+  return c.json(toInviteDTO({ ...unmarked.value, referrerName: null }));
 });
 
 /** `PATCH /api/parties/:partyId/invites/:inviteId` — override an answer. */

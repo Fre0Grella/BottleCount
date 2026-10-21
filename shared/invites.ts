@@ -48,6 +48,12 @@ export interface InvitePartyDTO {
   allowForward: boolean;
   /** True when a capacity cap is set and confirmed guests have reached it. */
   full: boolean;
+  /**
+   * Whether guests pay for this party, which makes an email required to
+   * confirm (see `isPaidParty`). Only the yes/no: how to pay is withheld until
+   * the guest confirms.
+   */
+  paid: boolean;
 }
 
 /** What `POST /invite/:slug/open` answers with. */
@@ -72,6 +78,13 @@ export interface InviteAnswerRequest {
   inviteId: string;
   name: string;
   answer: InviteAnswer;
+  /**
+   * Where to send the ticket. Required to confirm a paid party, ignored
+   * otherwise. Never sent back: no public endpoint returns a guest's contact
+   * details, not even to the guest, since the invite id is a bearer token.
+   */
+  email?: string;
+  phone?: string;
 }
 
 export interface InviteOpenRequest {
@@ -109,6 +122,12 @@ export interface HostInviteDTO {
   checkedInAt: string | null;
   openedAt: string;
   answeredAt: string | null;
+  /** Where to send their ticket. Organisers only; see migration 0005. */
+  email: string | null;
+  /** E.164, for WhatsApp. */
+  phone: string | null;
+  /** When an organiser marked them as paid; null while unpaid. */
+  paidAt: string | null;
 }
 
 /** What `POST /api/parties/publish` answers with, and what the host stores. */

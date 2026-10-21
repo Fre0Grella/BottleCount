@@ -225,6 +225,26 @@ export function invitePayment(
   return offered ? payment : null;
 }
 
+/**
+ * Whether guests of this party pay for it: a price above zero and at least one
+ * way to pay the host.
+ *
+ * The price alone cannot decide it, for the same reason {@link invitePayment}
+ * returns null without a method: every party starts with one for the budget
+ * maths. And a method alone cannot either, since a host may leave their PayPal
+ * in place on a party they have since made free.
+ *
+ * This is what makes a guest's email required, and what puts "paid" in the
+ * guest list, so both sides call it rather than each deciding for itself.
+ */
+export function isPaidParty(price: number, details: unknown): boolean {
+  return (
+    Number.isFinite(price) &&
+    price > 0 &&
+    invitePayment(price, details) !== null
+  );
+}
+
 /** SEPA's limit on the free-text reference of a transfer. */
 const REFERENCE_MAX = 140;
 

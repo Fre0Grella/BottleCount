@@ -1,21 +1,41 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
+import { normaliseEmail, normalisePhone } from '../../../shared/contact';
 import { useStore } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 
+/**
+ * Adds a guest by hand, or — opened from a guest's row — sets where to send
+ * their ticket. One sheet for both because the fields are the same and the
+ * second is just the first without the name.
+ */
+
 const store = useStore();
 
 const name = ref('');
+const email = ref('');
+const phone = ref('');
+const error = ref<string | null>(null);
+const saving = ref(false);
 const inputRef = ref<HTMLInputElement | null>(null);
+
+/** The guest being edited, or null when adding a new one. */
+const editing = computed(() => {
+  const id = store.state.contactFor;
+  if (id === null) return null;
+  return store.activeParty()?.invites.find((i) => i.id === id) ?? null;
+});
 
 watch(
   () => store.state.addGuestOpen,
   (open) => {
-    if (open) {
-      name.value = '';
-      void nextTick(() => inputRef.value?.focus());
-    }
+    if (!open) return;
+    name.value = '';
+    email.value = editing.value?.email ?? '';
+    phone.value = editing.value?.phone ?? '';
+    error.value = null;
+    void nextTick(() => inputRef.value?.focus());
   },
 );
 
@@ -23,12 +43,51 @@ function handleClose(): void {
   store.closeAddGuest();
 }
 
-function submit(): void {
-  const trimmed = name.value.trim();
-  if (!trimmed) return;
-  store.addInvite(trimmed);
+const MESSAGES: Record<string, string> = {
+  invalid_email: 'That email doesn’t look right.',
+  invalid_phone: 'That phone number doesn’t look right.',
+  not_saved_yet: 'This guest is still being saved. Try again in a moment.',
+};
+
+/** The contact as the server would store it, or the reason it would refuse. */
+function contact(): { email: string | null; phone: string | null } | string {
+  const e = normaliseEmail(email.value);
+  if (e === null) return 'invalid_email';
+  const p = normalisePhone(phone.value);
+  if (p === null) return 'invalid_phone';
+  return { email: e || null, phone: p || null };
+}
+
+async function submit(): Promise<void> {
+  if (saving.value) return;
+  const parsed = contact();
+  if (typeof parsed === 'string') {
+    error.value = MESSAGES[parsed] ?? null;
+    return;
+  }
+
+  const guest = editing.value;
+  if (!guest) {
+    const trimmed = name.value.trim();
+    if (!trimmed) return;
+    store.addInvite(trimmed, parsed);
+    store.closeAddGuest();
+    return;
+  }
+
+  saving.value = true;
+  const failed = await store.setInviteContact(guest.id, parsed);
+  saving.value = false;
+  if (failed) {
+    error.value = MESSAGES[failed] ?? 'Couldn’t save that. Try again.';
+    return;
+  }
   store.closeAddGuest();
 }
+
+const canSubmit = computed(
+  () => !saving.value && (editing.value !== null || name.value.trim() !== ''),
+);
 </script>
 
 <template>
@@ -60,16 +119,20 @@ function submit(): void {
             color: var(--accent);
           "
         >
-          <Icon name="users" :size="18" />
+          <Icon :name="editing ? 'mail' : 'users'" :size="18" />
         </span>
         <div
           style="
             font-family: var(--font-disp);
             font-weight: 700;
             font-size: 17px;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           "
         >
-          Add a guest
+          {{ editing ? `Contact for ${editing.name}` : 'Add a guest' }}
         </div>
         <button
           style="
@@ -91,36 +154,48 @@ function submit(): void {
       </div>
 
       <!-- Name field -->
-      <label
-        style="
-          display: block;
-          font-size: 12px;
-          color: var(--dim);
-          font-weight: 600;
-          margin-bottom: 7px;
-        "
-      >
-        Guest name
-      </label>
+      <template v-if="!editing">
+        <label class="guest-label">Guest name</label>
+        <input
+          ref="inputRef"
+          v-model="name"
+          class="guest-input"
+          placeholder="e.g. Sofia Marlowe"
+          @keydown.enter="submit"
+        />
+      </template>
+
+      <label class="guest-label">Email <span>(optional)</span></label>
       <input
-        ref="inputRef"
-        v-model="name"
-        placeholder="e.g. Sofia Marlowe"
-        style="
-          width: 100%;
-          box-sizing: border-box;
-          font-size: 15px;
-          padding: 12px 13px;
-          border-radius: var(--rs);
-          border: 1px solid var(--border);
-          background: var(--surface2);
-          color: var(--text);
-          font-family: inherit;
-          outline: none;
-          margin-bottom: 16px;
-        "
+        :ref="editing ? 'inputRef' : undefined"
+        v-model="email"
+        class="guest-input"
+        type="email"
+        inputmode="email"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="sofia@example.com"
         @keydown.enter="submit"
       />
+
+      <label class="guest-label"
+        >Phone <span>(optional, for WhatsApp)</span></label
+      >
+      <input
+        v-model="phone"
+        class="guest-input"
+        type="tel"
+        inputmode="tel"
+        autocomplete="off"
+        placeholder="+39 333 123 4567"
+        @keydown.enter="submit"
+      />
+
+      <p class="guest-hint">
+        Used only to send their ticket for this party. Without a country code, a
+        number is taken to be Italian.
+      </p>
+      <p v-if="error" class="guest-error">{{ error }}</p>
 
       <!-- Actions -->
       <div style="display: flex; gap: 9px">
@@ -141,7 +216,7 @@ function submit(): void {
           Cancel
         </button>
         <button
-          :disabled="!name.trim()"
+          :disabled="!canSubmit"
           style="
             flex: 2;
             cursor: pointer;
@@ -157,13 +232,51 @@ function submit(): void {
             background: var(--accent);
             color: var(--on-accent);
           "
-          :style="{ opacity: name.trim() ? '1' : '0.5' }"
+          :style="{ opacity: canSubmit ? '1' : '0.5' }"
           @click="submit"
         >
-          <Icon name="plus" :size="15" />
-          Add to list
+          <Icon :name="editing ? 'check' : 'plus'" :size="15" />
+          {{ editing ? (saving ? 'Saving…' : 'Save') : 'Add to list' }}
         </button>
       </div>
     </div>
   </Modal>
 </template>
+
+<style scoped>
+.guest-label {
+  display: block;
+  font-size: 12px;
+  color: var(--dim);
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.guest-label span {
+  font-weight: 500;
+  color: var(--faint);
+}
+.guest-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 15px;
+  padding: 12px 13px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 14px;
+}
+.guest-hint {
+  margin: -4px 0 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+.guest-error {
+  margin: -6px 0 14px;
+  font-size: 12px;
+  color: var(--bad);
+}
+</style>

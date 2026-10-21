@@ -1,4 +1,5 @@
 import type { PartyDocument, PartyRole } from '../../../../shared/collab';
+import type { GuestContact } from '../../../../shared/contact';
 import { generateTicketCode } from '../../../../shared/tickets';
 import { apply as applyPatch } from '../../../../shared/patch';
 import type { MergePatch } from '../../../../shared/patch';
@@ -280,6 +281,9 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         checkedInAt: null,
         openedAt: new Date().toISOString(),
         answeredAt: null,
+        email: null,
+        phone: null,
+        paidAt: null,
       };
       rows.set(invite.id, invite);
       return ok(invite);
@@ -294,12 +298,14 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
       name,
       answer,
       maxCapacity,
+      contact,
     }: {
       inviteId: string;
       partyId: string;
       name: string;
       answer: InviteAnswer;
       maxCapacity: number | null;
+      contact: GuestContact;
     }): Promise<Result<Invite>> {
       const row = rows.get(inviteId);
       if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
@@ -317,6 +323,7 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         name,
         status: answer,
         answeredAt: new Date().toISOString(),
+        ...contact,
       };
       rows.set(inviteId, updated);
       return ok(updated);
@@ -344,10 +351,12 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
     async addManual({
       partyId,
       name,
+      contact,
     }: {
       partyId: string;
       name: string;
       ticketCode: string;
+      contact: GuestContact;
     }): Promise<Result<Invite>> {
       const now = new Date().toISOString();
       const invite: Invite = {
@@ -364,9 +373,46 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         checkedInAt: null,
         openedAt: now,
         answeredAt: now,
+        ...contact,
+        paidAt: null,
       };
       rows.set(invite.id, invite);
       return ok(invite);
+    },
+
+    async setContact({
+      inviteId,
+      partyId,
+      contact,
+    }: {
+      inviteId: string;
+      partyId: string;
+      contact: GuestContact;
+    }): Promise<Result<Invite>> {
+      const row = rows.get(inviteId);
+      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
+      const updated: Invite = { ...row, ...contact };
+      rows.set(inviteId, updated);
+      return ok(updated);
+    },
+
+    async setPaid({
+      inviteId,
+      partyId,
+      at,
+    }: {
+      inviteId: string;
+      partyId: string;
+      at: string | null;
+    }): Promise<Result<Invite>> {
+      const row = rows.get(inviteId);
+      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
+      const updated: Invite = {
+        ...row,
+        paidAt: at === null ? null : (row.paidAt ?? at),
+      };
+      rows.set(inviteId, updated);
+      return ok(updated);
     },
 
     async checkIn({
