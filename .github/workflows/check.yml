@@ -32,6 +32,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Ratchet: copy-paste share of src/, shared/, functions/ and backend/
+      # (tests excluded) may not exceed `threshold` in .jscpd.json, set to
+      # the duplicated-lines % on the day it was added. When you remove
+      # duplication, run `npm run check:dupes` and lower `threshold` to the
+      # new Total % in the same PR.
+      - name: Duplication
+        run: npm run check:dupes
+
       - name: Typecheck
         run: npm run typecheck
 
