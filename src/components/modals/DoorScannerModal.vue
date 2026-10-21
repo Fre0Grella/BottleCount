@@ -5,6 +5,7 @@ import { useStore } from '../../lib/store';
 import { verifyTicket } from '../../lib/crypto';
 import { ticketPartyId } from '../../lib/ticket';
 import { isTicketCode, normaliseTicketCode } from '../../../shared/tickets';
+import { awaitingPayment } from '../../lib/invites';
 import type { Invite } from '../../lib/types';
 import Icon from '../Icon.vue';
 
@@ -68,6 +69,15 @@ async function admit(
 
   if (invite.status !== 'confirmed') {
     reject(invite.name, "They haven't confirmed they're coming");
+    return;
+  }
+
+  // Their code exists from the moment they opened the link, so on a paid party
+  // the code alone is not a ticket. Someone paying at the door can be marked
+  // paid in the guest list and checked again.
+  const party = store.activeParty();
+  if (party && awaitingPayment(party, invite)) {
+    reject(invite.name, "Hasn't paid yet — mark them paid, then check again");
     return;
   }
 
