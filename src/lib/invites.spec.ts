@@ -217,6 +217,10 @@ describe('sameInvites', () => {
     ['paid', { paidAt: '2026-09-02T12:00:00.000Z' }],
     ['email', { email: 'giulia@example.com' }],
     ['phone', { phone: '+393331234567' }],
+    // #42: a guest checked in on another phone has to show up here too.
+    ['check-in', { checkedIn: true, checkedInAt: '2026-10-21T22:14:00.000Z' }],
+    ['ticket code', { ticketCode: 'ZZ99Z' }],
+    ['answer time', { answeredAt: '2026-10-21T20:00:00.000Z' }],
   ])('notices a change to %s', (_, change) => {
     const before = mergeFunnel([], [remote()]);
     const after = mergeFunnel(before, [remote(change)]);
