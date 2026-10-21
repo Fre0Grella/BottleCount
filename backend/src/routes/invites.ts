@@ -13,10 +13,13 @@ import type { AppVariables } from '../appEnv';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type { Invite } from '../repositories/inviteRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
+import { guestGoogleConfigured } from './guestGoogle';
 
 type RateLimiter = { limit(o: { key: string }): Promise<{ success: boolean }> };
 
 type Bindings = {
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   // Optional: the local environment leaves it unbound so a fresh clone runs
   // without a Cloudflare account. Absent means unlimited, which is correct for
   // a machine only you can reach.
@@ -44,7 +47,11 @@ function partyIsPaid(party: PublishedParty): boolean {
   );
 }
 
-function toPartyDTO(party: PublishedParty, full: boolean): InvitePartyDTO {
+function toPartyDTO(
+  party: PublishedParty,
+  full: boolean,
+  env: Bindings,
+): InvitePartyDTO {
   return {
     slug: party.slug,
     name: party.name,
@@ -54,6 +61,7 @@ function toPartyDTO(party: PublishedParty, full: boolean): InvitePartyDTO {
     allowForward: party.allowForward,
     full,
     paid: partyIsPaid(party),
+    googleSignIn: guestGoogleConfigured(env),
   };
 }
 
@@ -174,7 +182,7 @@ invites.post('/:slug/open', async (c) => {
 
   const invite = opened.value;
   const dto: InviteOpenDTO = {
-    party: toPartyDTO(party, await isFull(c.var.repositories, party)),
+    party: toPartyDTO(party, await isFull(c.var.repositories, party), c.env),
     inviteId: invite.id,
     forwardToken: forwardTokenFor(invite, party),
     status: invite.status,
@@ -241,7 +249,7 @@ invites.post('/:slug/answer', async (c) => {
 
   const invite = answered.value;
   const dto: InviteOpenDTO = {
-    party: toPartyDTO(party, await isFull(c.var.repositories, party)),
+    party: toPartyDTO(party, await isFull(c.var.repositories, party), c.env),
     inviteId: invite.id,
     forwardToken: forwardTokenFor(invite, party),
     status: invite.status,
