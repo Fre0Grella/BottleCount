@@ -1,8 +1,8 @@
-import { emptyPaymentDetails } from '../../shared/payments';
-import settingsData from '../data/settings.json';
-import { localIsoDate } from './dates';
-import { withStoredTicketCodes } from './ticket';
-import type { Party, PartyMenu } from './types';
+import { emptyPaymentDetails } from '../../../shared/payments';
+import settingsData from '../../data/settings.json';
+import { localIsoDate } from '../../lib/dates';
+import { withStoredTicketCodes } from '../../lib/ticket';
+import type { Party, PartyMenu } from '../../lib/types';
 
 /**
  * What a party starts with, and what a stored party is brought up to.

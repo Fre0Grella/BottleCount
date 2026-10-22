@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue';
 import { useStore } from '../store/store';
-import { runsBar } from '../lib/core';
+import { runsBar } from '../features/party/core';
 import Icon from '../components/ui/Icon.vue';
 import Logo from '../components/ui/Logo.vue';
 import AppFooter from '../components/site/AppFooter.vue';
 import HomeScreen from './HomeScreen.vue';
-import PartyHeader from '../components/PartyHeader.vue';
-import KpiBar from '../components/KpiBar.vue';
-import PlanTab from '../components/tabs/PlanTab.vue';
+import PartyHeader from '../features/party/PartyHeader.vue';
+import KpiBar from '../features/party/KpiBar.vue';
+import PlanTab from '../features/party/PlanTab.vue';
 import MenuTab from '../features/menu/MenuTab.vue';
 import ShoppingTab from '../features/menu/ShoppingTab.vue';
 import GuestsTab from '../features/guests/GuestsTab.vue';

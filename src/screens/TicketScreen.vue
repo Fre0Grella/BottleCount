@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { coverOf } from '../lib/covers';
+import { coverOf } from '../features/party/covers';
 import { downloadFile } from '../lib/download';
 import { brandedQrDataUrl, buildTicketFile } from '../lib/drawing';
 import type { TicketLinkDTO } from '../../shared/ticketLinks';

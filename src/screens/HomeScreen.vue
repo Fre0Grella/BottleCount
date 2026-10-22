@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from '../store/store';
-import { coverOf } from '../lib/covers';
-import { runsBar } from '../lib/core';
+import { coverOf } from '../features/party/covers';
+import { runsBar } from '../features/party/core';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, segColor, venueWhere } from '../lib/display';
 import Icon from '../components/ui/Icon.vue';

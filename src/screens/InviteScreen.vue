@@ -6,7 +6,7 @@ import { inviteUrl, pathParam } from '../../shared/urls';
 import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
-import { coverOf } from '../lib/covers';
+import { coverOf } from '../features/party/covers';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, venueWhere } from '../lib/display';
 import { safeLocal } from '../lib/safeStorage';

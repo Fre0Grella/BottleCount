@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculate, planFor, runsBar, venueFeeFor } from './core';
-import type { Catalog, Settings } from './types';
+import type { Catalog, Settings } from '../../lib/types';
 
 const catalog: Catalog = {
   ingredients: {

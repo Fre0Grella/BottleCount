@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from '../../store/store';
-import { COVERS, coverOf } from '../../lib/covers';
-import { VIBES, BUFFERS } from '../../lib/planPresets';
-import { runsBar } from '../../lib/core';
+import { COVERS, coverOf } from './covers';
+import { VIBES, BUFFERS } from './planPresets';
+import { runsBar } from './core';
 import { formatEuro, venueWhere as whereOf } from '../../lib/display';
-import Icon from '../ui/Icon.vue';
-import Slider from '../ui/Slider.vue';
-import PaymentSettings from '../PaymentSettings.vue';
+import Icon from '../../components/ui/Icon.vue';
+import Slider from '../../components/ui/Slider.vue';
+import PaymentSettings from '../../components/PaymentSettings.vue';
 
 const store = useStore();
 

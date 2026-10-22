@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
 import { ticketState } from '../../../shared/tickets';
-import { venueFeeFor, venueFeePerPerson } from '../../lib/core';
+import { venueFeeFor, venueFeePerPerson } from '../party/core';
 import { mailtoUrl, whatsappUrl } from '../../lib/sendLinks';
 import {
   sendRoute,

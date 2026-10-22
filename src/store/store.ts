@@ -1,12 +1,12 @@
 import { ticketState } from '../../shared/tickets';
 import { deleteRemoteParty } from '../lib/api/parties';
 import { defaultExtras, loadCatalog } from '../features/menu/catalog';
-import { calculate, planFor, runsBar } from '../lib/core';
+import { calculate, planFor, runsBar } from '../features/party/core';
 import { db } from '../lib/db';
 import { watchDevice } from '../lib/device';
 import * as guests from '../features/guests/guestList';
 import * as menu from '../features/menu/menu';
-import { newParty, upgradeParty } from '../lib/partyDefaults';
+import { newParty, upgradeParty } from '../features/party/partyDefaults';
 import { fetchSession } from '../features/account/session';
 import * as sharing from '../lib/sharing';
 import {

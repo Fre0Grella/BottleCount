@@ -1,5 +1,5 @@
 import Dexie, { type DexieOptions, type Table } from 'dexie';
-import { upgradeParty } from './partyDefaults';
+import { upgradeParty } from '../features/party/partyDefaults';
 import type { Party, UserDataKey } from './types';
 
 interface UserDataRow {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from '../../store/store';
-import { coverOf } from '../../lib/covers';
+import { coverOf } from '../../features/party/covers';
 import Modal from '../ui/Modal.vue';
 import Icon from '../ui/Icon.vue';
 import ShareChannels from '../ShareChannels.vue';

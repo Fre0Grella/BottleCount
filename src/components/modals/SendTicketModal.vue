@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore } from '../../store/store';
-import { coverOf } from '../../lib/covers';
+import { coverOf } from '../../features/party/covers';
 import { findInvite, ticketCode } from '../../lib/ticket';
 import { shortDate } from '../../lib/dates';
 import {

@@ -3,8 +3,8 @@ import type {
   Catalog,
   CalculationResult,
   ShoppingItem,
-} from './types';
-import { isSimpleCategory } from '../features/menu/menu';
+} from '../../lib/types';
+import { isSimpleCategory } from '../menu/menu';
 
 /**
  * Whether the host plans the drinks for this party. Absent means yes: parties
