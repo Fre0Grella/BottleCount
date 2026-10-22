@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useStore } from '../lib/store';
-import { redeemLicence } from '../lib/session';
+import { redeemLicence } from '../lib/api/session';
+import { errorCode } from '../lib/api/request';
 import type { Feature } from '../../shared/tiers';
 import { APP_URL } from '../lib/links';
 import Modal from './Modal.vue';
@@ -58,7 +59,7 @@ async function handleRedeem(): Promise<void> {
     await store.refreshSession();
     store.closeUpgrade();
   } else {
-    error.value = ERRORS[result.error ?? ''] ?? 'Something went wrong.';
+    error.value = ERRORS[errorCode(result.error)] ?? 'Something went wrong.';
   }
   redeeming.value = false;
 }

@@ -1,6 +1,6 @@
 import { signTicket } from './crypto';
 import { ticketPayload } from './ticket';
-import { storeTicketLink } from './invites';
+import { storeTicketLink } from './api/tickets';
 import { shortTicketUrl, ticketUrl } from './ticketLink';
 import type { Invite, Party } from './types';
 

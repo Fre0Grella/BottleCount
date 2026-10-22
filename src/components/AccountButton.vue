@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from '../lib/store';
-import { devSignIn, logout } from '../lib/session';
+import { devSignIn, logout } from '../lib/api/session';
 import Icon from './Icon.vue';
 
 const store = useStore();
@@ -46,7 +46,7 @@ async function handleDevSignIn(): Promise<void> {
     await store.refreshSession();
   } else {
     signInError.value =
-      result.error === 'network_error'
+      result.error.kind === 'network'
         ? "Couldn't reach the server."
         : 'Sign-in failed.';
   }

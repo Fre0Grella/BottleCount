@@ -4,7 +4,8 @@ import type { CollaboratorPreviewDTO } from '../../shared/collab';
 import {
   acceptCollaboratorInvite,
   previewCollaboratorInvite,
-} from '../lib/collab';
+} from '../lib/api/parties';
+import { isNotFound } from '../lib/api/request';
 import { fetchSession } from '../lib/session';
 import { COVERS } from '../lib/store';
 import { APP_URL } from '../lib/links';
@@ -61,7 +62,7 @@ onMounted(async () => {
 
   const result = await previewCollaboratorInvite(token.value);
   if (!result.ok || !result.value) {
-    phase.value = result.error === 'http_404' ? 'gone' : 'error';
+    phase.value = !result.ok && isNotFound(result.error) ? 'gone' : 'error';
     return;
   }
 

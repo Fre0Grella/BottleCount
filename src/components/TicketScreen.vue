@@ -4,7 +4,8 @@ import { COVERS } from '../lib/store';
 import { brandedQrDataUrl } from '../lib/qr';
 import { buildTicketFile, downloadFile } from '../lib/ticket';
 import type { TicketLinkDTO } from '../../shared/ticketLinks';
-import { fetchTicketLink } from '../lib/invites';
+import { fetchTicketLink } from '../lib/api/tickets';
+import { isNotFound } from '../lib/api/request';
 import {
   openTicket,
   parseTicketHash,
@@ -102,7 +103,7 @@ async function fromShortLink(): Promise<OpenedTicket | null> {
     return openTicket(result.value.signed, result.value);
   }
 
-  if (result.error === 'http_404') {
+  if (!result.ok && isNotFound(result.error)) {
     try {
       localStorage.removeItem(key);
     } catch {

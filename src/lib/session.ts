@@ -1,5 +1,6 @@
 import type { SessionDTO } from '../../shared/session';
 import { featuresFor } from '../../shared/tiers';
+import { getSession } from './api/session';
 
 /**
  * What the app assumes before — and if need be instead of — an answer from the
@@ -40,67 +41,8 @@ function isSessionDTO(value: unknown): value is SessionDTO {
  * start when the part of it that is meant to be optional is missing.
  */
 export async function fetchSession(): Promise<SessionDTO> {
-  try {
-    const res = await fetch('/api/session', {
-      credentials: 'include',
-      headers: { accept: 'application/json' },
-    });
-    if (!res.ok) return ANONYMOUS_SESSION;
-    const body: unknown = await res.json();
-    return isSessionDTO(body) ? body : ANONYMOUS_SESSION;
-  } catch {
-    return ANONYMOUS_SESSION;
-  }
-}
-
-/**
- * Signs in by email alone, where the Worker allows it (`session.devSignIn`):
- * local development and self-hosted deployments. The cookie it sets is the same
- * one Google sign-in sets, so nothing downstream can tell them apart.
- */
-export async function devSignIn(email: string): Promise<RedeemResult> {
-  try {
-    const res = await fetch('/auth/dev', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    if (res.ok) return { ok: true };
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    return { ok: false, error: body.error ?? `http_${res.status}` };
-  } catch {
-    return { ok: false, error: 'network_error' };
-  }
-}
-
-/** Clears the httpOnly session cookie, which only the server can do. */
-export async function logout(): Promise<void> {
-  try {
-    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
-  } catch {
-    /* Already effectively signed out as far as the user is concerned. */
-  }
-}
-
-export interface RedeemResult {
-  ok: boolean;
-  error?: string;
-}
-
-/** Exchanges a purchased licence code for the `pro` tier. */
-export async function redeemLicence(code: string): Promise<RedeemResult> {
-  try {
-    const res = await fetch('/api/licences/redeem', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code }),
-    });
-    if (res.ok) return { ok: true };
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    return { ok: false, error: body.error ?? `http_${res.status}` };
-  } catch {
-    return { ok: false, error: 'network_error' };
-  }
+  const result = await getSession();
+  return result.ok && isSessionDTO(result.value)
+    ? result.value
+    : ANONYMOUS_SESSION;
 }

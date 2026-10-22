@@ -4,7 +4,8 @@ import { requireContact } from '../../shared/contact';
 import type { InviteAnswer, InviteOpenDTO } from '../../shared/invites';
 import { inviteUrl } from '../../shared/invites';
 import { formatIban, paymentReference } from '../../shared/payments';
-import { answerInvite, openInvite } from '../lib/invites';
+import { answerInvite, openInvite } from '../lib/api/guests';
+import { isNotFound } from '../lib/api/request';
 import { COVERS } from '../lib/store';
 import BrandMark from './BrandMark.vue';
 import Icon from './Icon.vue';
@@ -252,7 +253,7 @@ onMounted(async () => {
   });
 
   if (!result.ok || !result.value) {
-    phase.value = result.error === 'http_404' ? 'gone' : 'error';
+    phase.value = !result.ok && isNotFound(result.error) ? 'gone' : 'error';
     return;
   }
 
@@ -302,23 +303,26 @@ async function respond(answer: InviteAnswer): Promise<void> {
       : {}),
   });
 
+  const failure = result.ok ? null : result.error;
+  const code = failure?.kind === 'http' ? failure.code : null;
+
   if (result.ok && result.value) {
     data.value = result.value;
     phase.value = 'answered';
     if (needsContact) {
       rememberContact(slug.value, { email: email.value, phone: phone.value });
     }
-  } else if (result.error && CONTACT_ERRORS[result.error]) {
+  } else if (code && CONTACT_ERRORS[code]) {
     // The host made the party paid while this guest had the page open, or the
     // server read the details differently. Either way, say which field.
-    error.value = CONTACT_ERRORS[result.error] ?? null;
-    if (data.value && result.error === 'contact_required') {
+    error.value = CONTACT_ERRORS[code] ?? null;
+    if (data.value && code === 'contact_required') {
       data.value = {
         ...data.value,
         party: { ...data.value.party, paid: true },
       };
     }
-  } else if (result.error === 'party_full') {
+  } else if (code === 'party_full') {
     // Re-read so the card flips to "full" — someone took the last place while
     // this guest was typing.
     error.value = 'That was the last place — the party just filled up.';
@@ -328,7 +332,7 @@ async function respond(answer: InviteAnswer): Promise<void> {
         party: { ...data.value.party, full: true },
       };
     }
-  } else if (result.error === 'http_404') {
+  } else if (failure && isNotFound(failure)) {
     phase.value = 'gone';
   } else {
     error.value = "Couldn't send that. Try again in a moment.";
