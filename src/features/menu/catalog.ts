@@ -1,7 +1,7 @@
-import type { Catalog, Ingredient, Cocktail, Settings } from './types';
-import { getKey, setKey } from './db';
-import catalogData from '../data/catalog.json';
-import settingsData from '../data/settings.json';
+import type { Catalog, Ingredient, Cocktail, Settings } from '../../lib/types';
+import { getKey, setKey } from '../../lib/db';
+import catalogData from '../../data/catalog.json';
+import settingsData from '../../data/settings.json';
 
 // ── Catalog merge ──────────────────────────────────────────────────────────
 

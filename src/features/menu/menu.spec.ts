@@ -12,7 +12,7 @@ import {
   removeCocktail,
   renameCocktail,
 } from './menu';
-import type { Party, PartyMenu } from './types';
+import type { Party, PartyMenu } from '../../lib/types';
 
 /** A party with only what the menu actions read. */
 function party(menu: PartyMenu, locks: Record<string, boolean> = {}): Party {

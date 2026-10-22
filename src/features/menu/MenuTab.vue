@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from '../../store/store';
-import { isSimpleCategory } from '../../lib/menu';
-import { cocktailRecipe } from '../../lib/catalog';
-import Icon from '../ui/Icon.vue';
+import { isSimpleCategory } from './menu';
+import { cocktailRecipe } from './catalog';
+import Icon from '../../components/ui/Icon.vue';
 import type { IconName } from '../../lib/icons';
-import { TYPE_META } from '../../lib/ingredientTypes';
-import Slider from '../ui/Slider.vue';
+import { TYPE_META } from './ingredientTypes';
+import Slider from '../../components/ui/Slider.vue';
 import { segColor } from '../../lib/display';
 
 const store = useStore();

@@ -1,5 +1,5 @@
-import type { IconName } from './icons';
-import type { IngredientType } from './types';
+import type { IconName } from '../../lib/icons';
+import type { IngredientType } from '../../lib/types';
 
 /**
  * How each ingredient type is named and drawn, everywhere the app groups by

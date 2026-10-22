@@ -4,7 +4,7 @@ import type {
   CalculationResult,
   ShoppingItem,
 } from './types';
-import { isSimpleCategory } from './menu';
+import { isSimpleCategory } from '../features/menu/menu';
 
 /**
  * Whether the host plans the drinks for this party. Absent means yes: parties

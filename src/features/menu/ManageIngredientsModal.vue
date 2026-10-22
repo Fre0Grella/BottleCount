@@ -5,11 +5,11 @@ import {
   savePersonalIngredient,
   deleteIngredient,
   setPriceOverride,
-} from '../../lib/catalog';
+} from './catalog';
 import type { IngredientType } from '../../lib/types';
-import Modal from '../ui/Modal.vue';
-import Icon from '../ui/Icon.vue';
-import { TYPE_META } from '../../lib/ingredientTypes';
+import Modal from '../../components/ui/Modal.vue';
+import Icon from '../../components/ui/Icon.vue';
+import { TYPE_META } from './ingredientTypes';
 import { formatEuroRange } from '../../lib/display';
 
 import catalogData from '../../data/catalog.json';

@@ -1,4 +1,4 @@
-import type { Party, PartyMenu } from './types';
+import type { Party, PartyMenu } from '../../lib/types';
 
 // Simple categories have no drinks layer — only a spirits layer.
 const SIMPLE_CATEGORIES = new Set(['Beer', 'Wine']);
