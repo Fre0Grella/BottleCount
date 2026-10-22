@@ -1,32 +1,18 @@
-import type { PartyDocument } from '../../../shared/collab';
+import { normaliseDocument } from '../../../shared/collab';
 import type { MergePatch } from '../../../shared/patch';
 import type { PublishPartyRequest } from '../../../shared/invites';
-import { sanitisePaymentDetails } from '../../../shared/payments';
 
 /**
  * Validation for everything a client sends about a party.
  *
  * The party document is mostly free-form by design — the menu is whatever
- * categories and cocktails the host invented — so this checks the shape the
- * server itself relies on and bounds the strings that end up on a page anyone
- * with an invite link can open. A host is not a threat; a stolen session is.
+ * categories and cocktails the host invented — so `normaliseDocument` gives it
+ * the shape the server itself relies on and bounds the strings that end up on a
+ * page anyone with an invite link can open. A host is not a threat; a stolen
+ * session is.
  */
 
 const MAX_DOCUMENT_BYTES = 256 * 1024;
-
-function str(value: unknown, max: number, fallback = ''): string {
-  return typeof value === 'string' ? value.slice(0, max) : fallback;
-}
-
-function num(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
 
 /** Normalises a document, or null if it is not one. */
 export function parseDocument(body: unknown): PublishPartyRequest | null {
@@ -37,48 +23,8 @@ export function parseDocument(body: unknown): PublishPartyRequest | null {
     return null;
   if (typeof b.document !== 'object' || b.document === null) return null;
 
-  const d = b.document as Record<string, unknown>;
-  const name = str(d['name'], 80).trim();
-  if (name === '') return null;
-
-  const venue = record(d['venue']);
-  const settings = record(d['settings']);
-
-  const document: PartyDocument = {
-    name,
-    date: str(d['date'], 10),
-    cover: Math.max(0, Math.min(5, Math.trunc(num(d['cover'], 0)))),
-    venue: {
-      place: str(venue['place'], 120),
-      city: str(venue['city'], 80),
-      time: str(venue['time'], 10),
-    },
-    settings: {
-      guests: num(settings['guests'], 0),
-      ticket_price: num(settings['ticket_price'], 0),
-      venue_cost: num(settings['venue_cost'], 0),
-      venue_fee_per_person: Math.max(
-        0,
-        num(settings['venue_fee_per_person'], 0),
-      ),
-      equipment_cost: num(settings['equipment_cost'], 0),
-      alcohol_ml_per_person: num(settings['alcohol_ml_per_person'], 0),
-      buffer: num(settings['buffer'], 1),
-      max_capacity:
-        typeof settings['max_capacity'] === 'number'
-          ? Math.max(1, Math.round(settings['max_capacity']))
-          : null,
-    },
-    menu: record(d['menu']),
-    locks: record(d['locks']) as Record<string, boolean>,
-    checked: record(d['checked']) as Record<string, boolean>,
-    allowForward: d['allowForward'] !== false,
-    includeSnacks: d['includeSnacks'] !== false,
-    barManaged: d['barManaged'] !== false,
-    // These end up on a page every confirmed guest opens, so an identifier that
-    // does not validate is dropped rather than stored.
-    payment: sanitisePaymentDetails(d['payment']),
-  };
+  const document = normaliseDocument(b.document);
+  if (document.name === '') return null;
 
   // A menu is user-authored and unbounded in principle. Cap the stored size so
   // one party cannot become a denial-of-service against the row it lives in.
@@ -91,8 +37,10 @@ export function parseDocument(body: unknown): PublishPartyRequest | null {
  * Checks a patch without interpreting it.
  *
  * Its keys are menu categories and cocktail names, so there is no schema to
- * validate against — what matters is that it is a plain object of bounded size,
- * and that it cannot reach fields the document does not own.
+ * validate against — what matters is that it is a plain object of bounded size
+ * with no key that reaches a prototype. Whatever it does to the document's
+ * shape, deleting a field included, is undone on the way out: every stored
+ * document is read through `normaliseDocument`.
  */
 export function parsePatch(
   body: unknown,

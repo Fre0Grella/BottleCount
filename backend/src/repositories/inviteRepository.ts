@@ -41,13 +41,13 @@ export const INVITE_ERRORS = {
   NOT_FOUND: 'invite_not_found',
   /** The cap is reached; the caller may still decline, just not confirm. */
   PARTY_FULL: 'party_full',
-  /** The drawn ticket code was taken. Caller redraws — see lib/ticketCodes.ts. */
+  /** The drawn ticket code was taken. Redrawn inside — see lib/ticketCodes.ts. */
   CODE_TAKEN: 'ticket_code_taken',
   /** Five redraws all collided, which is a fault rather than bad luck. */
   CODE_UNAVAILABLE: 'ticket_code_unavailable',
   /** Someone already walked in on this ticket. */
   ALREADY_CHECKED_IN: 'already_checked_in',
-  /** The drawn ticket slug was taken — 60 bits, so in practice never. */
+  /** Every drawn ticket slug was taken — 60 bits, so in practice never. */
   SLUG_TAKEN: 'ticket_slug_taken',
 } as const;
 
@@ -113,7 +113,6 @@ export interface InviteRepository {
   addManual(args: {
     partyId: string;
     name: string;
-    ticketCode: string;
     contact: GuestContact;
   }): Promise<Result<Invite>>;
 
@@ -138,9 +137,9 @@ export interface InviteRepository {
    * Marks a guest as through the door.
    *
    * The server arbitrates rather than each phone deciding for itself: that is
-   * the whole difference between one scanner and several. A second scan returns
-   * ALREADY_CHECKED_IN along with the invite, so the door can say *when* they
-   * came in rather than only that they did.
+   * the whole difference between one scanner and several. A second scan fails
+   * with ALREADY_CHECKED_IN and changes nothing; the caller reads the invite
+   * again for *when* they came in, so the door can say so.
    */
   checkIn(args: {
     inviteId: string;
@@ -150,14 +149,13 @@ export interface InviteRepository {
 
   /**
    * Stores the guest's signed ticket for their short link. Keeps the slug the
-   * invite already has, so a link already sent keeps working; `slug` is only
-   * used for an invite that has none yet.
+   * invite already has, so a link already sent keeps working; an invite with
+   * none gets a freshly drawn one, redrawn if it is taken.
    */
   setTicket(args: {
     inviteId: string;
     partyId: string;
     signed: string;
-    slug: string;
   }): Promise<Result<Invite>>;
 
   /** The invite a short ticket link names, whichever party it is in. */

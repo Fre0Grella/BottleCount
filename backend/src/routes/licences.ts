@@ -1,15 +1,9 @@
 import { Hono } from 'hono';
-import type { JwtVariables } from 'hono/jwt';
-import { featuresFor, resolveTier, type Tier } from '../../../shared/tiers';
-import type { AppVariables } from '../appEnv';
-import { LICENCE_ERRORS } from '../repositories/licenceRepository';
-import { userErrorStatus } from './helpers';
-
-type Bindings = {
-  SELF_HOSTED?: string;
-  ENVIRONMENT: string;
-  TEST_LICENCE_CODE?: string;
-};
+import { featuresFor, type Tier } from '../../../shared/tiers';
+import type { Bindings, UserEnv } from '../appEnv';
+import { effectiveTier } from '../deployment';
+import { fail, readBody, text } from './http';
+import { requireUser } from './middleware';
 
 /**
  * Whether `code` is this deployment's test licence.
@@ -22,16 +16,18 @@ type Bindings = {
  * Refused on production whatever the var says: the code is in a public
  * repository, so a copy-pasted env block must not become a free licence.
  */
-function isTestLicence(env: Bindings, code: string): boolean {
+function isTestLicence(
+  env: Pick<Bindings, 'ENVIRONMENT' | 'TEST_LICENCE_CODE'>,
+  code: string,
+): boolean {
   if (env.ENVIRONMENT === 'production') return false;
   const expected = env.TEST_LICENCE_CODE?.trim().toUpperCase();
   return !!expected && code.toUpperCase() === expected;
 }
 
-const licences = new Hono<{
-  Bindings: Bindings;
-  Variables: AppVariables & JwtVariables;
-}>();
+const licences = new Hono<UserEnv>();
+
+licences.use('*', requireUser);
 
 /**
  * `POST /api/licences/redeem` — turn a purchased code into `pro`.
@@ -42,38 +38,25 @@ const licences = new Hono<{
  * changes.
  */
 licences.post('/redeem', async (c) => {
-  const sub = c.get('jwtPayload')?.sub;
-  if (typeof sub !== 'string') return c.json({ error: 'unauthenticated' }, 401);
-
-  const body = await c.req
-    .json<{ code?: string }>()
-    .catch(() => ({}) as { code?: string });
-  const code = body.code?.trim();
+  const userId = c.get('userId');
+  const code = text(await readBody(c), 'code').trim();
   if (!code) return c.json({ error: 'code is required' }, 400);
 
   let grantedTier: Tier;
   if (isTestLicence(c.env, code)) {
     grantedTier = 'pro';
   } else {
-    const redeemed = await c.var.repositories.licences.redeem(code, sub);
-    if (!redeemed.ok) {
-      // An unknown code and a spent one answer alike: telling them apart lets
-      // someone probe the keyspace for codes that merely belong to somebody else.
-      const status = redeemed.error === LICENCE_ERRORS.UNKNOWN ? 404 : 409;
-      return c.json({ error: redeemed.error }, status);
-    }
+    const redeemed = await c.var.repositories.licences.redeem(code, userId);
+    if (!redeemed.ok) return fail(c, redeemed.error);
     grantedTier = redeemed.value.tier;
   }
 
-  const updated = await c.var.repositories.users.setTier(sub, grantedTier);
-  if (!updated.ok) {
-    return c.json({ error: updated.error }, userErrorStatus(updated.error));
-  }
+  // A session whose user genuinely does not exist is a 404; anything else is
+  // ours and must not be dressed up as a missing user.
+  const updated = await c.var.repositories.users.setTier(userId, grantedTier);
+  if (!updated.ok) return fail(c, updated.error);
 
-  const tier = resolveTier({
-    storedTier: updated.value.tier,
-    selfHosted: c.env.SELF_HOSTED === 'true',
-  });
+  const tier = effectiveTier(updated.value.tier, c.env);
   return c.json({ tier, features: featuresFor(tier) });
 });
 

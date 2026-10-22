@@ -76,10 +76,52 @@ export function requireContact(
   emailInput: string,
   phoneInput: string,
 ): GuestContact | { error: ContactError } {
+  const contact = optionalContact(emailInput, phoneInput);
+  if ('error' in contact) return contact;
+  if (contact.email === null && contact.phone === null) {
+    return { error: 'contact_required' };
+  }
+  return contact;
+}
+
+/**
+ * Contact details an organiser typed, or why they are refused. Unlike
+ * {@link requireContact} both may be blank: blank clears a field, and the guest
+ * list is where they are corrected later.
+ */
+export function optionalContact(
+  emailInput: string,
+  phoneInput: string,
+): GuestContact | { error: ContactError } {
   const email = normaliseEmail(emailInput);
   if (email === null) return { error: 'invalid_email' };
   const phone = normalisePhone(phoneInput);
   if (phone === null) return { error: 'invalid_phone' };
-  if (email === '' && phone === '') return { error: 'contact_required' };
   return { email: email || null, phone: phone || null };
+}
+
+/**
+ * The contact details a guest's answer stores, or why it is refused.
+ *
+ * Only a yes to a paid party keeps any: they are there to send a ticket to, and
+ * someone who declines, or confirms a free party, is not getting one — so they
+ * leave nothing behind. A yes to a paid party needs at least one of the two,
+ * whichever the guest is happier to give.
+ */
+export function answerContact(
+  confirmed: boolean,
+  paidParty: boolean,
+  emailInput: string,
+  phoneInput: string,
+): GuestContact | { error: ContactError } {
+  if (!confirmed || !paidParty) return { email: null, phone: null };
+  return requireContact(emailInput, phoneInput);
+}
+
+/** The longest guest name kept: enough for a full name, short enough for a row. */
+export const GUEST_NAME_MAX = 60;
+
+/** A guest's name as stored — trimmed and bounded. Empty means none was given. */
+export function guestName(input: string): string {
+  return input.trim().slice(0, GUEST_NAME_MAX);
 }

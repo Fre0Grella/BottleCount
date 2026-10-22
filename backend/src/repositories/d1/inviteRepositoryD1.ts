@@ -2,7 +2,10 @@ import type { GuestContact } from '../../../../shared/contact';
 import type { InviteAnswer, InviteStatus } from '../../../../shared/invites';
 import { INVITE_STATUSES } from '../../../../shared/invites';
 import { newToken } from '../../lib/tokens';
-import { withUniqueTicketCode } from '../../lib/ticketCodes';
+import {
+  withUniqueTicketCode,
+  withUniqueTicketSlug,
+} from '../../lib/ticketCodes';
 import {
   INVITE_ERRORS,
   type Invite,
@@ -11,6 +14,7 @@ import {
   type InviteWithReferrer,
 } from '../inviteRepository';
 import { err, ok, type Result } from '../result';
+import { isUniqueViolation } from './constraints';
 
 interface InviteRow {
   id: string;
@@ -35,6 +39,25 @@ interface InviteRow {
 
 interface InviteJoinRow extends InviteRow {
   referrer_name: string | null;
+}
+
+/**
+ * Runs an INSERT that draws a ticket code, answering CODE_TAKEN — which
+ * `withUniqueTicketCode` redraws on — only when the code is what collided.
+ */
+async function insertWithCode(
+  insert: Promise<InviteRow | null>,
+): Promise<Result<Invite>> {
+  try {
+    const row = await insert;
+    // RETURNING always yields the row it inserted.
+    return ok(toInvite(row!));
+  } catch (error) {
+    if (isUniqueViolation(error, 'invites.ticket_code')) {
+      return err(INVITE_ERRORS.CODE_TAKEN);
+    }
+    throw error;
+  }
 }
 
 function toStatus(value: string): InviteStatus {
@@ -120,28 +143,27 @@ export class InviteRepositoryD1 implements InviteRepository {
     // The code is minted here, on open, rather than on confirmation: a guest
     // who answers expects their ticket immediately, and generating it later
     // would mean a second write on the busiest path.
-    return withUniqueTicketCode(async (ticketCode) => {
-      const row = await this.db
-        .prepare(
-          `INSERT INTO invites (
+    return withUniqueTicketCode((ticketCode) =>
+      insertWithCode(
+        this.db
+          .prepare(
+            `INSERT INTO invites (
              id, party_id, name, status, depth, referrer_id,
              forward_token, ticket_code, source, opened_at
            ) VALUES (?, ?, NULL, 'opened', ?, ?, ?, ?, 'link', ?) RETURNING *`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          partyId,
-          depth,
-          referrerId,
-          newToken(),
-          ticketCode,
-          new Date().toISOString(),
-        )
-        .first<InviteRow>()
-        .catch(() => null);
-
-      return row ? ok(toInvite(row)) : err(INVITE_ERRORS.CODE_TAKEN);
-    });
+          )
+          .bind(
+            crypto.randomUUID(),
+            partyId,
+            depth,
+            referrerId,
+            newToken(),
+            ticketCode,
+            new Date().toISOString(),
+          )
+          .first<InviteRow>(),
+      ),
+    );
   }
 
   async findById(id: string): Promise<Result<Invite>> {
@@ -266,40 +288,38 @@ export class InviteRepositoryD1 implements InviteRepository {
   }: {
     partyId: string;
     name: string;
-    ticketCode: string;
     contact: GuestContact;
   }): Promise<Result<Invite>> {
     const now = new Date().toISOString();
 
-    // `ticketCode` in the signature is ignored in favour of a drawn one: the
-    // caller should not have to know about collisions, and the retry has to own
-    // the draw for the redraw to mean anything.
-    return withUniqueTicketCode(async (code) => {
-      const row = await this.db
-        .prepare(
-          `INSERT INTO invites (
+    // The code is drawn here, not by the caller: the caller should not have to
+    // know about collisions, and the retry has to own the draw for the redraw
+    // to mean anything.
+    return withUniqueTicketCode((code) =>
+      insertWithCode(
+        this.db
+          .prepare(
+            `INSERT INTO invites (
              id, party_id, name, status, depth, referrer_id,
              forward_token, ticket_code, source, opened_at, answered_at,
              email, phone
            ) VALUES (?, ?, ?, 'confirmed', 0, NULL, ?, ?, 'manual', ?, ?, ?, ?)
            RETURNING *`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          partyId,
-          name,
-          newToken(),
-          code,
-          now,
-          now,
-          contact.email,
-          contact.phone,
-        )
-        .first<InviteRow>()
-        .catch(() => null);
-
-      return row ? ok(toInvite(row)) : err(INVITE_ERRORS.CODE_TAKEN);
-    });
+          )
+          .bind(
+            crypto.randomUUID(),
+            partyId,
+            name,
+            newToken(),
+            code,
+            now,
+            now,
+            contact.email,
+            contact.phone,
+          )
+          .first<InviteRow>(),
+      ),
+    );
   }
 
   async setContact({
@@ -382,29 +402,33 @@ export class InviteRepositoryD1 implements InviteRepository {
     inviteId,
     partyId,
     signed,
-    slug,
   }: {
     inviteId: string;
     partyId: string;
     signed: string;
-    slug: string;
   }): Promise<Result<Invite>> {
     // COALESCE keeps a slug the invite already has: re-sending a ticket must
     // not break the link in the guest's chat. The unique index refuses a slug
-    // another invite holds, which at 60 bits does not happen; the caller
-    // redraws if it ever does.
-    const row = await this.db
-      .prepare(
-        `UPDATE invites
-         SET ticket_signed = ?, ticket_slug = COALESCE(ticket_slug, ?)
-         WHERE id = ? AND party_id = ? RETURNING *`,
-      )
-      .bind(signed, slug, inviteId, partyId)
-      .first<InviteRow>()
-      .catch(() => undefined);
-
-    if (row === undefined) return err(INVITE_ERRORS.SLUG_TAKEN);
-    return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
+    // another invite holds, which at 60 bits does not happen; this redraws if
+    // it ever does.
+    return withUniqueTicketSlug(async (slug) => {
+      try {
+        const row = await this.db
+          .prepare(
+            `UPDATE invites
+             SET ticket_signed = ?, ticket_slug = COALESCE(ticket_slug, ?)
+             WHERE id = ? AND party_id = ? RETURNING *`,
+          )
+          .bind(signed, slug, inviteId, partyId)
+          .first<InviteRow>();
+        return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
+      } catch (error) {
+        if (isUniqueViolation(error, 'invites.ticket_slug')) {
+          return err(INVITE_ERRORS.SLUG_TAKEN);
+        }
+        throw error;
+      }
+    });
   }
 
   async findByTicketSlug(slug: string): Promise<Result<Invite>> {

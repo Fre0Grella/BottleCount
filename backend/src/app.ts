@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { jwt } from 'hono/jwt';
-import type { AppVariables } from './appEnv';
+import type { AppVariables, Bindings } from './appEnv';
 import { repositoriesFor } from './composition';
 import type { Repositories } from './repositories/repositories';
 import auth from './routes/auth';
@@ -15,26 +15,7 @@ import licences from './routes/licences';
 import parties from './routes/parties';
 import session from './routes/session';
 
-export type Bindings = {
-  db: D1Database;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-  JWT_SECRET: string;
-  FRONTEND_URL: string;
-  ENVIRONMENT: string;
-  /** "true" on a self-hosted deployment — see shared/tiers.ts. */
-  SELF_HOSTED?: string;
-  /** A reusable licence for testing. Ignored on production — see routes/licences.ts. */
-  TEST_LICENCE_CODE?: string;
-  /** Guards the unauthenticated invite endpoints. Absent locally. */
-  INVITE_RATE_LIMITER?: {
-    limit(o: { key: string }): Promise<{ success: boolean }>;
-  };
-  /** Guards the short ticket links, generously — see routes/tickets.ts. */
-  TICKET_RATE_LIMITER?: {
-    limit(o: { key: string }): Promise<{ success: boolean }>;
-  };
-};
+export type { Bindings };
 
 export type App = Hono<{ Bindings: Bindings; Variables: AppVariables }>;
 

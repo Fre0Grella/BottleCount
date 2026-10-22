@@ -68,6 +68,9 @@ export function fakeMembers(
       userId: string;
       role: PartyRole;
     }): Promise<Result<PartyMember>> {
+      // D1 joins the member onto their user row, and has no row to add for a
+      // user who does not exist.
+      if (!users().has(userId)) return err(MEMBER_ERRORS.NOT_FOUND);
       const rows = memberships.get(partyId) ?? new Map<string, PartyRole>();
       // Never demote: an owner opening their own invite link stays the owner.
       if (!rows.has(userId)) rows.set(userId, role);

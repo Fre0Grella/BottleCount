@@ -1,8 +1,7 @@
 import { toRaw } from 'vue';
-import type { PartyDocument } from '../../shared/collab';
-import { DOCUMENT_FIELDS } from '../../shared/collab';
-import { sanitisePaymentDetails } from '../../shared/payments';
-import type { Party } from './types';
+import type { PartyDocument, SharedPartyDTO } from '../../shared/collab';
+import { DOCUMENT_FIELDS, normaliseDocument } from '../../shared/collab';
+import type { Party, PartyPublication } from './types';
 
 // ── The document ────────────────────────────────────────────────────────────
 
@@ -27,16 +26,33 @@ export function documentOf(party: Party): PartyDocument {
   return document as unknown as PartyDocument;
 }
 
-/** Copies a document onto a local party, leaving local-only fields alone. */
+/**
+ * Copies a document onto a local party, leaving local-only fields alone.
+ *
+ * Through the same `normaliseDocument` the server reads every stored document
+ * with, so a document from before a field existed (`payment`, say) or one a
+ * merge patch left partial cannot leave the Plan tab reading and writing fields
+ * that are not there.
+ */
 export function applyDocument(party: Party, document: PartyDocument): void {
+  const whole = normaliseDocument(document);
   for (const field of DOCUMENT_FIELDS) {
     // `as never` because TypeScript cannot see that the two index the same key
     // set. That guarantee lives on DOCUMENT_FIELDS, which is checked against
     // PartyDocument where it is declared.
-    party[field] = structuredClone(document[field]) as never;
+    party[field] = structuredClone(whole[field]) as never;
   }
-  // A document stored before payments existed has no `payment`, and a merge
-  // patch onto one stores only the fields that changed. Either would leave the
-  // Plan tab's card reading and writing fields that are not there.
-  party.payment = sanitisePaymentDetails(document.payment);
+}
+
+/** What a browser keeps of a stored party, from what the server said of it. */
+export function publicationOf(shared: SharedPartyDTO): PartyPublication {
+  return {
+    remoteId: shared.id,
+    features: shared.features,
+    version: shared.version,
+    slug: shared.publication?.slug ?? null,
+    rootToken: shared.publication?.rootToken ?? null,
+    ticketKey: shared.ticketKey,
+    publishedAt: shared.updatedAt,
+  };
 }

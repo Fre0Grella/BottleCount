@@ -2,21 +2,15 @@ import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { verify } from 'hono/jwt';
 import type { SessionDTO } from '../../../shared/session';
-import { featuresFor, resolveTier } from '../../../shared/tiers';
-import type { AppVariables } from '../appEnv';
-import { devSignInEnabled } from './devAuth';
+import { featuresFor } from '../../../shared/tiers';
+import type { AppEnv } from '../appEnv';
+import { deployment, effectiveTier } from '../deployment';
 
-type Bindings = {
-  JWT_SECRET: string;
-  ENVIRONMENT: string;
-  SELF_HOSTED?: string;
-};
-
-const session = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
+const session = new Hono<AppEnv>();
 
 /** Anonymous free tier — what an unsigned, expired or unreadable cookie means. */
 function anonymous(selfHosted: boolean, devSignIn: boolean): SessionDTO {
-  const tier = resolveTier({ storedTier: null, selfHosted });
+  const tier = effectiveTier(null, {});
   return {
     authenticated: false,
     user: null,
@@ -38,8 +32,7 @@ function anonymous(selfHosted: boolean, devSignIn: boolean): SessionDTO {
  * drop to free, not be shown a failure over a product they are still using.
  */
 session.get('/', async (c) => {
-  const selfHosted = c.env.SELF_HOSTED === 'true';
-  const devSignIn = devSignInEnabled(c.env);
+  const { selfHosted, devSignIn } = deployment(c.env);
   const token = getCookie(c, 'session_token');
   if (!token) return c.json(anonymous(selfHosted, devSignIn));
 
@@ -60,7 +53,7 @@ session.get('/', async (c) => {
   if (!found.ok) return c.json(anonymous(selfHosted, devSignIn));
 
   const user = found.value;
-  const tier = resolveTier({ storedTier: user.tier, selfHosted });
+  const tier = effectiveTier(user.tier, c.env);
 
   const dto: SessionDTO = {
     authenticated: true,

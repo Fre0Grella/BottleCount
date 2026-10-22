@@ -1,6 +1,5 @@
 import type { PartyDocument, PartyRole } from '../../../../shared/collab';
 import type { GuestContact } from '../../../../shared/contact';
-import { generateTicketCode } from '../../../../shared/tickets';
 import { apply as applyPatch } from '../../../../shared/patch';
 import type { MergePatch } from '../../../../shared/patch';
 import type {
@@ -15,12 +14,18 @@ import type {
 } from '../../repositories/inviteRepository';
 import { INVITE_ERRORS } from '../../repositories/inviteRepository';
 import {
+  cardOf,
   PARTY_ERRORS,
+  readDocument,
   type PartyRepository,
   type PartySummary,
   type PublishedParty,
 } from '../../repositories/partyRepository';
 import { err, ok, type Result } from '../../repositories/result';
+import {
+  withUniqueTicketCode,
+  withUniqueTicketSlug,
+} from '../../lib/ticketCodes';
 
 /**
  * In-memory parties and invites.
@@ -40,12 +45,36 @@ export function resetFakeIds(): void {
 }
 
 export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
+  /**
+   * The stored rows. `document` is kept as written, like D1's JSON column —
+   * a patch may leave it any shape — and every read normalises it.
+   */
   rows: Map<string, PublishedParty>;
   /** Membership, so `listForUser` can answer. Set by `fakeMembers`. */
   memberships: Map<string, Map<string, PartyRole>>;
 } {
   const rows = new Map(seed.map((p) => [p.id, p]));
   const memberships = new Map<string, Map<string, PartyRole>>();
+
+  /** What D1's `toParty` does with a row: the document wins, normalised. */
+  function read(row: PublishedParty): PublishedParty {
+    if (!row.document) return row;
+    const document = readDocument(
+      row.document as unknown as Record<string, unknown>,
+      row,
+    );
+    return { ...row, ...cardOf(document), document };
+  }
+
+  /**
+   * The owner's membership, on every publish rather than only the first, as
+   * D1 does: a row lost once is repaired by the next save. Never demotes.
+   */
+  function ensureOwner(partyId: string, ownerId: string): void {
+    const members = memberships.get(partyId) ?? new Map<string, PartyRole>();
+    if (!members.has(ownerId)) members.set(ownerId, 'owner');
+    memberships.set(partyId, members);
+  }
 
   return {
     rows,
@@ -65,18 +94,14 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
           // the party must not reopen one the owner closed.
           const updated: PublishedParty = {
             ...row,
-            name: doc.name,
-            date: doc.date,
-            cover: doc.cover,
-            venue: doc.venue,
-            allowForward: doc.allowForward,
-            maxCapacity: doc.settings.max_capacity,
+            ...cardOf(doc),
             document: doc,
             version: row.version + 1,
             updatedAt: now,
           };
           rows.set(row.id, updated);
-          return ok(updated);
+          ensureOwner(row.id, ownerId);
+          return ok(read(updated));
         }
       }
 
@@ -85,12 +110,7 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
         ownerId,
         localId: snapshot.localId,
         slug: `${doc.name.toLowerCase().replace(/\W+/g, '-')}-${nextId('s')}`,
-        name: doc.name,
-        date: doc.date,
-        cover: doc.cover,
-        venue: doc.venue,
-        allowForward: doc.allowForward,
-        maxCapacity: doc.settings.max_capacity,
+        ...cardOf(doc),
         rootToken: nextId('root'),
         publishedAt: now,
         updatedAt: now,
@@ -102,41 +122,28 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
         ticketKey: { kty: 'oct', k: `key-${nextId('k')}` },
       };
       rows.set(party.id, party);
-
-      const members = memberships.get(party.id) ?? new Map<string, PartyRole>();
-      members.set(ownerId, 'owner');
-      memberships.set(party.id, members);
-
-      return ok(party);
+      ensureOwner(party.id, ownerId);
+      return ok(read(party));
     },
 
     async findBySlug(slug: string): Promise<Result<PublishedParty>> {
       for (const row of rows.values()) {
-        if (row.slug === slug) return ok(row);
+        if (row.slug === slug) return ok(read(row));
       }
       return err(PARTY_ERRORS.NOT_FOUND);
     },
 
     async findById(id: string): Promise<Result<PublishedParty>> {
       const row = rows.get(id);
-      return row ? ok(row) : err(PARTY_ERRORS.NOT_FOUND);
-    },
-
-    async findByOwnerAndLocalId(
-      ownerId: string,
-      localId: number,
-    ): Promise<Result<PublishedParty>> {
-      for (const row of rows.values()) {
-        if (row.ownerId === ownerId && row.localId === localId) return ok(row);
-      }
-      return err(PARTY_ERRORS.NOT_FOUND);
+      return row ? ok(read(row)) : err(PARTY_ERRORS.NOT_FOUND);
     },
 
     async listForUser(userId: string): Promise<Result<PartySummary[]>> {
       const out: PartySummary[] = [];
-      for (const row of rows.values()) {
-        const role = memberships.get(row.id)?.get(userId);
+      for (const stored of rows.values()) {
+        const role = memberships.get(stored.id)?.get(userId);
         if (!role) continue;
+        const row = read(stored);
         out.push({
           id: row.id,
           name: row.name,
@@ -148,6 +155,12 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
           memberCount: memberships.get(row.id)?.size ?? 1,
         });
       }
+      // D1's ORDER BY p.date DESC, p.updated_at DESC.
+      out.sort(
+        (a, b) =>
+          b.date.localeCompare(a.date) ||
+          b.updatedAt.localeCompare(a.updatedAt),
+      );
       return ok(out);
     },
 
@@ -166,45 +179,22 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
 
       // The same RFC 7386 rules SQLite's json_patch applies, via the shared
       // implementation — so a test exercises the semantics the real statement
-      // has, even though it cannot exercise its atomicity.
-      const document = applyPatch(
+      // has, even though it cannot exercise its atomicity. Like the statement,
+      // it writes only the document: the card fields come from it on read.
+      const stored = applyPatch(
         row.document as unknown as Record<string, never>,
         patch,
       ) as unknown as PartyDocument;
       const updatedAt = new Date().toISOString();
       const updated: PublishedParty = {
         ...row,
-        document,
+        document: stored,
         version: row.version + 1,
         updatedAt,
-        name: document.name,
-        date: document.date,
-        cover: document.cover,
-        venue: document.venue,
-        allowForward: document.allowForward,
-        maxCapacity: document.settings.max_capacity,
       };
       rows.set(partyId, updated);
-      return ok({ document, version: updated.version, updatedAt });
-    },
-
-    async putDocument({
-      partyId,
-      document,
-    }: {
-      partyId: string;
-      document: PartyDocument;
-    }): Promise<Result<{ version: number; updatedAt: string }>> {
-      const row = rows.get(partyId);
-      if (!row) return err(PARTY_ERRORS.NOT_FOUND);
-      const updatedAt = new Date().toISOString();
-      rows.set(partyId, {
-        ...row,
-        document,
-        version: row.version + 1,
-        updatedAt,
-      });
-      return ok({ version: row.version + 1, updatedAt });
+      const { document } = read(updated);
+      return ok({ document: document!, version: updated.version, updatedAt });
     },
 
     async setInvitesOpen(
@@ -213,20 +203,17 @@ export function fakeParties(seed: PublishedParty[] = []): PartyRepository & {
     ): Promise<Result<PublishedParty>> {
       const row = rows.get(id);
       if (!row) return err(PARTY_ERRORS.NOT_FOUND);
-      const updated = { ...row, invitesOpen: open };
+      const updated = {
+        ...row,
+        invitesOpen: open,
+        updatedAt: new Date().toISOString(),
+      };
       rows.set(id, updated);
-      return ok(updated);
+      return ok(read(updated));
     },
 
     async deleteById(id: string): Promise<Result<void>> {
       return rows.delete(id) ? ok(undefined) : err(PARTY_ERRORS.NOT_FOUND);
-    },
-
-    async unpublish(ownerId: string, id: string): Promise<Result<void>> {
-      const row = rows.get(id);
-      if (!row || row.ownerId !== ownerId) return err(PARTY_ERRORS.NOT_FOUND);
-      rows.delete(id);
-      return ok(undefined);
     },
   };
 }
@@ -241,6 +228,26 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
       (i) =>
         i.partyId === partyId && i.status === 'confirmed' && i.id !== excluding,
     ).length;
+
+  /**
+   * Inserts an invite under a drawn ticket code, refusing one its party already
+   * has as D1's unique index does — through the same redraw policy.
+   */
+  function insert(invite: Omit<Invite, 'ticketCode'>): Promise<Result<Invite>> {
+    return withUniqueTicketCode(async (ticketCode) => {
+      for (const other of rows.values()) {
+        if (
+          other.partyId === invite.partyId &&
+          other.ticketCode === ticketCode
+        ) {
+          return err(INVITE_ERRORS.CODE_TAKEN);
+        }
+      }
+      const row: Invite = { ...invite, ticketCode };
+      rows.set(row.id, row);
+      return ok(row);
+    });
+  }
 
   return {
     rows,
@@ -267,7 +274,7 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         }
       }
 
-      const invite: Invite = {
+      return insert({
         id: nextId('invite'),
         partyId,
         name: null,
@@ -275,7 +282,6 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         depth,
         referrerId,
         forwardToken: nextId('fwd'),
-        ticketCode: generateTicketCode(),
         source: 'link',
         checkedIn: false,
         checkedInAt: null,
@@ -286,9 +292,7 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         paidAt: null,
         ticketSlug: null,
         ticketSigned: null,
-      };
-      rows.set(invite.id, invite);
-      return ok(invite);
+      });
     },
     async findById(id: string): Promise<Result<Invite>> {
       const row = rows.get(id);
@@ -357,11 +361,10 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
     }: {
       partyId: string;
       name: string;
-      ticketCode: string;
       contact: GuestContact;
     }): Promise<Result<Invite>> {
       const now = new Date().toISOString();
-      const invite: Invite = {
+      return insert({
         id: nextId('invite'),
         partyId,
         name,
@@ -369,7 +372,6 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         depth: 0,
         referrerId: null,
         forwardToken: nextId('fwd'),
-        ticketCode: generateTicketCode(),
         source: 'manual',
         checkedIn: false,
         checkedInAt: null,
@@ -379,9 +381,7 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
         paidAt: null,
         ticketSlug: null,
         ticketSigned: null,
-      };
-      rows.set(invite.id, invite);
-      return ok(invite);
+      });
     },
 
     async setContact({
@@ -440,28 +440,30 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
       inviteId,
       partyId,
       signed,
-      slug,
     }: {
       inviteId: string;
       partyId: string;
       signed: string;
-      slug: string;
     }): Promise<Result<Invite>> {
-      const row = rows.get(inviteId);
-      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
-      const nextSlug = row.ticketSlug ?? slug;
-      for (const other of rows.values()) {
-        if (other.id !== inviteId && other.ticketSlug === nextSlug) {
-          return err(INVITE_ERRORS.SLUG_TAKEN);
+      return withUniqueTicketSlug(async (slug) => {
+        const row = rows.get(inviteId);
+        if (!row || row.partyId !== partyId) {
+          return err(INVITE_ERRORS.NOT_FOUND);
         }
-      }
-      const updated: Invite = {
-        ...row,
-        ticketSigned: signed,
-        ticketSlug: nextSlug,
-      };
-      rows.set(inviteId, updated);
-      return ok(updated);
+        const nextSlug = row.ticketSlug ?? slug;
+        for (const other of rows.values()) {
+          if (other.id !== inviteId && other.ticketSlug === nextSlug) {
+            return err(INVITE_ERRORS.SLUG_TAKEN);
+          }
+        }
+        const updated: Invite = {
+          ...row,
+          ticketSigned: signed,
+          ticketSlug: nextSlug,
+        };
+        rows.set(inviteId, updated);
+        return ok(updated);
+      });
     },
 
     async findByTicketSlug(slug: string): Promise<Result<Invite>> {
