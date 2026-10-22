@@ -1,4 +1,4 @@
-# Why these are three files and not one catchall
+# Why these are separate files and not one catchall
 
 Pages Functions win over static assets on the same path. A
 `functions/auth/[[catchall]].ts` would therefore swallow `/auth/callback` —
@@ -9,5 +9,5 @@ sign-in.
 So each backend auth endpoint is named explicitly (`guest-google/` holds the
 two routes of a guest's "Continue with Google"), and every other `/auth/*`
 path stays a static page. Adding a route to `backend/src/routes/auth.ts` means
-adding a file here too; forgetting to is a 404 on that endpoint, which is
-noisier and easier to diagnose than the alternative failure.
+adding a file here too, and an entry to `DEV_PROXY_PATHS` in astro.config.mjs;
+`functions/routes.spec.ts` fails until both are there.
