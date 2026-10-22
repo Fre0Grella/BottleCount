@@ -1,3 +1,4 @@
+import { logoUrl } from './brand';
 import { qrCanvas } from './qr';
 
 /**
@@ -11,9 +12,10 @@ import { qrCanvas } from './qr';
 
 /**
  * The mark on the QR's centre plate: the dark logo, a tile of its own on the
- * white plate. Change this line to take the mark from elsewhere.
+ * white plate. Fixed, whatever the page's Theme: ticket visuals are fixed
+ * branding (CONTEXT.md).
  */
-const QR_LOGO_SRC = `${import.meta.env.BASE_URL}logoDark.svg`;
+const QR_LOGO_SRC = logoUrl('dark');
 
 /** The plate's proportions, as fractions of the QR's width. */
 const QR_LOGO = { size: 0.25, pad: 0.022, radius: 0.0625 };

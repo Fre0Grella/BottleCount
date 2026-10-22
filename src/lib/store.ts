@@ -7,6 +7,7 @@ import type {
   Settings,
 } from './types';
 import { db } from './db';
+import { currentTheme, toggleTheme as switchTheme } from './theme';
 import { fetchSession, ANONYMOUS_SESSION } from './session';
 import { mergeFunnel, adoptRemoteGuest, sameInvites } from './invites';
 import {
@@ -203,18 +204,8 @@ const state = reactive<StoreState>({
   expandedSpirit: null,
 });
 
-function applyTheme(t: 'dark' | 'light'): void {
-  document.documentElement.dataset['theme'] = t;
-}
-
-function setTheme(t: 'dark' | 'light'): void {
-  state.theme = t;
-  applyTheme(t);
-  localStorage.setItem('bc-theme', t);
-}
-
 function toggleTheme(): void {
-  setTheme(state.theme === 'dark' ? 'light' : 'dark');
+  state.theme = switchTheme();
 }
 
 function activeParty(): Party | undefined {
@@ -325,10 +316,8 @@ async function load(): Promise<void> {
     }
   }
 
-  const savedTheme = localStorage.getItem('bc-theme');
-  const theme: 'dark' | 'light' = savedTheme === 'light' ? 'light' : 'dark';
-  state.theme = theme;
-  applyTheme(theme);
+  // Resolved before first paint by the page's head script (src/lib/theme.ts).
+  state.theme = currentTheme();
 
   state.device = window.innerWidth < 700 ? 'phone' : 'desktop';
 
@@ -1313,7 +1302,6 @@ function closeDoor(): void {
 export const store = {
   state,
   // theme
-  setTheme,
   toggleTheme,
   // party lifecycle
   activeParty,

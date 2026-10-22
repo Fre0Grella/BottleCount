@@ -145,6 +145,12 @@
   }
 }
 
+@keyframes bcSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes bcSweep {
   0% {
     background-position: 0% 50%;
@@ -164,6 +170,22 @@ body {
   font-family: var(--font-body);
 }
 
+body {
+  min-height: 100dvh;
+}
+
+/* Body variants (BaseLayout's `bodyClass`). */
+body.app-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+body.centred {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -173,6 +195,19 @@ textarea,
 button {
   font-family: inherit;
   outline: none;
+}
+
+/* Keyboard focus is always visible. Pointer focus stays quiet: browsers only
+   match :focus-visible for it on text fields, where the caret already shows. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 0;
 }
 
 ::-webkit-scrollbar {
@@ -187,4 +222,110 @@ button {
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ── Brand and icons ── */
+.bc-icon {
+  display: block;
+}
+
+.bc-spin {
+  animation: bcSpin 0.8s linear infinite;
+}
+
+/* The mark draws in the Theme's accent pair; src/lib/brand.spec.ts holds
+   those to the palettes the public/ logo files are generated with. */
+.bc-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bc-logo__mark {
+  display: block;
+  flex-shrink: 0;
+}
+
+.bc-logo__tile {
+  fill: var(--accent);
+}
+
+.bc-logo__ink {
+  fill: none;
+  stroke: var(--on-accent);
+}
+
+.bc-wordmark {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.bc-wordmark__accent {
+  color: var(--accent);
+}
+
+/* ── Site pages (landing, docs, pricing, legal) ── */
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.btn-accent,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-accent {
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  transition: opacity 0.15s;
+}
+
+.btn-accent:hover {
+  opacity: 0.88;
+}
+
+.btn-ghost {
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+
+.btn-ghost:hover {
+  border-color: var(--dim);
+}
+
+.btn-lg {
+  gap: 8px;
+  font-size: 15px;
+  padding: 14px 24px;
+  border-radius: 14px;
+}
+
+.btn-accent.btn-lg {
+  box-shadow: 0 10px 30px var(--accent-soft);
+}
+
+@media (max-width: 700px) {
+  .shell {
+    padding: 0 16px;
+  }
 }

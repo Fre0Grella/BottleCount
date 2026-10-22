@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { brandedQrDataUrl } from '../lib/drawing';
 import { mailtoUrl, smsUrl, whatsappUrl } from '../lib/sendLinks';
 import Icon from './Icon.vue';
+import type { IconName } from '../lib/icons';
 
 /**
  * The ways to pass a link on: Copy, WhatsApp, Email, Messages, Instagram, and a
@@ -80,7 +81,7 @@ function openApp(url: string, app: string, newTab = false): void {
 
 interface Channel {
   label: string;
-  iconName: string;
+  iconName: IconName;
   color: string;
   onClick: () => void | Promise<void>;
 }
@@ -88,20 +89,20 @@ interface Channel {
 const channels: Channel[] = [
   {
     label: 'Copy link',
-    iconName: 'link',
+    iconName: 'link' as const,
     color: 'var(--accent)',
     onClick: () => copyLink('Link copied — paste it anywhere.'),
   },
   {
     label: 'WhatsApp',
-    iconName: 'message',
+    iconName: 'message' as const,
     color: '#25D366',
     onClick: () =>
       openApp(whatsappUrl(props.message, props.phone), 'WhatsApp', true),
   },
   {
     label: 'Email',
-    iconName: 'mail',
+    iconName: 'mail' as const,
     color: '#60A5FA',
     onClick: () =>
       openApp(
@@ -111,13 +112,13 @@ const channels: Channel[] = [
   },
   {
     label: 'Messages',
-    iconName: 'message',
+    iconName: 'message' as const,
     color: '#34D399',
     onClick: () => openApp(smsUrl(props.message, props.phone), 'Messages'),
   },
   {
     label: 'Instagram',
-    iconName: 'instagram',
+    iconName: 'instagram' as const,
     color: '#E1306C',
     onClick: async () => {
       // Instagram has no link that opens a DM with text in it. On a phone the
@@ -140,7 +141,7 @@ const channels: Channel[] = [
   },
   {
     label: 'QR code',
-    iconName: 'qr',
+    iconName: 'qr' as const,
     color: '#A78BFA',
     onClick: async () => {
       if (qrDataUrl.value) {

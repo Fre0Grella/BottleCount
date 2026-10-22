@@ -1,5 +1,10 @@
 <script setup lang="ts">
+/**
+ * The one footer: the app's screens and, rendered statically by Astro, every
+ * site page.
+ */
 const year = new Date().getFullYear();
+const base = import.meta.env.BASE_URL as string;
 </script>
 
 <template>
@@ -7,6 +12,12 @@ const year = new Date().getFullYear();
     <div class="app-footer__inner">
       <div class="app-footer__group">
         <span class="app-footer__muted">© {{ year }} BottleCount</span>
+        <span class="app-footer__sep">·</span>
+        <a class="app-footer__link" :href="`${base}pricing`">Pricing</a>
+        <span class="app-footer__sep">·</span>
+        <a class="app-footer__link" :href="`${base}privacy`">Privacy</a>
+        <span class="app-footer__sep">·</span>
+        <a class="app-footer__link" :href="`${base}terms`">Terms</a>
       </div>
 
       <div class="app-footer__group">

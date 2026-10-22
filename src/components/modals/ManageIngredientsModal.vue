@@ -9,6 +9,7 @@ import {
 import type { IngredientType } from '../../lib/types';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
+import { TYPE_META } from '../../lib/ingredientTypes';
 
 import catalogData from '../../data/catalog.json';
 import type { Catalog } from '../../lib/types';
@@ -41,26 +42,9 @@ watch(
 
 // ── Type groups ────────────────────────────────────────────────────────────
 
-interface TypeGroup {
-  type: IngredientType;
-  label: string;
-  icon: string;
-  color: string;
-}
-
-const TYPE_GROUPS: TypeGroup[] = [
-  { type: 'beer', label: 'Beer', icon: 'beer', color: 'var(--accent)' },
-  { type: 'wine', label: 'Wine', icon: 'wine', color: 'var(--accent)' },
-  { type: 'spirit', label: 'Spirits', icon: 'bottle', color: 'var(--accent)' },
-  {
-    type: 'mixer',
-    label: 'Mixers & soft',
-    icon: 'droplet',
-    color: 'var(--accent)',
-  },
-  { type: 'extra', label: 'Extras', icon: 'zap', color: 'var(--accent)' },
-  { type: 'snack', label: 'Snacks', icon: 'sparkle', color: 'var(--accent)' },
-];
+const TYPE_GROUPS = (
+  ['beer', 'wine', 'spirit', 'mixer', 'extra', 'snack'] as IngredientType[]
+).map((type) => ({ type, ...TYPE_META[type] }));
 
 // ── Derived ingredient list ────────────────────────────────────────────────
 
@@ -309,7 +293,7 @@ function handleClose() {
               margin-bottom: 4px;
             "
           >
-            <span style="display: flex" :style="{ color: group.color }">
+            <span style="display: flex; color: var(--accent)">
               <Icon :name="group.icon" :size="16" />
             </span>
             <span

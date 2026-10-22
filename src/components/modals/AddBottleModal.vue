@@ -4,6 +4,7 @@ import { useStore } from '../../lib/store';
 import { savePersonalIngredient } from '../../lib/catalog';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
+import { TYPE_META } from '../../lib/ingredientTypes';
 
 const store = useStore();
 
@@ -11,12 +12,6 @@ const store = useStore();
 
 function shortName(key: string): string {
   return key.replace(/\s+\d+(?:cl|ml|L|kg|g)$/i, '').trim();
-}
-
-function typeIcon(t: string): string {
-  if (t === 'beer') return 'beer';
-  if (t === 'wine') return 'wine';
-  return 'bottle';
 }
 
 // ── Derived from store ───────────────────────────────────────────────────────
@@ -54,7 +49,7 @@ const bottleOptions = computed(() => {
     .map(([k, v]) => ({
       key: k,
       name: shortName(k),
-      icon: typeIcon(v.type),
+      icon: TYPE_META[v.type].icon,
       meta:
         (v.abv ? Math.round(v.abv * 100) + '% ABV · ' : '') +
         '€' +
