@@ -7,8 +7,9 @@
  * no CORS preflight stands between a user and signing in. Pointing the frontend
  * straight at `*.workers.dev` instead would make every session cross-site.
  *
- * A file prefixed with `_` is not itself a route, so this module stays shared
- * helper code rather than becoming a `/_backend` endpoint.
+ * Wrangler makes a route of every file here that exports an `onRequest*`, not
+ * of every file without a `_`; this one exports none, so it stays shared helper
+ * code rather than becoming a `/_backend` endpoint.
  */
 export interface ProxyEnv {
   BACKEND?: { fetch(request: Request): Promise<Response> };
