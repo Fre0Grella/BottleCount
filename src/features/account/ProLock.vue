@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from '../store/store';
-import type { Feature } from '../../shared/tiers';
-import Icon from './ui/Icon.vue';
+import { useStore } from '../../store/store';
+import type { Feature } from '../../../shared/tiers';
+import Icon from '../../components/ui/Icon.vue';
 
 /**
  * Wraps a paid feature.

@@ -8,7 +8,7 @@ import { formatEuro, segColor, venueWhere } from '../lib/display';
 import Icon from '../components/ui/Icon.vue';
 import Logo from '../components/ui/Logo.vue';
 import AppFooter from '../components/site/AppFooter.vue';
-import AccountButton from '../components/AccountButton.vue';
+import AccountButton from '../features/account/AccountButton.vue';
 import type { Party } from '../lib/types';
 
 const store = useStore();

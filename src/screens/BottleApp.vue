@@ -20,7 +20,7 @@ import SendTicketModal from '../components/modals/SendTicketModal.vue';
 import TicketModal from '../components/modals/TicketModal.vue';
 import AddGuestModal from '../components/modals/AddGuestModal.vue';
 import DoorScannerModal from '../components/modals/DoorScannerModal.vue';
-import UpgradeModal from '../components/UpgradeModal.vue';
+import UpgradeModal from '../features/account/UpgradeModal.vue';
 import CoOrganisersModal from '../components/modals/CoOrganisersModal.vue';
 
 const store = useStore();

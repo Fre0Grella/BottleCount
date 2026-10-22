@@ -1,6 +1,6 @@
-import type { SessionDTO } from '../../shared/session';
-import { featuresFor } from '../../shared/tiers';
-import { getSession } from './api/session';
+import type { SessionDTO } from '../../../shared/session';
+import { featuresFor } from '../../../shared/tiers';
+import { getSession } from '../../lib/api/session';
 
 /**
  * What the app assumes before — and if need be instead of — an answer from the

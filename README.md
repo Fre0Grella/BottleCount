@@ -140,8 +140,9 @@ answers anonymous callers instead of rejecting them.
 
 If the Worker is unreachable — it is down, or a self-hoster has not wired the
 service binding up yet — the app degrades cleanly to the free tier instead of
-failing. That is deliberate, and [`src/lib/session.ts`](src/lib/session.ts) is
-where it is enforced.
+failing. That is deliberate, and
+[`src/features/account/session.ts`](src/features/account/session.ts) is where
+it is enforced.
 
 The documentation site on GitHub Pages is a separate build that contains no
 application at all; see [Deploying](#deploying).

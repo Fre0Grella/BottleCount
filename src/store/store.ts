@@ -7,7 +7,7 @@ import { watchDevice } from '../lib/device';
 import * as guests from '../lib/guestList';
 import * as menu from '../lib/menu';
 import { newParty, upgradeParty } from '../lib/partyDefaults';
-import { fetchSession } from '../lib/session';
+import { fetchSession } from '../features/account/session';
 import * as sharing from '../lib/sharing';
 import {
   activeParty,

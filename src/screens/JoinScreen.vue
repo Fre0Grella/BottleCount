@@ -6,7 +6,7 @@ import {
   previewCollaboratorInvite,
 } from '../lib/api/parties';
 import { isNotFound } from '../lib/api/request';
-import { fetchSession } from '../lib/session';
+import { fetchSession } from '../features/account/session';
 import { coverOf } from '../lib/covers';
 import { APP_URL } from '../lib/links';
 import { pathParam } from '../../shared/urls';

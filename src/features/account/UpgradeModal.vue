@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useStore } from '../store/store';
-import { redeemLicence } from '../lib/api/session';
-import { errorCode } from '../lib/api/request';
-import type { Feature } from '../../shared/tiers';
-import { APP_URL } from '../lib/links';
-import Modal from './ui/Modal.vue';
-import Icon from './ui/Icon.vue';
+import { useStore } from '../../store/store';
+import { redeemLicence } from '../../lib/api/session';
+import { errorCode } from '../../lib/api/request';
+import type { Feature } from '../../../shared/tiers';
+import { APP_URL } from '../../lib/links';
+import Modal from '../../components/ui/Modal.vue';
+import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
 

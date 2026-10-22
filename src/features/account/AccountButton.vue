@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useStore } from '../store/store';
-import { devSignIn, logout } from '../lib/api/session';
-import Icon from './ui/Icon.vue';
+import { useStore } from '../../store/store';
+import { devSignIn, logout } from '../../lib/api/session';
+import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
 

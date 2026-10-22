@@ -4,7 +4,7 @@ import { canUse, type Feature } from '../../shared/tiers';
 import { db } from '../lib/db';
 import type { Device } from '../lib/device';
 import { PartySession, type SessionStatus } from '../lib/partySession';
-import { ANONYMOUS_SESSION } from '../lib/session';
+import { ANONYMOUS_SESSION } from '../features/account/session';
 import type { Catalog, Party } from '../lib/types';
 
 /**
