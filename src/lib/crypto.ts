@@ -1,5 +1,11 @@
 import { getKey, setKey } from './db';
 import type { TicketQRPayload } from '../../shared/tickets';
+import {
+  base64ToBytes,
+  bytesToBase64,
+  encodeTicketPayload,
+  parseSignedTicket,
+} from '../../shared/tickets';
 import type { Party } from './types';
 
 /**
@@ -20,7 +26,7 @@ import type { Party } from './types';
  * structured-clone step throws DataCloneError on a CryptoKey.
  */
 
-async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
+export async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'jwk',
     jwk,
@@ -57,33 +63,24 @@ async function keyFor(party: Party): Promise<CryptoKey> {
 }
 
 /** What a ticket is signed over. Order is fixed; JSON key order is not. */
-function canonical(payload: TicketQRPayload): string {
-  return JSON.stringify([
-    payload.code,
-    payload.partyId,
-    payload.guestName,
-    payload.expiresAt,
-  ]);
+function canonical(payload: TicketQRPayload): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(
+    JSON.stringify([
+      payload.code,
+      payload.partyId,
+      payload.guestName,
+      payload.expiresAt,
+    ]),
+  );
 }
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-export async function signTicket(
-  party: Party,
+/** Signs a payload with a given key — what `signTicket` does once it has one. */
+export async function signWithKey(
+  key: CryptoKey,
   payload: TicketQRPayload,
 ): Promise<string> {
-  const key = await keyFor(party);
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(canonical(payload)),
-  );
-  const payloadB64 = btoa(JSON.stringify(payload));
-  return `${payloadB64}.${toBase64(new Uint8Array(signature))}`;
+  const signature = await crypto.subtle.sign('HMAC', key, canonical(payload));
+  return `${encodeTicketPayload(payload)}.${bytesToBase64(new Uint8Array(signature))}`;
 }
 
 export type TicketCheck =
@@ -91,43 +88,49 @@ export type TicketCheck =
   | { ok: false; reason: 'malformed' | 'bad_signature' };
 
 /**
+ * Checks a signed string against a given key. A ticket signed before #18 may
+ * read two ways (see `parseSignedTicket`); the reading the signature matches
+ * is the one that was signed.
+ */
+export async function verifyWithKey(
+  key: CryptoKey,
+  signed: string,
+): Promise<TicketCheck> {
+  const parsed = parseSignedTicket(signed);
+  if (!parsed) return { ok: false, reason: 'malformed' };
+
+  try {
+    const signature = base64ToBytes(parsed.signature);
+    for (const payload of parsed.readings) {
+      if (
+        await crypto.subtle.verify('HMAC', key, signature, canonical(payload))
+      )
+        return { ok: true, payload };
+    }
+    return { ok: false, reason: 'bad_signature' };
+  } catch {
+    return { ok: false, reason: 'malformed' };
+  }
+}
+
+export async function signTicket(
+  party: Party,
+  payload: TicketQRPayload,
+): Promise<string> {
+  return signWithKey(await keyFor(party), payload);
+}
+
+/**
  * Checks a scanned string's signature and nothing else.
  *
  * Whether the guest is actually coming, and whether they already walked in, are
  * questions about the guest list rather than the signature — the door answers
- * those separately, because the answers differ per party and per moment while
- * this one never does.
+ * those separately (`checkTicket` in `ticket.ts`), because the answers differ
+ * per party and per moment while this one never does.
  */
 export async function verifyTicket(
   party: Party,
   qrString: string,
 ): Promise<TicketCheck> {
-  const [payloadB64, signatureB64] = qrString.split('.');
-  if (!payloadB64 || !signatureB64) return { ok: false, reason: 'malformed' };
-
-  try {
-    const payload = JSON.parse(atob(payloadB64)) as TicketQRPayload;
-    if (
-      typeof payload.code !== 'string' ||
-      typeof payload.guestName !== 'string'
-    ) {
-      return { ok: false, reason: 'malformed' };
-    }
-
-    const key = await keyFor(party);
-    const signature = Uint8Array.from(atob(signatureB64), (c) =>
-      c.charCodeAt(0),
-    );
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signature,
-      new TextEncoder().encode(canonical(payload)),
-    );
-    return valid
-      ? { ok: true, payload }
-      : { ok: false, reason: 'bad_signature' };
-  } catch {
-    return { ok: false, reason: 'malformed' };
-  }
+  return verifyWithKey(await keyFor(party), qrString);
 }

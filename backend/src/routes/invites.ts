@@ -40,11 +40,7 @@ const invites = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
 
 /** Whether confirming needs an email. Read from the stored document, like payment. */
 function partyIsPaid(party: PublishedParty): boolean {
-  if (!party.document) return false;
-  return isPaidParty(
-    party.document.settings.ticket_price,
-    party.document.payment,
-  );
+  return isPaidParty(party.document);
 }
 
 function toPartyDTO(

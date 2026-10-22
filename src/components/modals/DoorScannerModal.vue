@@ -3,10 +3,8 @@ import { ref, watch, onUnmounted } from 'vue';
 import QrScanner from 'qr-scanner';
 import { useStore } from '../../lib/store';
 import { verifyTicket } from '../../lib/crypto';
-import { ticketPartyId } from '../../lib/ticket';
-import { isTicketCode, normaliseTicketCode } from '../../../shared/tickets';
-import { awaitingPayment } from '../../lib/invites';
-import type { Invite } from '../../lib/types';
+import { checkTicket } from '../../lib/ticket';
+import type { DoorEntry, DoorVerdict } from '../../lib/ticket';
 import Icon from '../Icon.vue';
 
 const store = useStore();
@@ -52,64 +50,103 @@ function scheduleClear(): void {
 // ── Admitting a guest ──────────────────────────────────────────────────────
 
 /**
- * Resolves a ticket to a guest and lets them in, or says why not.
- *
- * Shared by the camera and the typed-code path, because they are the same
- * question asked two ways — and a scanner with a dead camera should not take a
- * different route through the rules than one that works.
+ * Asks the ticket rules (`checkTicket`) and lets the guest in, or says why
+ * not. Shared by the camera and the typed-code path.
  */
-async function admit(
-  invite: Invite | undefined,
-  fallbackName: string,
-): Promise<void> {
-  if (!invite) {
-    reject(fallbackName, 'Not found on the confirmed guest list');
-    return;
-  }
-
-  if (invite.status !== 'confirmed') {
-    reject(invite.name, "They haven't confirmed they're coming");
-    return;
-  }
-
-  // Their code exists from the moment they opened the link, so on a paid party
-  // the code alone is not a ticket. Someone paying at the door can be marked
-  // paid in the guest list and checked again.
+async function admit(entry: DoorEntry): Promise<DoorVerdict | null> {
   const party = store.activeParty();
-  if (party && awaitingPayment(party, invite)) {
-    reject(invite.name, "Hasn't paid yet — mark them paid, then check again");
-    return;
+  if (!party) return null;
+
+  const verdict = checkTicket(party, entry);
+  if (!verdict.ok) {
+    reject(entry, verdict);
+    return verdict;
   }
 
-  if (invite.used) {
-    reject(
-      invite.name,
-      `Already scanned at ${formatSeen(invite.usedAt)} — do not let in again`,
-    );
-    return;
-  }
-
-  const time = nowHHMM();
-  const result = await store.checkInGuest(invite.id, time);
-
+  const { invite } = verdict;
+  const result = await store.checkInGuest(invite.id, nowHHMM());
   if (!result.ok) {
     // The other phone on the door got there first. This is the case a
     // device-local tally could never catch.
-    reject(
-      invite.name,
-      `Already scanned at ${formatSeen(result.alreadyAt)} — do not let in again`,
-    );
-    return;
+    reject(entry, {
+      ok: false,
+      reason: 'already_used',
+      invite: { ...invite, usedAt: result.alreadyAt ?? undefined },
+    });
+    return verdict;
   }
 
   store.state.scanResult = { ok: true, name: invite.name };
   pushHistory(invite.name, nowHHMMSS());
   navigator.vibrate?.([90, 40, 90]);
   scheduleClear();
+  return verdict;
 }
 
-function reject(name: string, sub: string): void {
-  store.state.scanResult = { ok: false, name, sub };
+/** What the door screen says for each way a ticket is refused. */
+function rejection(
+  entry: DoorEntry,
+  verdict: Extract<DoorVerdict, { ok: false }>,
+): { name: string; sub: string } {
+  const who = verdict.invite?.name ?? (verdict.guestName || 'Unknown guest');
+  switch (verdict.reason) {
+    case 'malformed':
+      return entry.kind === 'scan'
+        ? {
+            name: 'Forged or invalid ticket',
+            sub: "That QR isn't a BottleCount ticket",
+          }
+        : {
+            name: 'Invalid code',
+            sub: 'A ticket code is five letters and numbers',
+          };
+    case 'bad_signature':
+      return {
+        name: 'Forged or invalid ticket',
+        sub: 'Signature check failed — this ticket may be counterfeit',
+      };
+    case 'wrong_party':
+      return { name: who, sub: 'Ticket is for another party' };
+    case 'expired':
+      return { name: who, sub: 'This ticket has expired' };
+    case 'unknown_code':
+      return entry.kind === 'scan'
+        ? { name: who, sub: 'Not found on the confirmed guest list' }
+        : {
+            name: 'Unknown code',
+            sub: 'No ticket on this party has that code',
+          };
+    case 'name_missing':
+      return {
+        name: 'Name needed',
+        sub: "Type the guest's name as well as the code",
+      };
+    case 'name_mismatch':
+      // Without naming them — that would hand a stranger a real guest's name.
+      return {
+        name: 'Name does not match',
+        sub: 'That code belongs to a different guest',
+      };
+    case 'not_coming':
+      return { name: who, sub: "They haven't confirmed they're coming" };
+    case 'unpaid':
+      return {
+        name: who,
+        sub: "Hasn't paid yet — mark them paid, then check again",
+      };
+    case 'already_used':
+      return {
+        name: who,
+        sub: `Already scanned at ${formatSeen(verdict.invite?.usedAt)} — do not let in again`,
+      };
+  }
+}
+
+function reject(
+  entry: DoorEntry,
+  verdict: Extract<DoorVerdict, { ok: false }>,
+): void {
+  store.state.scanResult = { ok: false, ...rejection(entry, verdict) };
   navigator.vibrate?.(300);
   scheduleClear();
 }
@@ -126,16 +163,6 @@ function formatSeen(value: string | null | undefined): string {
       });
 }
 
-/** Finds the guest a ticket names, by its code and then by name. */
-function findByCode(code: string, name?: string): Invite | undefined {
-  const party = store.activeParty();
-  if (!party) return undefined;
-  return (
-    party.invites.find((i) => i.ticketCode === code) ??
-    (name ? party.invites.find((i) => i.name === name) : undefined)
-  );
-}
-
 // ── Real scan callback ─────────────────────────────────────────────────────
 async function onScanResult(result: { data: string }): Promise<void> {
   const now = Date.now();
@@ -145,75 +172,31 @@ async function onScanResult(result: { data: string }): Promise<void> {
   const party = store.activeParty();
   if (!party) return;
 
-  const check = await verifyTicket(party, result.data);
-
-  if (!check.ok) {
-    reject(
-      'Forged or invalid ticket',
-      check.reason === 'malformed'
-        ? "That QR isn't a BottleCount ticket"
-        : 'Signature check failed — this ticket may be counterfeit',
-    );
-    return;
-  }
-
-  const { payload } = check;
-
-  if (payload.partyId !== ticketPartyId(party)) {
-    reject(payload.guestName || 'Unknown guest', 'Ticket is for another party');
-    return;
-  }
-
-  if (new Date(payload.expiresAt).getTime() < Date.now()) {
-    reject(payload.guestName || 'Unknown guest', 'This ticket has expired');
-    return;
-  }
-
-  await admit(findByCode(payload.code, payload.guestName), payload.guestName);
+  await admit({ kind: 'scan', check: await verifyTicket(party, result.data) });
 }
 
 // ── Typed code ─────────────────────────────────────────────────────────────
 
+/**
+ * Checking a ticket by hand, when the QR will not scan or a guest has only the
+ * code from their message. The code and the guest's name, both.
+ */
 const manualCode = ref('');
 const manualName = ref('');
 const manualBusy = ref(false);
 
-/**
- * Checking a ticket by hand, when the QR will not scan or a guest has only the
- * code from their message.
- *
- * The code alone is not enough: five characters are short, and a guest who
- * over-hears another's could walk in on it. Requiring the name as well means
- * the person at the door is checking something the code does not carry.
- */
 async function verifyManually(): Promise<void> {
-  const code = normaliseTicketCode(manualCode.value);
-  const name = manualName.value.trim();
-
-  if (!isTicketCode(code)) {
-    reject('Invalid code', 'A ticket code is five letters and numbers');
-    return;
-  }
-  if (!name) {
-    reject('Name needed', "Type the guest's name as well as the code");
-    return;
-  }
-
   manualBusy.value = true;
-  const invite = findByCode(code);
-
-  if (!invite) {
-    reject('Unknown code', 'No ticket on this party has that code');
-  } else if (invite.name.trim().toLowerCase() !== name.toLowerCase()) {
-    // The code resolved, but to somebody else. Say so without naming them —
-    // that would hand a stranger a real guest's name.
-    reject('Name does not match', 'That code belongs to a different guest');
-  } else {
-    await admit(invite, name);
+  const verdict = await admit({
+    kind: 'typed',
+    code: manualCode.value,
+    name: manualName.value,
+  });
+  // Cleared once the ticket named a guest, whatever the door then said.
+  if (verdict && (verdict.ok || verdict.invite)) {
     manualCode.value = '';
     manualName.value = '';
   }
-
   manualBusy.value = false;
 }
 

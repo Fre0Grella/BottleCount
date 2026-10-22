@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { COVERS } from '../lib/store';
-import { brandedQrDataUrl } from '../lib/qr';
-import { buildTicketFile, downloadFile } from '../lib/ticket';
+import { downloadFile } from '../lib/download';
+import { brandedQrDataUrl, buildTicketFile } from '../lib/drawing';
 import type { TicketLinkDTO } from '../../shared/ticketLinks';
 import { fetchTicketLink } from '../lib/api/tickets';
 import { isNotFound } from '../lib/api/request';

@@ -5,6 +5,7 @@ import {
   signedTicketCode,
   TICKET_SLUG_LENGTH,
 } from './ticketLinks';
+import { encodeTicketPayload } from './tickets';
 
 function signed(payload: unknown): string {
   return `${btoa(JSON.stringify(payload))}.${btoa('signature-bytes')}`;
@@ -38,6 +39,18 @@ describe('signedTicketCode', () => {
           expiresAt: 'x',
         }),
       ),
+    ).toBe('AB23C');
+  });
+
+  it('reads a ticket for a name outside Latin-1 (#18)', () => {
+    const payload = {
+      code: 'AB23C',
+      partyId: 'p',
+      guestName: 'Łukasz 王',
+      expiresAt: 'x',
+    };
+    expect(
+      signedTicketCode(`${encodeTicketPayload(payload)}.${btoa('sig')}`),
     ).toBe('AB23C');
   });
 

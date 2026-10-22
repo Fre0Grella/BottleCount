@@ -1,6 +1,5 @@
 import type { HostInviteDTO } from '../../shared/invites';
-import { isPaidParty } from '../../shared/payments';
-import type { Invite, Party } from './types';
+import type { Invite } from './types';
 
 // ── Merging the funnel into the local party ─────────────────────────────────
 
@@ -141,25 +140,5 @@ export function adoptRemoteGuest(
           ...(row.phone ? { phone: row.phone } : {}),
         }
       : i,
-  );
-}
-
-// ── Tickets ─────────────────────────────────────────────────────────────────
-
-/**
- * Whether a guest is coming but has no ticket yet because they have not paid.
- *
- * On a party guests pay for, the ticket is what the payment buys: it is only
- * made, sent or let through the door once an organiser has marked the guest as
- * paid. A free party has no such step, so every confirmed guest has a ticket.
- */
-export function awaitingPayment(
-  party: Pick<Party, 'settings' | 'payment'>,
-  invite: Pick<Invite, 'status' | 'paidAt'>,
-): boolean {
-  return (
-    invite.status === 'confirmed' &&
-    !invite.paidAt &&
-    isPaidParty(party.settings.ticket_price, party.payment)
   );
 }

@@ -1,8 +1,26 @@
-import { signTicket } from './crypto';
-import { brandedQrDataUrl, roundRect } from './qr';
-import type { TicketQRPayload } from '../../shared/tickets';
-import { TICKET_CODE_ALPHABET, TICKET_CODE_LENGTH } from '../../shared/tickets';
-import type { Party } from './types';
+import type { TicketQRPayload, TicketRejection } from '../../shared/tickets';
+import {
+  generateTicketCode,
+  isTicketCode,
+  normaliseTicketCode,
+  TICKET_CODE_ALPHABET,
+  TICKET_CODE_ATTEMPTS,
+  TICKET_CODE_LENGTH,
+  ticketState,
+} from '../../shared/tickets';
+import type { TicketCheck } from './crypto';
+import type { Invite, Party } from './types';
+
+/**
+ * A guest's ticket: its code, what its QR carries, how long it lasts, and
+ * whether the door lets it in.
+ *
+ * Pure on purpose — no canvas, no key store, no network — so every rule here
+ * runs in a test. Signing is `crypto.ts`, drawing is `drawing.ts`.
+ *
+ * Guests are named by their invite id, never by their name: two guests can
+ * share a name, and a guest can be renamed.
+ */
 
 // ── Ticket identity ──────────────────────────────────────────────────────────
 
@@ -17,17 +35,16 @@ function fnv1a(str: string): number {
 }
 
 /**
- * A code derived from the guest's name, for a party that lives only in this
- * browser.
+ * How a local party's ticket codes were made before they were stored: hashed
+ * from the guest's name and the party's id.
  *
- * Shared parties get their codes from the server, where a unique index makes
- * them genuinely unique. This is the free tier's substitute: deterministic, so
- * reopening the app shows the same code on the same ticket, and drawn from the
- * same alphabet so a guest cannot tell the difference. Two guests of the same
- * party could in principle collide; with one device checking one door, the
- * guest's name settles it.
+ * A guest typed in now gets a stored, drawn code instead (see
+ * `newLocalTicketCode`), because a hashed one changed whenever the guest was
+ * renamed. This stays for guests saved before that — their tickets are already
+ * out, printed with this code — and `withStoredTicketCodes` stores it for them
+ * once, so a rename no longer changes it either.
  */
-function derivedCode(party: Party, name: string): string {
+function legacyCode(party: Party, name: string): string {
   let h = fnv1a(`${name}·${String(party.id)}`);
   let code = '';
   for (let i = 0; i < TICKET_CODE_LENGTH; i++) {
@@ -38,14 +55,62 @@ function derivedCode(party: Party, name: string): string {
 }
 
 /**
- * The five characters printed on a guest's ticket.
+ * The code on a guest's ticket. The stored one — the server's on a shared
+ * party, the drawn one on a local party — and the legacy hash only for a
+ * guest that has none yet.
+ */
+function codeOf(party: Party, invite: Invite): string {
+  return invite.ticketCode || legacyCode(party, invite.name);
+}
+
+/** A guest of this party, by invite id. */
+export function findInvite(party: Party, inviteId: number): Invite | undefined {
+  return party.invites.find((i) => i.id === inviteId);
+}
+
+/**
+ * The five characters printed on a guest's ticket, or '' for no such guest.
  *
  * The server's, whenever the party has one — that is the code the other phone
  * on the door will look up, and the one door staff read back over a noisy room.
  */
-export function ticketCode(party: Party, name: string): string {
-  const invite = party.invites.find((i) => i.name === name);
-  return invite?.ticketCode || derivedCode(party, name);
+export function ticketCode(party: Party, inviteId: number): string {
+  const invite = findInvite(party, inviteId);
+  return invite ? codeOf(party, invite) : '';
+}
+
+/**
+ * A code for a guest typed in on this device, unlike any other in the party.
+ *
+ * A shared party's guest takes the server's code once their row exists; until
+ * then this one stands in.
+ */
+export function newLocalTicketCode(party: Party): string {
+  const taken = new Set(party.invites.map((i) => codeOf(party, i)));
+  let code = generateTicketCode();
+  for (let i = 1; i < TICKET_CODE_ATTEMPTS && taken.has(code); i++) {
+    code = generateTicketCode();
+  }
+  return code;
+}
+
+/**
+ * The guest list with a code stored on every local guest that has none, or
+ * null when nothing is missing.
+ *
+ * For guests saved before codes were stored: their code is the legacy hash,
+ * the one already on their ticket, written down so that renaming them no
+ * longer changes it. Server guests are left alone — their code is the
+ * server's, and the next sync would only overwrite anything put here.
+ */
+export function withStoredTicketCodes(party: Party): Invite[] | null {
+  const missing = party.invites.some((i) => !i.remoteId && !i.ticketCode);
+  if (!missing) return null;
+  return party.invites.map((i) =>
+    !i.remoteId && !i.ticketCode
+      ? { ...i, ticketCode: legacyCode(party, i.name) }
+      : i,
+  );
 }
 
 /**
@@ -55,171 +120,141 @@ export function ticketCode(party: Party, name: string): string {
  * another. Falls back to the browser's local id, which is all a local-only
  * party has.
  */
-export function ticketPartyId(party: Party): string {
+function ticketPartyId(party: Party): string {
   return party.publication?.remoteId ?? String(party.id);
 }
 
-/** Build the signed-QR payload for a guest's ticket. */
-export function ticketPayload(party: Party, name: string): TicketQRPayload {
-  // Expiry: party date +1 day at 06:00.
-  const exp = new Date(party.date + 'T06:00:00');
+// ── Expiry ───────────────────────────────────────────────────────────────────
+
+/** A ticket lasts until 06:00 the morning after the party, local time. */
+export function ticketExpiry(party: Pick<Party, 'date'>): Date {
+  const exp = new Date(`${party.date}T06:00:00`);
   exp.setDate(exp.getDate() + 1);
+  return exp;
+}
+
+/** `15 Nov 06:00` — the expiry the ticket shows. */
+export function ticketExpiryLabel(party: Pick<Party, 'date'>): string {
+  const exp = ticketExpiry(party);
+  const day = exp.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  });
+  const time = exp.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${day} ${time}`;
+}
+
+/** The signed-QR payload for a guest's ticket, or null for no such guest. */
+export function ticketPayload(
+  party: Party,
+  inviteId: number,
+): TicketQRPayload | null {
+  const invite = findInvite(party, inviteId);
+  if (!invite) return null;
   return {
-    code: ticketCode(party, name),
+    code: codeOf(party, invite),
     partyId: ticketPartyId(party),
-    guestName: name,
-    expiresAt: exp.toISOString(),
+    guestName: invite.name,
+    expiresAt: ticketExpiry(party).toISOString(),
   };
 }
 
-/** Short "valid until" label derived from the payload. */
-export function ticketExpiryLabel(party: Party): string {
-  const exp = new Date(party.date + 'T12:00');
-  exp.setDate(exp.getDate() + 1);
-  return (
-    exp.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
-    ' 06:00'
-  );
-}
+// ── The door ─────────────────────────────────────────────────────────────────
 
-// ── Canvas helpers ───────────────────────────────────────────────────────────
+/**
+ * What the door was shown: a scanned QR, already checked against the party's
+ * key (`verifyTicket`), or a code and name typed by hand.
+ */
+export type DoorEntry =
+  | { kind: 'scan'; check: TicketCheck }
+  | { kind: 'typed'; code: string; name: string };
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('image load failed'));
-    img.src = src;
-    if (img.complete && img.naturalWidth > 0) resolve(img);
-  });
-}
+export type DoorVerdict =
+  | { ok: true; invite: Invite }
+  | {
+      ok: false;
+      reason: TicketRejection;
+      /** The guest the ticket resolved to, when it got that far. */
+      invite?: Invite;
+      /** The name a scanned ticket carries, for a ticket that resolved to no one. */
+      guestName?: string;
+    };
 
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('canvas toBlob failed'))),
-      'image/png',
-    ),
-  );
-}
-
-// ── Branded QR ───────────────────────────────────────────────────────────────
-
-/** Render a signed ticket QR with the BottleCount logo in the centre. */
-export async function ticketQrDataUrl(
+/**
+ * Whether a ticket gets its guest in, or why not.
+ *
+ * The camera and the typed code are the same question asked two ways, so they
+ * end in the same rules — a scanner with a dead camera should not take a
+ * different route through them than one that works. Checking the guest in
+ * (and losing the race to the other phone on the door) is the caller's.
+ */
+export function checkTicket(
   party: Party,
-  payload: TicketQRPayload,
-): Promise<string> {
-  return brandedQrDataUrl(await signTicket(party, payload));
-}
+  entry: DoorEntry,
+  now: number = Date.now(),
+): DoorVerdict {
+  const byCode = (code: string) =>
+    party.invites.find((i) => codeOf(party, i) === code);
 
-// ── Shareable ticket card ────────────────────────────────────────────────────
-
-export interface TicketCardOptions {
-  partyName: string;
-  dateLabel: string;
-  guestName: string;
-  code: string;
-  qrDataUrl: string;
-  /** CSS gradient string from COVERS, e.g. linear-gradient(135deg,#FF7A3D,#FF3D77) */
-  grad: string;
-  emoji: string;
-}
-
-/** Compose a self-contained, shareable ticket PNG (cover, QR, guest, code). */
-export async function buildTicketCardBlob(
-  opts: TicketCardOptions,
-): Promise<Blob> {
-  const W = 420;
-  const H = 600;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('2d context unavailable');
-
-  // Card background
-  ctx.fillStyle = '#0b1220';
-  roundRect(ctx, 0, 0, W, H, 22);
-  ctx.fill();
-
-  // Header band — cover gradient
-  const cols = opts.grad.match(/#[0-9a-fA-F]{3,8}/g) ?? ['#ff7a3d', '#ff3d77'];
-  const grad = ctx.createLinearGradient(0, 0, W, 140);
-  grad.addColorStop(0, cols[0]!);
-  grad.addColorStop(1, cols[cols.length - 1]!);
-  ctx.save();
-  roundRect(ctx, 0, 0, W, 140, 22);
-  ctx.clip();
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, 140);
-  ctx.restore();
-
-  // Emoji + party name + date
-  ctx.textAlign = 'left';
-  ctx.font = '32px serif';
-  ctx.fillText(opts.emoji, 26, 56);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 25px system-ui, sans-serif';
-  ctx.fillText(opts.partyName, 26, 100);
-  ctx.font = '14px system-ui, sans-serif';
-  ctx.globalAlpha = 0.92;
-  ctx.fillText(opts.dateLabel + ' · admits one', 26, 124);
-  ctx.globalAlpha = 1;
-
-  // White QR plate
-  const panel = 250;
-  const px = (W - panel) / 2;
-  const py = 168;
-  ctx.fillStyle = '#ffffff';
-  roundRect(ctx, px, py, panel, panel, 16);
-  ctx.fill();
-
-  // QR image (already branded)
-  try {
-    const qr = await loadImage(opts.qrDataUrl);
-    const qrSize = panel - 28;
-    ctx.drawImage(qr, px + 14, py + 14, qrSize, qrSize);
-  } catch {
-    /* QR failed to load — leave the white plate */
+  if (entry.kind === 'scan') {
+    const { check } = entry;
+    if (!check.ok) return { ok: false, reason: check.reason };
+    const { payload } = check;
+    const guestName = payload.guestName;
+    if (payload.partyId !== ticketPartyId(party)) {
+      return { ok: false, reason: 'wrong_party', guestName };
+    }
+    if (new Date(payload.expiresAt).getTime() < now) {
+      return { ok: false, reason: 'expired', guestName };
+    }
+    // By name too: a guest typed in on a shared party may have been sent a
+    // ticket before the server's code replaced the stand-in. The signature
+    // already proves the ticket is ours.
+    const invite =
+      byCode(payload.code) ??
+      party.invites.find((i) => i.name === payload.guestName);
+    return admit(party, invite, guestName);
   }
 
-  // Guest name
-  ctx.fillStyle = '#e9effa';
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 22px system-ui, sans-serif';
-  ctx.fillText(opts.guestName, W / 2, py + panel + 46);
+  // Typed. The code alone is not enough: five characters are short, and a
+  // guest who over-hears another's could walk in on it. Requiring the name as
+  // well means the person at the door checks something the code does not
+  // carry.
+  const code = normaliseTicketCode(entry.code);
+  const name = entry.name.trim();
+  if (!isTicketCode(code)) return { ok: false, reason: 'malformed' };
+  if (!name) return { ok: false, reason: 'name_missing' };
 
-  // Ticket code
-  ctx.fillStyle = '#9aa9c6';
-  ctx.font = '13px monospace';
-  ctx.fillText(opts.code, W / 2, py + panel + 72);
-
-  // Brand footer
-  ctx.fillStyle = '#ff7a3d';
-  ctx.font = 'bold 15px system-ui, sans-serif';
-  ctx.fillText('🎫 BottleCount', W / 2, H - 28);
-
-  return canvasToBlob(canvas);
+  const invite = byCode(code);
+  if (!invite) return { ok: false, reason: 'unknown_code' };
+  if (invite.name.trim().toLowerCase() !== name.toLowerCase()) {
+    // Not `invite`: naming the guest the code belongs to would hand a
+    // stranger a real guest's name.
+    return { ok: false, reason: 'name_mismatch' };
+  }
+  return admit(party, invite, name);
 }
 
-/** Wrap a ticket card blob as a File with a tidy filename. */
-export async function buildTicketFile(opts: TicketCardOptions): Promise<File> {
-  const blob = await buildTicketCardBlob(opts);
-  const safe = (s: string) => s.replace(/[^a-z0-9]/gi, '_');
-  return new File(
-    [blob],
-    `ticket_${safe(opts.guestName)}_${safe(opts.partyName)}.png`,
-    { type: 'image/png' },
-  );
-}
-
-/** Trigger a browser download of a generated File. */
-export function downloadFile(file: File): void {
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+function admit(
+  party: Party,
+  invite: Invite | undefined,
+  guestName: string,
+): DoorVerdict {
+  if (!invite) return { ok: false, reason: 'unknown_code', guestName };
+  // Their code exists from the moment they opened the link, so on a paid party
+  // the code alone is not a ticket. Someone paying at the door can be marked
+  // paid in the guest list and checked again.
+  switch (ticketState(invite, party)) {
+    case 'none':
+      return { ok: false, reason: 'not_coming', invite };
+    case 'unpaid':
+      return { ok: false, reason: 'unpaid', invite };
+    case 'live':
+      return invite.used
+        ? { ok: false, reason: 'already_used', invite }
+        : { ok: true, invite };
+  }
 }

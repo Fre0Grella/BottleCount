@@ -1,5 +1,6 @@
 import { isTicketSlug } from '../../shared/ticketLinks';
 import type { TicketQRPayload } from '../../shared/tickets';
+import { parseSignedTicket } from '../../shared/tickets';
 
 /**
  * A ticket a guest can open from a link.
@@ -81,17 +82,6 @@ export function ticketSlugFromPath(pathname: string, base: string): string {
   return isTicketSlug(slug) ? slug : '';
 }
 
-function isPayload(value: unknown): value is TicketQRPayload {
-  if (typeof value !== 'object' || value === null) return false;
-  const p = value as Record<string, unknown>;
-  return (
-    typeof p['code'] === 'string' &&
-    typeof p['partyId'] === 'string' &&
-    typeof p['guestName'] === 'string' &&
-    typeof p['expiresAt'] === 'string'
-  );
-}
-
 /**
  * Reads a ticket back out of `location.hash`. Null when the link is truncated
  * or mangled — a chat app that cut it short, a guest who copied half of it.
@@ -122,16 +112,9 @@ export function openTicket(
   signed: string,
   display: TicketDisplay,
 ): OpenedTicket | null {
-  const [payloadB64, signature, extra] = signed.split('.');
-  if (!payloadB64 || !signature || extra !== undefined) return null;
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(atob(payloadB64));
-  } catch {
-    return null;
-  }
-  if (!isPayload(payload)) return null;
+  const parsed = parseSignedTicket(signed);
+  if (!parsed) return null;
+  const { payload } = parsed;
 
   const cover = display.cover;
   return {

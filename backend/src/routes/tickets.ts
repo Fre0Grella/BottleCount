@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { isPaidParty } from '../../../shared/payments';
 import type { TicketLinkDTO } from '../../../shared/ticketLinks';
 import { isTicketSlug } from '../../../shared/ticketLinks';
+import { ticketState } from '../../../shared/tickets';
 import type { AppVariables } from '../appEnv';
 import type { Invite } from '../repositories/inviteRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
@@ -20,17 +20,15 @@ type Bindings = {
 const tickets = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
 
 /**
- * Whether a stored ticket may still be shown. The same rule as making one:
- * the guest is coming, and on a party guests pay for, they have paid. An
- * organiser who un-marks a payment or a guest who changes to no takes the
- * link down with it.
+ * Whether a stored ticket may still be shown. The same rule as making one
+ * (`ticketState`): the guest is coming, and on a party guests pay for, they
+ * have paid. An organiser who un-marks a payment or a guest who changes to no
+ * takes the link down with it.
  */
 export function ticketIsLive(invite: Invite, party: PublishedParty): boolean {
-  if (invite.status !== 'confirmed' || !invite.ticketSigned) return false;
-  const paid =
-    !!party.document &&
-    isPaidParty(party.document.settings.ticket_price, party.document.payment);
-  return !paid || invite.paidAt !== null;
+  return (
+    !!invite.ticketSigned && ticketState(invite, party.document) === 'live'
+  );
 }
 
 /**
