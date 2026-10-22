@@ -2,22 +2,12 @@ import { Hono } from 'hono';
 import type { TicketLinkDTO } from '../../../shared/ticketLinks';
 import { isTicketSlug } from '../../../shared/ticketLinks';
 import { ticketState } from '../../../shared/tickets';
-import type { AppVariables } from '../appEnv';
+import type { AppEnv } from '../appEnv';
 import type { Invite } from '../repositories/inviteRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
+import { rateLimit } from './middleware';
 
-type RateLimiter = { limit(o: { key: string }): Promise<{ success: boolean }> };
-
-type Bindings = {
-  // Separate from the invite limiter, and far more generous: a ticket page is
-  // opened at the door, where a venue's Wi-Fi or a carrier's shared address
-  // puts dozens of guests behind one IP at once. A guest stuck outside because
-  // the page was throttled is worse than anything the limiter prevents — the
-  // slug's 60 bits are what stop enumeration. Absent locally: unlimited.
-  TICKET_RATE_LIMITER?: RateLimiter;
-};
-
-const tickets = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
+const tickets = new Hono<AppEnv>();
 
 /**
  * Whether a stored ticket may still be shown. The same rule as making one
@@ -40,15 +30,12 @@ export function ticketIsLive(invite: Invite, party: PublishedParty): boolean {
  * ticket answers the same 404, so a link cannot be probed for whether it
  * existed, was revoked or never did.
  */
-tickets.get('/:slug', async (c) => {
-  const limiter = c.env.TICKET_RATE_LIMITER;
-  if (limiter) {
-    const key = c.req.header('cf-connecting-ip') ?? 'unknown';
-    if (!(await limiter.limit({ key })).success) {
-      return c.json({ error: 'rate_limited' }, 429);
-    }
-  }
-
+// Its own limiter, separate from the invite one and far more generous: a
+// ticket page is opened at the door, where a venue's Wi-Fi or a carrier's
+// shared address puts dozens of guests behind one IP at once. A guest stuck
+// outside because the page was throttled is worse than anything the limiter
+// prevents — the slug's 60 bits are what stop enumeration.
+tickets.get('/:slug', rateLimit('TICKET_RATE_LIMITER'), async (c) => {
   const notFound = () =>
     c.json({ error: 'ticket_not_found' }, 404, { 'cache-control': 'no-store' });
 

@@ -1,27 +1,10 @@
 import { Hono } from 'hono';
-import type { AppVariables } from '../appEnv';
+import type { AppEnv } from '../appEnv';
+import { deployment } from '../deployment';
+import { readBody, text } from './http';
 import { issueSession } from './issueSession';
 
-type Bindings = {
-  JWT_SECRET: string;
-  FRONTEND_URL: string;
-  ENVIRONMENT: string;
-  SELF_HOSTED?: string;
-};
-
-const devAuth = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
-
-/**
- * Whether this Worker signs people in without Google. Also read by
- * `/api/session`, so the app offers the email sign-in exactly where this route
- * would accept it.
- */
-export function devSignInEnabled(env: {
-  ENVIRONMENT: string;
-  SELF_HOSTED?: string;
-}): boolean {
-  return env.SELF_HOSTED === 'true' || env.ENVIRONMENT === 'local';
-}
+const devAuth = new Hono<AppEnv>();
 
 /**
  * Sign in without Google.
@@ -38,19 +21,20 @@ export function devSignInEnabled(env: {
  * 404 as though the route did not exist.
  */
 devAuth.post('/dev', async (c) => {
-  if (!devSignInEnabled(c.env)) return c.notFound();
+  if (!deployment(c.env).devSignIn) return c.notFound();
 
-  const body = await c.req
-    .json<{ email?: string; name?: string }>()
-    .catch(() => ({}) as { email?: string; name?: string });
-  const email = body.email?.trim();
+  const body = await readBody(c);
+  const email = text(body, 'email').trim();
   if (!email) return c.json({ error: 'email is required' }, 400);
 
   const result = await c.var.repositories.users.upsertByIdentity({
     provider: 'dev',
     providerUserId: email,
     email,
-    name: body.name ?? email.split('@')[0] ?? null,
+    name:
+      typeof body['name'] === 'string'
+        ? body['name']
+        : (email.split('@')[0] ?? null),
     picture: null,
   });
 

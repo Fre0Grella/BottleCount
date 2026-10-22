@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseEmail, normalisePhone, requireContact } from './contact';
+import {
+  answerContact,
+  GUEST_NAME_MAX,
+  guestName,
+  normaliseEmail,
+  normalisePhone,
+  optionalContact,
+  requireContact,
+} from './contact';
 
 describe('normaliseEmail', () => {
   it('keeps one spelling per address', () => {
@@ -80,5 +88,41 @@ describe('requireContact', () => {
     expect(requireContact('giulia@example.com', 'call me')).toEqual({
       error: 'invalid_phone',
     });
+  });
+});
+
+describe('optionalContact', () => {
+  it('lets both be blank, which clears them', () => {
+    expect(optionalContact(' ', '')).toEqual({ email: null, phone: null });
+  });
+
+  it('still refuses whichever is given and wrong', () => {
+    expect(optionalContact('giulia', '')).toEqual({ error: 'invalid_email' });
+    expect(optionalContact('', 'call me')).toEqual({ error: 'invalid_phone' });
+  });
+});
+
+describe('answerContact', () => {
+  it('keeps nothing unless it is a yes to a paid party', () => {
+    const none = { email: null, phone: null };
+    expect(answerContact(false, true, 'g@example.com', '')).toEqual(none);
+    expect(answerContact(true, false, 'g@example.com', '')).toEqual(none);
+  });
+
+  it('needs one of the two for a yes to a paid party', () => {
+    expect(answerContact(true, true, '', '')).toEqual({
+      error: 'contact_required',
+    });
+    expect(answerContact(true, true, 'G@Example.com', '')).toEqual({
+      email: 'g@example.com',
+      phone: null,
+    });
+  });
+});
+
+describe('guestName', () => {
+  it('trims and bounds the name', () => {
+    expect(guestName('  Giulia  ')).toBe('Giulia');
+    expect(guestName('x'.repeat(100))).toHaveLength(GUEST_NAME_MAX);
   });
 });

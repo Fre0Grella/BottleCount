@@ -19,7 +19,7 @@ import {
   setRemotePaid,
   undoCheckInRemote,
 } from './api/guests';
-import { applyDocument, documentOf } from './collab';
+import { applyDocument, documentOf, publicationOf } from './collab';
 import {
   closeInviteLink,
   createCollaboratorInvite,
@@ -40,12 +40,13 @@ import {
   withStoredTicketCodes,
 } from './ticket';
 import { ticketState } from '../../shared/tickets';
-import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
+import type {
+  PartyDocument,
+  PartyMemberDTO,
+  PartyRole,
+} from '../../shared/collab';
 import type { GuestContact } from '../../shared/contact';
-import {
-  emptyPaymentDetails,
-  sanitisePaymentDetails,
-} from '../../shared/payments';
+import { emptyPaymentDetails } from '../../shared/payments';
 import type { SessionDTO } from '../../shared/session';
 import { canUse, type Feature } from '../../shared/tiers';
 import { loadCatalog, defaultExtras } from './catalog';
@@ -761,15 +762,7 @@ async function shareActiveParty(): Promise<boolean> {
     }
     const shared = result.value;
     update((party) => {
-      party.publication = {
-        remoteId: shared.id,
-        features: shared.features,
-        version: shared.version,
-        slug: shared.publication?.slug ?? null,
-        rootToken: shared.publication?.rootToken ?? null,
-        ticketKey: shared.ticketKey,
-        publishedAt: shared.updatedAt,
-      };
+      party.publication = publicationOf(shared);
     });
     state.members = shared.members;
     state.role = shared.role;
@@ -922,34 +915,16 @@ async function syncPartyList(): Promise<void> {
     if (!fetched.ok || !fetched.value) continue;
 
     const shared = fetched.value;
-    const party: Party = {
-      name: shared.document.name,
-      date: shared.document.date,
+    // The local-only half here; `applyDocument` fills in the shared half, the
+    // same way every later pull does.
+    const local: Omit<Party, keyof PartyDocument> = {
       createdAt: shared.updatedAt,
-      cover: shared.document.cover,
-      venue: shared.document.venue,
-      settings: shared.document.settings,
-      menu: shared.document.menu as Party['menu'],
-      locks: shared.document.locks,
-      checked: shared.document.checked,
-      allowForward: shared.document.allowForward,
-      includeSnacks: shared.document.includeSnacks,
-      barManaged: runsBar(shared.document),
-      // A party stored before payments existed has no `payment` on the server,
-      // or only the fields a patch has touched since.
-      payment: sanitisePaymentDetails(shared.document.payment),
       // The guest list is not in the document; it arrives through the funnel.
       invites: [],
-      publication: {
-        remoteId: shared.id,
-        features: shared.features,
-        version: shared.version,
-        slug: shared.publication?.slug ?? null,
-        rootToken: shared.publication?.rootToken ?? null,
-        ticketKey: shared.ticketKey,
-        publishedAt: shared.updatedAt,
-      },
+      publication: publicationOf(shared),
     };
+    const party = local as Party;
+    applyDocument(party, shared.document);
     const newId = await db.parties.add(party);
     party.id = newId as number;
     state.parties.push(party);

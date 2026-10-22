@@ -98,4 +98,17 @@ describe('applyDocument', () => {
       paypal: 'marcog',
     });
   });
+
+  it('gives a whole party when a patch deleted settings or venue', () => {
+    // RFC 7386 lets a patch delete any key; the server reads such a document
+    // through normaliseDocument, and so does this, so neither side holds a
+    // party without the fields every screen reads.
+    const party = aParty();
+    const broken = { ...documentOf(party), settings: null, venue: null };
+
+    applyDocument(party, broken as never);
+
+    expect(party.settings.buffer).toBe(1);
+    expect(party.venue).toEqual({ place: '', city: '', time: '' });
+  });
 });

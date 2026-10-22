@@ -1,8 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import type { JwtVariables } from 'hono/jwt';
-import type { GuestContact } from '../../../shared/contact';
-import { normaliseEmail, normalisePhone } from '../../../shared/contact';
+import { createMiddleware } from 'hono/factory';
 import type {
   CollaboratorInviteDTO,
   PartyDocument,
@@ -12,33 +10,36 @@ import type {
   PatchPartyResponse,
   SharedPartyDTO,
 } from '../../../shared/collab';
+import { guestName, optionalContact } from '../../../shared/contact';
 import type { HostInviteDTO, PublishedPartyDTO } from '../../../shared/invites';
 import { INVITE_STATUSES } from '../../../shared/invites';
 import type { InviteStatus } from '../../../shared/invites';
-import { newTicketSlug, signedTicketCode } from '../../../shared/ticketLinks';
-import { featuresFor, resolveTier } from '../../../shared/tiers';
-import type { FeatureSet } from '../../../shared/tiers';
-import type { AppVariables } from '../appEnv';
+import { signedTicketCode } from '../../../shared/ticketLinks';
+import { featuresFor } from '../../../shared/tiers';
+import type { UserEnv } from '../appEnv';
+import { tierFor } from '../deployment';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type {
   Invite,
   InviteWithReferrer,
 } from '../repositories/inviteRepository';
-import { MEMBER_ERRORS } from '../repositories/memberRepository';
 import type { PartyMember } from '../repositories/memberRepository';
 import { PARTY_ERRORS } from '../repositories/partyRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
+import type { Repositories } from '../repositories/repositories';
+import { fail, readBody, respond, text } from './http';
+import { findPartyInvite, requireUser } from './middleware';
 import { parseDocument, parsePatch } from './partyInput';
 import { ticketIsLive } from './tickets';
 
-type Bindings = {
-  SELF_HOSTED?: string;
-};
-
 type Env = {
-  Bindings: Bindings;
-  Variables: AppVariables &
-    JwtVariables & { role: PartyRole; party: PublishedParty };
+  Bindings: UserEnv['Bindings'];
+  Variables: UserEnv['Variables'] & {
+    role: PartyRole;
+    party: PublishedParty;
+    /** Set on `/:partyId/invites/:inviteId…` routes only. */
+    invite: Invite;
+  };
 };
 
 const parties = new Hono<Env>();
@@ -53,9 +54,7 @@ function toPublishedDTO(party: PublishedParty): PublishedPartyDTO {
   };
 }
 
-function toInviteDTO(
-  invite: InviteWithReferrer | (Invite & { referrerName: string | null }),
-): HostInviteDTO {
+function toInviteDTO(invite: InviteWithReferrer): HostInviteDTO {
   return {
     id: invite.id,
     name: invite.name,
@@ -76,24 +75,21 @@ function toInviteDTO(
 }
 
 /**
- * Contact details an organiser typed, or the error to refuse them with.
- * Blank or absent clears a field; the guest list is where they are corrected.
+ * One guest as the funnel shows them, after a write that returned the bare
+ * row. Their referrer's name is looked up rather than left null: the client
+ * folds this into its guest list, and a null there would erase the "via
+ * Giulia" the funnel showed a moment ago.
  */
-function parseContact(body: unknown): GuestContact | { error: string } {
-  const fields =
-    typeof body === 'object' && body !== null
-      ? (body as Record<string, unknown>)
-      : {};
-  const text = (key: string): string => {
-    const value = fields[key];
-    return typeof value === 'string' ? value : '';
-  };
-
-  const email = normaliseEmail(text('email'));
-  if (email === null) return { error: 'invalid_email' };
-  const phone = normalisePhone(text('phone'));
-  if (phone === null) return { error: 'invalid_phone' };
-  return { email: email || null, phone: phone || null };
+async function hostInvite(
+  repositories: Repositories,
+  invite: Invite,
+): Promise<HostInviteDTO> {
+  let referrerName: string | null = null;
+  if (invite.referrerId) {
+    const referrer = await repositories.invites.findById(invite.referrerId);
+    referrerName = referrer.ok ? referrer.value.name : null;
+  }
+  return toInviteDTO({ ...invite, referrerName });
 }
 
 function toMemberDTO(member: PartyMember): PartyMemberDTO {
@@ -108,12 +104,7 @@ function toMemberDTO(member: PartyMember): PartyMemberDTO {
 }
 
 /** Everything here needs a session. What it does not all need is a tier. */
-parties.use('*', async (c, next) => {
-  const sub = c.get('jwtPayload')?.sub;
-  if (typeof sub !== 'string') return c.json({ error: 'unauthenticated' }, 401);
-  c.set('userId', sub);
-  return next();
-});
+parties.use('*', requireUser);
 
 /**
  * Whether the caller may keep parties of their own on the server.
@@ -123,21 +114,9 @@ parties.use('*', async (c, next) => {
  * belongs to someone who has already paid, and charging both people to run one
  * party would make co-organising useless, since you cannot co-organise alone.
  * Membership is the authorisation everywhere else.
- *
- * The tier comes from the user's row rather than the JWT: a session lives seven
- * days, and a claim baked into one would keep granting `pro` for a week after a
- * refund.
  */
 async function mayOwnCloudParties(c: Context<Env>): Promise<boolean> {
-  const found = await c.var.repositories.users.findById(
-    c.get('userId') as string,
-  );
-  if (!found.ok) return false;
-
-  const tier = resolveTier({
-    storedTier: found.value.tier,
-    selfHosted: c.env.SELF_HOSTED === 'true',
-  });
+  const tier = await tierFor(c.var.repositories, c.env, c.get('userId'));
   return featuresFor(tier).cloudSync;
 }
 
@@ -150,53 +129,50 @@ async function mayOwnCloudParties(c: Context<Env>): Promise<boolean> {
  * owner's local one — a co-organiser has their own local numbering, and it
  * means nothing here.
  */
-async function loadParty(c: Context<Env>): Promise<Response | null> {
-  const userId = c.get('userId') as string;
+const loadParty = createMiddleware<Env>(async (c, next) => {
+  const notFound = () => c.json({ error: 'party_not_found' }, 404);
   const partyId = c.req.param('partyId');
-  if (!partyId) return c.json({ error: 'party_not_found' }, 404);
+  if (!partyId) return notFound();
 
-  const role = await c.var.repositories.members.roleFor(partyId, userId);
-  if (!role.ok) return c.json({ error: 'party_not_found' }, 404);
+  const role = await c.var.repositories.members.roleFor(
+    partyId,
+    c.get('userId'),
+  );
+  if (!role.ok) return notFound();
 
   const party = await c.var.repositories.parties.findById(partyId);
-  if (!party.ok) return c.json({ error: 'party_not_found' }, 404);
+  if (!party.ok) return notFound();
 
   c.set('role', role.value);
   c.set('party', party.value);
-  return null;
-}
+  await next();
+});
 
-parties.use('/:partyId/*', async (c, next) => {
-  const refused = await loadParty(c);
-  return refused ?? next();
+parties.use('/:partyId/*', loadParty);
+parties.use('/:partyId', loadParty);
+
+/**
+ * Resolves `:inviteId` within the party already loaded. An invite of another
+ * party is as absent as one that does not exist — membership of one party is
+ * not a key to another's guests.
+ */
+const loadInvite = createMiddleware<Env>(async (c, next) => {
+  const invite = await findPartyInvite(
+    c.var.repositories,
+    c.get('party').id,
+    c.req.param('inviteId') ?? '',
+  );
+  if (!invite) return fail(c, INVITE_ERRORS.NOT_FOUND);
+  c.set('invite', invite);
+  await next();
 });
-parties.use('/:partyId', async (c, next) => {
-  const refused = await loadParty(c);
-  return refused ?? next();
-});
+
+parties.use('/:partyId/invites/:inviteId/*', loadInvite);
+parties.use('/:partyId/invites/:inviteId', loadInvite);
 
 /** Actions that take the party away from everyone else stay with the owner. */
 function ownerOnly(c: Context<Env>): boolean {
   return c.get('role') === 'owner';
-}
-
-/**
- * What a party may do: its owner's features, whoever is asking.
- *
- * Read from the owner's row on every request, like `mayOwnCloudParties`, so a
- * refund reaches every co-organiser's screen at their next pull. An owner that
- * cannot be found reads as free, the state that claims the least.
- */
-async function partyFeatures(
-  c: Context<Env>,
-  party: PublishedParty,
-): Promise<FeatureSet> {
-  const owner = await c.var.repositories.users.findById(party.ownerId);
-  const tier = resolveTier({
-    storedTier: owner.ok ? owner.value.tier : null,
-    selfHosted: c.env.SELF_HOSTED === 'true',
-  });
-  return featuresFor(tier);
 }
 
 async function sharedPartyDTO(
@@ -219,7 +195,12 @@ async function sharedPartyDTO(
       ? { slug: party.slug, rootToken: party.rootToken }
       : null,
     ticketKey: party.ticketKey,
-    features: await partyFeatures(c, party),
+    // What the party may do: its owner's features, whoever is asking. Read
+    // from the owner's row on every request, like `mayOwnCloudParties`, so a
+    // refund reaches every co-organiser's screen at their next pull.
+    features: featuresFor(
+      await tierFor(c.var.repositories, c.env, party.ownerId),
+    ),
   };
 }
 
@@ -227,21 +208,20 @@ async function sharedPartyDTO(
 
 /** `GET /api/parties` — everything the caller can open, owned or shared. */
 parties.get('/', async (c) => {
-  const userId = c.get('userId') as string;
-  const listed = await c.var.repositories.parties.listForUser(userId);
-  if (!listed.ok) return c.json({ error: listed.error }, 500);
-
-  const summaries: PartySummaryDTO[] = listed.value.map((row) => ({
-    id: row.id,
-    name: row.name,
-    date: row.date,
-    cover: row.cover,
-    role: row.role,
-    version: row.version,
-    updatedAt: row.updatedAt,
-    memberCount: row.memberCount,
-  }));
-  return c.json({ parties: summaries });
+  const listed = await c.var.repositories.parties.listForUser(c.get('userId'));
+  return respond(c, listed, (rows) => {
+    const summaries: PartySummaryDTO[] = rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      date: row.date,
+      cover: row.cover,
+      role: row.role,
+      version: row.version,
+      updatedAt: row.updatedAt,
+      memberCount: row.memberCount,
+    }));
+    return { parties: summaries };
+  });
 });
 
 /**
@@ -252,26 +232,26 @@ parties.get('/', async (c) => {
  * it to the world.
  */
 parties.post('/', async (c) => {
-  const userId = c.get('userId') as string;
   if (!(await mayOwnCloudParties(c))) {
     return c.json({ error: 'upgrade_required', feature: 'cloudSync' }, 403);
   }
 
-  const body = await c.req.json().catch(() => null);
-  const parsed = parseDocument(body);
+  const parsed = parseDocument(await readBody(c));
   if (!parsed) return c.json({ error: 'invalid_party' }, 400);
 
-  const published = await c.var.repositories.parties.publish(userId, parsed);
-  if (!published.ok) return c.json({ error: published.error }, 500);
-
-  const party = published.value;
-  return c.json(await sharedPartyDTO(c, party, parsed.document, 'owner'));
+  const published = await c.var.repositories.parties.publish(
+    c.get('userId'),
+    parsed,
+  );
+  return respond(c, published, (party) =>
+    sharedPartyDTO(c, party, parsed.document, 'owner'),
+  );
 });
 
 /** `GET /api/parties/:partyId` — the document a co-organiser opens. */
 parties.get('/:partyId', async (c) => {
   const party = c.get('party');
-  if (!party.document) return c.json({ error: PARTY_ERRORS.NO_DOCUMENT }, 409);
+  if (!party.document) return fail(c, PARTY_ERRORS.NO_DOCUMENT);
   return c.json(await sharedPartyDTO(c, party, party.document, c.get('role')));
 });
 
@@ -286,37 +266,30 @@ parties.get('/:partyId', async (c) => {
  */
 parties.patch('/:partyId', async (c) => {
   const party = c.get('party');
-  const body = await c.req.json().catch(() => null);
-  const parsed = parsePatch(body);
+  const parsed = parsePatch(await readBody(c));
   if (!parsed) return c.json({ error: 'invalid_patch' }, 400);
 
   const applied = await c.var.repositories.parties.patchDocument({
     partyId: party.id,
     patch: parsed.patch,
   });
-  if (!applied.ok) {
-    const status = applied.error === PARTY_ERRORS.NOT_FOUND ? 404 : 409;
-    return c.json({ error: applied.error }, status);
-  }
-
-  const wasCurrent = parsed.baseVersion === party.version;
-  const response: PatchPartyResponse = {
-    version: applied.value.version,
-    document: wasCurrent ? null : applied.value.document,
-    updatedAt: applied.value.updatedAt,
-  };
-  return c.json(response);
+  return respond(c, applied, (value): PatchPartyResponse => {
+    const wasCurrent = parsed.baseVersion === party.version;
+    return {
+      version: value.version,
+      document: wasCurrent ? null : value.document,
+      updatedAt: value.updatedAt,
+    };
+  });
 });
 
 /** `DELETE /api/parties/:partyId` — owner only; members and invites cascade. */
 parties.delete('/:partyId', async (c) => {
   if (!ownerOnly(c)) return c.json({ error: 'owner_only' }, 403);
 
-  const removed = await c.var.repositories.parties.deleteById(
-    c.get('party').id,
-  );
   // Already gone is the state the caller wanted.
-  return removed.ok ? c.json({ ok: true }) : c.json({ ok: true });
+  await c.var.repositories.parties.deleteById(c.get('party').id);
+  return c.json({ ok: true });
 });
 
 // ── The guest-facing invite link ────────────────────────────────────────────
@@ -327,8 +300,7 @@ parties.post('/:partyId/invite-link', async (c) => {
     c.get('party').id,
     true,
   );
-  if (!opened.ok) return c.json({ error: opened.error }, 500);
-  return c.json(toPublishedDTO(opened.value));
+  return respond(c, opened, toPublishedDTO);
 });
 
 /**
@@ -344,8 +316,7 @@ parties.delete('/:partyId/invite-link', async (c) => {
     c.get('party').id,
     false,
   );
-  if (!closed.ok) return c.json({ error: closed.error }, 500);
-  return c.json({ ok: true });
+  return respond(c, closed, () => ({ ok: true }));
 });
 
 // ── The funnel ──────────────────────────────────────────────────────────────
@@ -354,12 +325,10 @@ parties.delete('/:partyId/invite-link', async (c) => {
 parties.get('/:partyId/invites', async (c) => {
   const party = c.get('party');
   const listed = await c.var.repositories.invites.listForParty(party.id);
-  if (!listed.ok) return c.json({ error: listed.error }, 500);
-
-  return c.json({
+  return respond(c, listed, (invites) => ({
     party: toPublishedDTO(party),
-    invites: listed.value.map(toInviteDTO),
-  });
+    invites: invites.map(toInviteDTO),
+  }));
 });
 
 /**
@@ -370,24 +339,22 @@ parties.get('/:partyId/invites', async (c) => {
  * second phone on the door can check.
  */
 parties.post('/:partyId/invites', async (c) => {
-  const body = await c.req
-    .json<{ name?: string }>()
-    .catch(() => ({}) as { name?: string });
-  const name = body.name?.trim().slice(0, 60);
+  const body = await readBody(c);
+  const name = guestName(text(body, 'name'));
   if (!name) return c.json({ error: 'name_required' }, 400);
 
-  const contact = parseContact(body);
+  const contact = optionalContact(text(body, 'email'), text(body, 'phone'));
   if ('error' in contact) return c.json({ error: contact.error }, 400);
 
   const added = await c.var.repositories.invites.addManual({
     partyId: c.get('party').id,
     name,
-    ticketCode: '',
     contact,
   });
-  if (!added.ok) return c.json({ error: added.error }, 500);
-
-  return c.json(toInviteDTO({ ...added.value, referrerName: null }));
+  // Typed in by an organiser, so referred by nobody.
+  return respond(c, added, (invite) =>
+    toInviteDTO({ ...invite, referrerName: null }),
+  );
 });
 
 /**
@@ -398,39 +365,37 @@ parties.post('/:partyId/invites', async (c) => {
  * "already scanned at 23:14" rather than silently admitting them twice.
  */
 parties.post('/:partyId/invites/:inviteId/check-in', async (c) => {
+  const invite = c.get('invite');
   const checked = await c.var.repositories.invites.checkIn({
-    inviteId: c.req.param('inviteId'),
-    partyId: c.get('party').id,
+    inviteId: invite.id,
+    partyId: invite.partyId,
     at: new Date().toISOString(),
   });
 
-  if (!checked.ok) {
-    if (checked.error === INVITE_ERRORS.ALREADY_CHECKED_IN) {
-      const existing = await c.var.repositories.invites.findById(
-        c.req.param('inviteId'),
-      );
-      return c.json(
-        {
-          error: checked.error,
-          checkedInAt: existing.ok ? existing.value.checkedInAt : null,
-        },
-        409,
-      );
-    }
-    return c.json({ error: checked.error }, 404);
+  if (!checked.ok && checked.error === INVITE_ERRORS.ALREADY_CHECKED_IN) {
+    // Read again rather than taken from the invite loaded above: two phones
+    // scanning at once both loaded it before either checked in, and the one
+    // that lost needs the winner's time.
+    const existing = await c.var.repositories.invites.findById(invite.id);
+    return c.json(
+      {
+        error: checked.error,
+        checkedInAt: existing.ok ? existing.value.checkedInAt : null,
+      },
+      409,
+    );
   }
-
-  return c.json(toInviteDTO({ ...checked.value, referrerName: null }));
+  return respond(c, checked, (row) => hostInvite(c.var.repositories, row));
 });
 
 /** `DELETE …/check-in` — for the guest waved through by mistake. */
 parties.delete('/:partyId/invites/:inviteId/check-in', async (c) => {
+  const invite = c.get('invite');
   const undone = await c.var.repositories.invites.undoCheckIn({
-    inviteId: c.req.param('inviteId'),
-    partyId: c.get('party').id,
+    inviteId: invite.id,
+    partyId: invite.partyId,
   });
-  if (!undone.ok) return c.json({ error: undone.error }, 404);
-  return c.json(toInviteDTO({ ...undone.value, referrerName: null }));
+  return respond(c, undone, (row) => hostInvite(c.var.repositories, row));
 });
 
 /**
@@ -438,16 +403,17 @@ parties.delete('/:partyId/invites/:inviteId/check-in', async (c) => {
  * ticket. Any organiser; replaces both fields.
  */
 parties.put('/:partyId/invites/:inviteId/contact', async (c) => {
-  const contact = parseContact(await c.req.json().catch(() => null));
+  const body = await readBody(c);
+  const contact = optionalContact(text(body, 'email'), text(body, 'phone'));
   if ('error' in contact) return c.json({ error: contact.error }, 400);
 
+  const invite = c.get('invite');
   const updated = await c.var.repositories.invites.setContact({
-    inviteId: c.req.param('inviteId'),
-    partyId: c.get('party').id,
+    inviteId: invite.id,
+    partyId: invite.partyId,
     contact,
   });
-  if (!updated.ok) return c.json({ error: updated.error }, 404);
-  return c.json(toInviteDTO({ ...updated.value, referrerName: null }));
+  return respond(c, updated, (row) => hostInvite(c.var.repositories, row));
 });
 
 /**
@@ -456,24 +422,24 @@ parties.put('/:partyId/invites/:inviteId/contact', async (c) => {
  * every organiser's phone agrees on who has paid (ADR 0005).
  */
 parties.post('/:partyId/invites/:inviteId/paid', async (c) => {
+  const invite = c.get('invite');
   const marked = await c.var.repositories.invites.setPaid({
-    inviteId: c.req.param('inviteId'),
-    partyId: c.get('party').id,
+    inviteId: invite.id,
+    partyId: invite.partyId,
     at: new Date().toISOString(),
   });
-  if (!marked.ok) return c.json({ error: marked.error }, 404);
-  return c.json(toInviteDTO({ ...marked.value, referrerName: null }));
+  return respond(c, marked, (row) => hostInvite(c.var.repositories, row));
 });
 
 /** `DELETE …/paid` — marked by mistake, or the payment was refunded. */
 parties.delete('/:partyId/invites/:inviteId/paid', async (c) => {
+  const invite = c.get('invite');
   const unmarked = await c.var.repositories.invites.setPaid({
-    inviteId: c.req.param('inviteId'),
-    partyId: c.get('party').id,
+    inviteId: invite.id,
+    partyId: invite.partyId,
     at: null,
   });
-  if (!unmarked.ok) return c.json({ error: unmarked.error }, 404);
-  return c.json(toInviteDTO({ ...unmarked.value, referrerName: null }));
+  return respond(c, unmarked, (row) => hostInvite(c.var.repositories, row));
 });
 
 /**
@@ -487,21 +453,12 @@ parties.delete('/:partyId/invites/:inviteId/paid', async (c) => {
  * code is another guest's.
  */
 parties.put('/:partyId/invites/:inviteId/ticket', async (c) => {
-  const body = await c.req
-    .json<{ signed?: unknown }>()
-    .catch(() => ({}) as { signed?: unknown });
-  const signed = typeof body.signed === 'string' ? body.signed : '';
+  const signed = text(await readBody(c), 'signed');
   const code = signedTicketCode(signed);
   if (code === null) return c.json({ error: 'invalid_ticket' }, 400);
 
   const party = c.get('party');
-  const found = await c.var.repositories.invites.findById(
-    c.req.param('inviteId'),
-  );
-  if (!found.ok || found.value.partyId !== party.id) {
-    return c.json({ error: INVITE_ERRORS.NOT_FOUND }, 404);
-  }
-  const invite = found.value;
+  const invite = c.get('invite');
 
   if (invite.ticketCode && code !== invite.ticketCode) {
     return c.json({ error: 'ticket_mismatch' }, 400);
@@ -510,40 +467,28 @@ parties.put('/:partyId/invites/:inviteId/ticket', async (c) => {
     return c.json({ error: 'ticket_not_ready' }, 409);
   }
 
-  // 60 bits do not collide in practice; three draws make "in practice" moot.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const stored = await c.var.repositories.invites.setTicket({
-      inviteId: invite.id,
-      partyId: party.id,
-      signed,
-      slug: newTicketSlug(),
-    });
-    if (stored.ok) return c.json({ slug: stored.value.ticketSlug });
-    if (stored.error !== INVITE_ERRORS.SLUG_TAKEN) {
-      return c.json({ error: stored.error }, 404);
-    }
-  }
-  return c.json({ error: INVITE_ERRORS.SLUG_TAKEN }, 500);
+  const stored = await c.var.repositories.invites.setTicket({
+    inviteId: invite.id,
+    partyId: party.id,
+    signed,
+  });
+  return respond(c, stored, (row) => ({ slug: row.ticketSlug }));
 });
 
 /** `PATCH /api/parties/:partyId/invites/:inviteId` — override an answer. */
 parties.patch('/:partyId/invites/:inviteId', async (c) => {
-  const body = await c.req
-    .json<{ status?: string }>()
-    .catch(() => ({}) as { status?: string });
-  const status = body.status;
-  if (!status || !(INVITE_STATUSES as readonly string[]).includes(status)) {
+  const status = text(await readBody(c), 'status');
+  if (!(INVITE_STATUSES as readonly string[]).includes(status)) {
     return c.json({ error: 'invalid_status' }, 400);
   }
 
+  const invite = c.get('invite');
   const updated = await c.var.repositories.invites.setStatus({
-    inviteId: c.req.param('inviteId'),
-    partyId: c.get('party').id,
+    inviteId: invite.id,
+    partyId: invite.partyId,
     status: status as InviteStatus,
   });
-  if (!updated.ok) return c.json({ error: updated.error }, 404);
-
-  return c.json({ ok: true, status: updated.value.status });
+  return respond(c, updated, (row) => ({ ok: true, status: row.status }));
 });
 
 // ── Co-organisers ───────────────────────────────────────────────────────────
@@ -553,8 +498,7 @@ parties.get('/:partyId/members', async (c) => {
   const members = await c.var.repositories.members.listMembers(
     c.get('party').id,
   );
-  if (!members.ok) return c.json({ error: members.error }, 500);
-  return c.json({ members: members.value.map(toMemberDTO) });
+  return respond(c, members, (rows) => ({ members: rows.map(toMemberDTO) }));
 });
 
 /**
@@ -566,18 +510,18 @@ parties.get('/:partyId/members', async (c) => {
 parties.post('/:partyId/members/invite', async (c) => {
   if (!ownerOnly(c)) return c.json({ error: 'owner_only' }, 403);
 
-  const userId = c.get('userId') as string;
   const invite = await c.var.repositories.members.createInvite({
     partyId: c.get('party').id,
-    createdBy: userId,
+    createdBy: c.get('userId'),
   });
-  if (!invite.ok) return c.json({ error: invite.error }, 500);
-
-  const dto: CollaboratorInviteDTO = {
-    token: invite.value.token,
-    createdAt: invite.value.createdAt,
-  };
-  return c.json(dto);
+  return respond(
+    c,
+    invite,
+    (value): CollaboratorInviteDTO => ({
+      token: value.token,
+      createdAt: value.createdAt,
+    }),
+  );
 });
 
 /** `DELETE /api/parties/:partyId/members/invites` — revoke outstanding links. */
@@ -587,8 +531,7 @@ parties.delete('/:partyId/members/invites', async (c) => {
   const revoked = await c.var.repositories.members.revokeInvitesFor(
     c.get('party').id,
   );
-  if (!revoked.ok) return c.json({ error: revoked.error }, 500);
-  return c.json({ ok: true });
+  return respond(c, revoked, () => ({ ok: true }));
 });
 
 /**
@@ -596,11 +539,10 @@ parties.delete('/:partyId/members/invites', async (c) => {
  * leave a party you were added to.
  */
 parties.delete('/:partyId/members/:userId', async (c) => {
-  const userId = c.get('userId') as string;
   const target = c.req.param('userId');
 
   // Anyone may remove themselves; only the owner may remove anybody else.
-  if (target !== userId && !ownerOnly(c)) {
+  if (target !== c.get('userId') && !ownerOnly(c)) {
     return c.json({ error: 'owner_only' }, 403);
   }
 
@@ -608,12 +550,7 @@ parties.delete('/:partyId/members/:userId', async (c) => {
     c.get('party').id,
     target,
   );
-  if (!removed.ok) {
-    const status =
-      removed.error === MEMBER_ERRORS.CANNOT_REMOVE_OWNER ? 409 : 404;
-    return c.json({ error: removed.error }, status);
-  }
-  return c.json({ ok: true });
+  return respond(c, removed, () => ({ ok: true }));
 });
 
 export default parties;

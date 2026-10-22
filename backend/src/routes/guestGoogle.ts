@@ -2,19 +2,15 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { sign, verify } from 'hono/jwt';
-import { normaliseEmail } from '../../../shared/contact';
+import { guestName, normaliseEmail } from '../../../shared/contact';
 import { newToken } from '../lib/tokens';
-import type { AppVariables } from '../appEnv';
+import type { AppEnv } from '../appEnv';
+import { deployment } from '../deployment';
 import { resolveFrontendUrl } from './frontendUrl';
+import { findOpenParty, findPartyInvite } from './middleware';
 
-type Bindings = {
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-  JWT_SECRET: string;
-  FRONTEND_URL: string;
-};
-
-type Env = { Bindings: Bindings; Variables: AppVariables };
+type Env = AppEnv;
+type Bindings = Env['Bindings'];
 
 /**
  * "Continue with Google" for a guest confirming a paid party (#22).
@@ -51,11 +47,6 @@ interface GuestState {
   exp: number;
 }
 
-/** Whether this deployment can offer the button at all. */
-export function guestGoogleConfigured(env: Partial<Bindings>): boolean {
-  return !!env.GOOGLE_CLIENT_ID?.trim() && !!env.GOOGLE_CLIENT_SECRET?.trim();
-}
-
 function stateKey(env: Bindings): string {
   return `${env.JWT_SECRET}:${PURPOSE}`;
 }
@@ -90,16 +81,15 @@ function encodeFragment(value: unknown): string {
  * would be a way to probe which invite ids are real.
  */
 guestGoogle.get('/guest-google', async (c) => {
-  if (!guestGoogleConfigured(c.env)) return c.json({ error: 'not_found' }, 404);
+  if (!deployment(c.env).guestGoogle) {
+    return c.json({ error: 'not_found' }, 404);
+  }
 
   const slug = c.req.query('slug') ?? '';
   const inviteId = c.req.query('invite') ?? '';
-  const party = await c.var.repositories.parties.findBySlug(slug);
-  if (!party.ok || !party.value.invitesOpen) {
-    return c.json({ error: 'party_not_found' }, 404);
-  }
-  const invite = await c.var.repositories.invites.findById(inviteId);
-  if (!invite.ok || invite.value.partyId !== party.value.id) {
+  const party = await findOpenParty(c.var.repositories, slug);
+  if (!party) return c.json({ error: 'party_not_found' }, 404);
+  if (!(await findPartyInvite(c.var.repositories, party.id, inviteId))) {
     return backToInvite(c, slug, 'google_error=invite');
   }
 
@@ -196,7 +186,9 @@ async function profileFor(
  * from here instead. The guest still presses "I'm in" to confirm.
  */
 guestGoogle.get('/guest-google/callback', async (c) => {
-  if (!guestGoogleConfigured(c.env)) return c.json({ error: 'not_found' }, 404);
+  if (!deployment(c.env).guestGoogle) {
+    return c.json({ error: 'not_found' }, 404);
+  }
 
   const state = await readState(c);
   if (!state) return c.json({ error: 'invalid_state' }, 400);
@@ -212,24 +204,21 @@ guestGoogle.get('/guest-google/callback', async (c) => {
 
   // Re-checked rather than trusted from the state: the party may have closed
   // its link, or the invite gone, in the minute spent at Google.
-  const party = await c.var.repositories.parties.findBySlug(state.slug);
-  const invite = await c.var.repositories.invites.findById(state.inviteId);
-  if (
-    !party.ok ||
-    !party.value.invitesOpen ||
-    !invite.ok ||
-    invite.value.partyId !== party.value.id
-  ) {
+  const party = await findOpenParty(c.var.repositories, state.slug);
+  const invite =
+    party &&
+    (await findPartyInvite(c.var.repositories, party.id, state.inviteId));
+  if (!party || !invite) {
     return backToInvite(c, state.slug, 'google_error=invite');
   }
 
   await c.var.repositories.invites.setContact({
-    inviteId: invite.value.id,
-    partyId: party.value.id,
-    contact: { email, phone: invite.value.phone },
+    inviteId: invite.id,
+    partyId: party.id,
+    contact: { email, phone: invite.phone },
   });
 
-  const name = (profile?.name ?? '').trim().slice(0, 60);
+  const name = guestName(profile?.name ?? '');
   return backToInvite(
     c,
     state.slug,

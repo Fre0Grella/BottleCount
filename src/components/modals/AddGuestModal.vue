@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
-import { normaliseEmail, normalisePhone } from '../../../shared/contact';
+import { optionalContact } from '../../../shared/contact';
 import { useStore } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
@@ -51,11 +51,8 @@ const MESSAGES: Record<string, string> = {
 
 /** The contact as the server would store it, or the reason it would refuse. */
 function contact(): { email: string | null; phone: string | null } | string {
-  const e = normaliseEmail(email.value);
-  if (e === null) return 'invalid_email';
-  const p = normalisePhone(phone.value);
-  if (p === null) return 'invalid_phone';
-  return { email: e || null, phone: p || null };
+  const parsed = optionalContact(email.value, phone.value);
+  return 'error' in parsed ? parsed.error : parsed;
 }
 
 async function submit(): Promise<void> {

@@ -4,7 +4,10 @@ import type { MergePatch } from '../../../../shared/patch';
 import type { PublishPartyRequest } from '../../../../shared/invites';
 import { newSlug, newToken } from '../../lib/tokens';
 import {
+  cardOf,
   PARTY_ERRORS,
+  readDocument,
+  type PartyCard,
   type PartyRepository,
   type PartySummary,
   type PublishedParty,
@@ -33,14 +36,6 @@ interface PartyRow {
   ticket_key: string | null;
 }
 
-/**
- * The stored document, or null when it cannot be read.
- *
- * A row written before documents existed has NULL here. A row whose JSON has
- * somehow gone bad is the same situation from the caller's side — there is no
- * document to serve — and turning it into a throw would take down a request
- * that could have degraded.
- */
 function parseTicketKey(raw: string | null): JsonWebKey | null {
   if (raw === null) return null;
   try {
@@ -50,13 +45,29 @@ function parseTicketKey(raw: string | null): JsonWebKey | null {
   }
 }
 
-function parseDocument(raw: string | null): PartyDocument | null {
+/**
+ * The stored document, or null when there is none to serve.
+ *
+ * A row written before documents existed has NULL here. A row whose JSON has
+ * somehow gone bad, or is not an object at all, is the same situation from the
+ * caller's side, and turning it into a throw would take down a request that
+ * could have degraded. Anything else is normalised (see `readDocument`).
+ */
+function parseDocument(
+  raw: string | null,
+  published: PartyCard,
+): PartyDocument | null {
   if (raw === null) return null;
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as PartyDocument;
+    parsed = JSON.parse(raw);
   } catch {
     return null;
   }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  return readDocument(parsed as Record<string, unknown>, published);
 }
 
 /**
@@ -69,35 +80,9 @@ function parseDocument(raw: string | null): PartyDocument | null {
  * The columns remain for rows written before documents existed, and because
  * `listForUser` and the guest-facing card want them without parsing JSON.
  */
-function toParty(row: PartyRow): PublishedParty {
-  const document = parseDocument(row.document);
-  if (document) {
-    return {
-      id: row.id,
-      ownerId: row.owner_id,
-      localId: row.local_id,
-      slug: row.slug,
-      name: document.name,
-      date: document.date,
-      cover: document.cover,
-      venue: document.venue,
-      allowForward: document.allowForward,
-      maxCapacity: document.settings.max_capacity,
-      rootToken: row.root_token,
-      publishedAt: row.published_at,
-      updatedAt: row.updated_at,
-      document,
-      version: row.version,
-      invitesOpen: row.invites_open === 1,
-      ticketKey: parseTicketKey(row.ticket_key),
-    };
-  }
-
+/** The card columns, as the party was last published. */
+function columnCard(row: PartyRow): PartyCard {
   return {
-    id: row.id,
-    ownerId: row.owner_id,
-    localId: row.local_id,
-    slug: row.slug,
     name: row.name,
     date: row.date,
     cover: row.cover,
@@ -108,10 +93,22 @@ function toParty(row: PartyRow): PublishedParty {
     },
     allowForward: row.allow_forward === 1,
     maxCapacity: row.max_capacity,
+  };
+}
+
+function toParty(row: PartyRow): PublishedParty {
+  const card = columnCard(row);
+  const document = parseDocument(row.document, card);
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    localId: row.local_id,
+    slug: row.slug,
+    ...(document ? cardOf(document) : card),
     rootToken: row.root_token,
     publishedAt: row.published_at,
     updatedAt: row.updated_at,
-    document: null,
+    document,
     version: row.version,
     invitesOpen: row.invites_open === 1,
     ticketKey: parseTicketKey(row.ticket_key),
@@ -232,17 +229,6 @@ export class PartyRepositoryD1 implements PartyRepository {
     return row ? ok(toParty(row)) : err(PARTY_ERRORS.NOT_FOUND);
   }
 
-  async findByOwnerAndLocalId(
-    ownerId: string,
-    localId: number,
-  ): Promise<Result<PublishedParty>> {
-    const row = await this.db
-      .prepare('SELECT * FROM parties WHERE owner_id = ? AND local_id = ?')
-      .bind(ownerId, localId)
-      .first<PartyRow>();
-    return row ? ok(toParty(row)) : err(PARTY_ERRORS.NOT_FOUND);
-  }
-
   async findById(id: string): Promise<Result<PublishedParty>> {
     const row = await this.db
       .prepare('SELECT * FROM parties WHERE id = ?')
@@ -333,30 +319,10 @@ export class PartyRepositoryD1 implements PartyRepository {
       );
     }
 
-    const document = parseDocument(row.document);
+    const document = parseDocument(row.document, columnCard(row));
     if (!document) return err(PARTY_ERRORS.NO_DOCUMENT);
 
     return ok({ document, version: row.version, updatedAt: row.updated_at });
-  }
-
-  async putDocument({
-    partyId,
-    document,
-  }: {
-    partyId: string;
-    document: PartyDocument;
-  }): Promise<Result<{ version: number; updatedAt: string }>> {
-    const row = await this.db
-      .prepare(
-        `UPDATE parties SET document = ?, version = version + 1, updated_at = ?
-         WHERE id = ? RETURNING version, updated_at`,
-      )
-      .bind(JSON.stringify(document), new Date().toISOString(), partyId)
-      .first<{ version: number; updated_at: string }>();
-
-    return row
-      ? ok({ version: row.version, updatedAt: row.updated_at })
-      : err(PARTY_ERRORS.NOT_FOUND);
   }
 
   async setInvitesOpen(
@@ -377,21 +343,6 @@ export class PartyRepositoryD1 implements PartyRepository {
       .prepare('DELETE FROM parties WHERE id = ?')
       .bind(id)
       .run();
-    return result.meta.changes > 0
-      ? ok(undefined)
-      : err(PARTY_ERRORS.NOT_FOUND);
-  }
-
-  async unpublish(ownerId: string, id: string): Promise<Result<void>> {
-    // The owner check is in the WHERE clause, not a prior SELECT: a separate
-    // read would let another request change ownership in between, and it also
-    // means a party someone else owns is indistinguishable from one that does
-    // not exist.
-    const result = await this.db
-      .prepare('DELETE FROM parties WHERE id = ? AND owner_id = ?')
-      .bind(id, ownerId)
-      .run();
-
     return result.meta.changes > 0
       ? ok(undefined)
       : err(PARTY_ERRORS.NOT_FOUND);

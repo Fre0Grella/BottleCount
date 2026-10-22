@@ -1,4 +1,5 @@
 import type { PartyDocument, PartyRole } from '../../../shared/collab';
+import { normaliseDocument } from '../../../shared/collab';
 import type { MergePatch } from '../../../shared/patch';
 import type { PublishPartyRequest } from '../../../shared/invites';
 import type { Result } from './result';
@@ -46,6 +47,55 @@ export interface PartySummary {
   memberCount: number;
 }
 
+/** The fields a party's card shows, which the row also keeps as columns. */
+export type PartyCard = Pick<
+  PublishedParty,
+  'name' | 'date' | 'cover' | 'venue' | 'allowForward' | 'maxCapacity'
+>;
+
+/**
+ * A stored document as callers get it: normalised, whatever the row holds.
+ *
+ * A co-organiser's merge patch is applied by the database and can delete any
+ * key, so the stored JSON is not trusted to have the document's shape. A card
+ * field patched away falls back to `published`, the card columns as the party
+ * was last published, rather than to a blank: a party that lost its venue
+ * shows the venue it was shared with, not none.
+ */
+export function readDocument(
+  raw: Record<string, unknown>,
+  published: PartyCard,
+): PartyDocument {
+  const kept = <T>(key: string, fallback: T): unknown =>
+    raw[key] === undefined || raw[key] === null ? fallback : raw[key];
+
+  const document = normaliseDocument({
+    ...raw,
+    date: kept('date', published.date),
+    cover: kept('cover', published.cover),
+    venue: kept('venue', published.venue),
+    allowForward: kept('allowForward', published.allowForward),
+    settings: kept('settings', { max_capacity: published.maxCapacity }),
+  });
+  if (document.name === '') document.name = published.name;
+  return document;
+}
+
+/**
+ * The card fields, read from the document. Believing only the document is what
+ * keeps the card columns that duplicate it from ever disagreeing with it.
+ */
+export function cardOf(document: PartyDocument): PartyCard {
+  return {
+    name: document.name,
+    date: document.date,
+    cover: document.cover,
+    venue: document.venue,
+    allowForward: document.allowForward,
+    maxCapacity: document.settings.max_capacity,
+  };
+}
+
 export const PARTY_ERRORS = {
   NOT_FOUND: 'party_not_found',
   NOT_OWNER: 'party_not_owner',
@@ -85,21 +135,9 @@ export interface PartyRepository {
     Result<{ document: PartyDocument; version: number; updatedAt: string }>
   >;
 
-  /** Writes the whole document, for a party being published the first time. */
-  putDocument(args: {
-    partyId: string;
-    document: PartyDocument;
-  }): Promise<Result<{ version: number; updatedAt: string }>>;
-  findByOwnerAndLocalId(
-    ownerId: string,
-    localId: number,
-  ): Promise<Result<PublishedParty>>;
   /** Opens or closes the guest-facing invite link without touching the party. */
   setInvitesOpen(id: string, open: boolean): Promise<Result<PublishedParty>>;
 
   /** Removes the party outright; members and invites cascade with it. */
   deleteById(id: string): Promise<Result<void>>;
-
-  /** Unpublishing deletes the row; its invites cascade with it. */
-  unpublish(ownerId: string, id: string): Promise<Result<void>>;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normaliseDocument } from '../../../shared/collab';
 import { parseDocument } from '../routes/partyInput';
 import { aDocument } from './support/party';
 
@@ -26,5 +27,36 @@ describe('parseDocument', () => {
         true,
       );
     });
+  });
+});
+
+describe('normaliseDocument', () => {
+  it('leaves a whole document as it was', () => {
+    const document = {
+      ...aDocument(),
+      settings: { ...aDocument().settings, venue_fee_per_person: 2 },
+    };
+    expect(normaliseDocument(document)).toEqual(document);
+  });
+
+  it('makes a document out of anything at all', () => {
+    for (const value of [null, undefined, 'party', 42, [], {}]) {
+      const document = normaliseDocument(value);
+      expect(document.settings.buffer).toBe(1);
+      expect(document.venue).toEqual({ place: '', city: '', time: '' });
+      expect(document.payment.paypal).toBe('');
+    }
+  });
+
+  it('drops fields the document does not own', () => {
+    expect(
+      normaliseDocument({ ...aDocument(), owner: 'x' }),
+    ).not.toHaveProperty('owner');
+  });
+});
+
+describe('parseDocument', () => {
+  it('refuses a document without a name', () => {
+    expect(parsed({ ...aDocument(), name: '   ' })).toBeUndefined();
   });
 });

@@ -1,6 +1,7 @@
 import type { FeatureSet } from './tiers';
 import type { MergePatch } from './patch';
 import type { PaymentDetails } from './payments';
+import { sanitisePaymentDetails } from './payments';
 
 /**
  * Co-organisers: the contract for a party two people run together.
@@ -92,6 +93,77 @@ export const DOCUMENT_FIELDS = [
   'barManaged',
   'payment',
 ] as const satisfies readonly (keyof PartyDocument)[];
+
+function str(value: unknown, max: number): string {
+  return typeof value === 'string' ? value.slice(0, max) : '';
+}
+
+function num(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+/**
+ * Any value, made into a document the rest of the code can rely on.
+ *
+ * The one place a document gets its shape. A publish passes through it, and so
+ * does every stored document on its way out: a co-organiser's merge patch is
+ * applied by the database without passing any check, and RFC 7386 lets it
+ * delete a key outright — `{"settings": null}` would otherwise leave a party
+ * that throws on every read, so nobody can open it or even delete it.
+ *
+ * Total on purpose: a missing or mistyped field takes its default rather than
+ * failing the whole document, and strings are bounded because they end up on a
+ * page anyone with the invite link can open. The name may come back empty;
+ * refusing that is the publish's call (see `routes/partyInput.ts`).
+ */
+export function normaliseDocument(value: unknown): PartyDocument {
+  const d = record(value);
+  const venue = record(d['venue']);
+  const settings = record(d['settings']);
+
+  return {
+    name: str(d['name'], 80).trim(),
+    date: str(d['date'], 10),
+    cover: Math.max(0, Math.min(5, Math.trunc(num(d['cover'], 0)))),
+    venue: {
+      place: str(venue['place'], 120),
+      city: str(venue['city'], 80),
+      time: str(venue['time'], 10),
+    },
+    settings: {
+      guests: num(settings['guests'], 0),
+      ticket_price: num(settings['ticket_price'], 0),
+      venue_cost: num(settings['venue_cost'], 0),
+      venue_fee_per_person: Math.max(
+        0,
+        num(settings['venue_fee_per_person'], 0),
+      ),
+      equipment_cost: num(settings['equipment_cost'], 0),
+      alcohol_ml_per_person: num(settings['alcohol_ml_per_person'], 0),
+      buffer: num(settings['buffer'], 1),
+      max_capacity:
+        typeof settings['max_capacity'] === 'number' &&
+        Number.isFinite(settings['max_capacity'])
+          ? Math.max(1, Math.round(settings['max_capacity']))
+          : null,
+    },
+    menu: record(d['menu']),
+    locks: record(d['locks']) as Record<string, boolean>,
+    checked: record(d['checked']) as Record<string, boolean>,
+    allowForward: d['allowForward'] !== false,
+    includeSnacks: d['includeSnacks'] !== false,
+    barManaged: d['barManaged'] !== false,
+    // These end up on a page every confirmed guest opens, so an identifier that
+    // does not validate is dropped rather than stored.
+    payment: sanitisePaymentDetails(d['payment']),
+  };
+}
 
 // ── Members ─────────────────────────────────────────────────────────────────
 

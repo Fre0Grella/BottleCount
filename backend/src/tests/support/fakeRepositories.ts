@@ -27,6 +27,8 @@ export function fakeUsers(seed: User[] = []): UserRepository & {
   rows: Map<string, User>;
 } {
   const rows = new Map(seed.map((u) => [u.id, u]));
+  /** `provider:providerUserId` → user id, like the `identities` table. */
+  const identities = new Map<string, string>();
 
   return {
     rows,
@@ -37,10 +39,31 @@ export function fakeUsers(seed: User[] = []): UserRepository & {
     async upsertByIdentity(
       identity: ProviderIdentity,
     ): Promise<Result<{ user: User; isNew: boolean }>> {
-      for (const user of rows.values()) {
-        if (user.email === identity.email) return ok({ user, isNew: false });
-      }
+      const key = `${identity.provider}:${identity.providerUserId}`;
       const now = new Date().toISOString();
+
+      // A known identity: refresh what the provider says about them.
+      const knownId = identities.get(key);
+      const known = knownId ? rows.get(knownId) : undefined;
+      if (known) {
+        const user: User = {
+          ...known,
+          name: identity.name ?? known.name,
+          picture: identity.picture ?? known.picture,
+          updatedAt: now,
+        };
+        rows.set(user.id, user);
+        return ok({ user, isNew: false });
+      }
+
+      // Same person, second provider: attach to the user the email names.
+      for (const user of rows.values()) {
+        if (user.email === identity.email) {
+          identities.set(key, user.id);
+          return ok({ user, isNew: false });
+        }
+      }
+
       const user: User = {
         id: `user-${rows.size + 1}`,
         email: identity.email,
@@ -51,6 +74,7 @@ export function fakeUsers(seed: User[] = []): UserRepository & {
         updatedAt: now,
       };
       rows.set(user.id, user);
+      identities.set(key, user.id);
       return ok({ user, isNew: true });
     },
     async setTier(id: string, tier: Tier): Promise<Result<User>> {
@@ -95,23 +119,22 @@ export function fakeRepositories(
   // party listed that its own guard refuses to open.
   const members = fakeMembers(parties.memberships, () => users.rows);
 
-  // D1 deletes a party's invites with it (ON DELETE CASCADE); the fakes are two
-  // separate maps, so the cascade is reproduced here. Without it a test that a
-  // deleted party leaves no guest emails behind would pass for the wrong reason.
+  // D1 deletes a party's invites, memberships and co-organiser links with it
+  // (ON DELETE CASCADE); the fakes are separate maps, so the cascade is
+  // reproduced here. Without it a test that a deleted party leaves no guest
+  // emails behind would pass for the wrong reason.
   const cascade = (partyId: string) => {
     for (const [id, invite] of invites.rows) {
       if (invite.partyId === partyId) invites.rows.delete(id);
+    }
+    parties.memberships.delete(partyId);
+    for (const [token, invite] of members.invites) {
+      if (invite.partyId === partyId) members.invites.delete(token);
     }
   };
   const deleteById = parties.deleteById.bind(parties);
   parties.deleteById = async (id) => {
     const removed = await deleteById(id);
-    if (removed.ok) cascade(id);
-    return removed;
-  };
-  const unpublish = parties.unpublish.bind(parties);
-  parties.unpublish = async (ownerId, id) => {
-    const removed = await unpublish(ownerId, id);
     if (removed.ok) cascade(id);
     return removed;
   };

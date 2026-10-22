@@ -1,32 +1,24 @@
 import { Hono } from 'hono';
-import type { GuestContact } from '../../../shared/contact';
-import { requireContact } from '../../../shared/contact';
-import type {
-  InviteOpenDTO,
-  InviteOpenRequest,
-  InvitePartyDTO,
-} from '../../../shared/invites';
+import type { Context } from 'hono';
+import { createMiddleware } from 'hono/factory';
+import { answerContact, guestName } from '../../../shared/contact';
+import type { InviteOpenDTO, InvitePartyDTO } from '../../../shared/invites';
 import { isInviteAnswer } from '../../../shared/invites';
 import type { InvitePaymentDTO } from '../../../shared/payments';
 import { invitePayment, isPaidParty } from '../../../shared/payments';
-import type { AppVariables } from '../appEnv';
-import { INVITE_ERRORS } from '../repositories/inviteRepository';
+import type { AppEnv } from '../appEnv';
+import { deployment } from '../deployment';
 import type { Invite } from '../repositories/inviteRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
-import { guestGoogleConfigured } from './guestGoogle';
+import { fail, readBody, text } from './http';
+import { findOpenParty, rateLimit } from './middleware';
 
-type RateLimiter = { limit(o: { key: string }): Promise<{ success: boolean }> };
-
-type Bindings = {
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  // Optional: the local environment leaves it unbound so a fresh clone runs
-  // without a Cloudflare account. Absent means unlimited, which is correct for
-  // a machine only you can reach.
-  INVITE_RATE_LIMITER?: RateLimiter;
+type Env = {
+  Bindings: AppEnv['Bindings'];
+  Variables: AppEnv['Variables'] & { party: PublishedParty };
 };
 
-const invites = new Hono<{ Bindings: Bindings; Variables: AppVariables }>();
+const invites = new Hono<Env>();
 
 /**
  * Public, unauthenticated, and mounted outside the `/api/*` guard.
@@ -46,7 +38,7 @@ function partyIsPaid(party: PublishedParty): boolean {
 function toPartyDTO(
   party: PublishedParty,
   full: boolean,
-  env: Bindings,
+  env: Env['Bindings'],
 ): InvitePartyDTO {
   return {
     slug: party.slug,
@@ -57,29 +49,8 @@ function toPartyDTO(
     allowForward: party.allowForward,
     full,
     paid: partyIsPaid(party),
-    googleSignIn: guestGoogleConfigured(env),
+    googleSignIn: deployment(env).guestGoogle,
   };
-}
-
-const NO_CONTACT: GuestContact = { email: null, phone: null };
-
-/**
- * The contact details an answer stores, or the error to refuse it with.
- *
- * Only a yes to a paid party keeps any: they are there to send a ticket to, and
- * someone who declines, or confirms a free party, is not getting one.
- */
-function contactFor(
-  party: PublishedParty,
-  answer: string,
-  body: Record<string, unknown>,
-): GuestContact | { error: string } {
-  if (answer !== 'confirmed' || !partyIsPaid(party)) return NO_CONTACT;
-
-  // At least one of the two — whichever the guest is happier to give.
-  const text = (key: string) =>
-    typeof body[key] === 'string' ? (body[key] as string) : '';
-  return requireContact(text('email'), text('phone'));
 }
 
 /**
@@ -92,14 +63,7 @@ function forwardTokenFor(invite: Invite, party: PublishedParty): string | null {
   return invite.status === 'confirmed' ? invite.forwardToken : null;
 }
 
-/**
- * How to pay the host, for a guest who has said yes.
- *
- * Built from the stored document on every read rather than trusted from it: a
- * co-organiser's merge patch reaches the document without passing the publish
- * checks, so this is the one place every identifier is guaranteed to be
- * validated before a guest sees it.
- */
+/** How to pay the host, for a guest who has said yes. */
 function paymentFor(
   invite: Invite,
   party: PublishedParty,
@@ -112,24 +76,44 @@ function paymentFor(
 }
 
 async function isFull(
-  repositories: AppVariables['repositories'],
+  c: Context<Env>,
   party: PublishedParty,
 ): Promise<boolean> {
   if (party.maxCapacity === null) return false;
-  const counted = await repositories.invites.countConfirmed(party.id);
+  const counted = await c.var.repositories.invites.countConfirmed(party.id);
   return counted.ok && counted.value >= party.maxCapacity;
 }
 
-/** Guards the two write paths. Keyed on IP, since there is no account to key on. */
-async function rateLimited(
-  limiter: RateLimiter | undefined,
-  c: { req: { header(name: string): string | undefined } },
-): Promise<boolean> {
-  if (!limiter) return false;
-  const key = c.req.header('cf-connecting-ip') ?? 'unknown';
-  const { success } = await limiter.limit({ key });
-  return !success;
+/** What a guest's page shows them, after either endpoint. */
+async function inviteOpenDTO(
+  c: Context<Env>,
+  invite: Invite,
+): Promise<InviteOpenDTO> {
+  const party = c.get('party');
+  return {
+    party: toPartyDTO(party, await isFull(c, party), c.env),
+    inviteId: invite.id,
+    forwardToken: forwardTokenFor(invite, party),
+    status: invite.status,
+    name: invite.name,
+    depth: invite.depth,
+    payment: paymentFor(invite, party),
+  };
 }
+
+/** The party `:slug` names, if its link is open — see `findOpenParty`. */
+const openParty = createMiddleware<Env>(async (c, next) => {
+  const party = await findOpenParty(
+    c.var.repositories,
+    c.req.param('slug') ?? '',
+  );
+  if (!party) return c.json({ error: 'party_not_found' }, 404);
+  c.set('party', party);
+  await next();
+});
+
+// Both endpoints write, so both are rate-limited, before anything is read.
+invites.use('/:slug/*', rateLimit('INVITE_RATE_LIMITER'), openParty);
 
 /**
  * `POST /invite/:slug/open` — someone opened the link.
@@ -140,45 +124,17 @@ async function rateLimited(
  * change their mind is the same person rather than a new one.
  */
 invites.post('/:slug/open', async (c) => {
-  if (await rateLimited(c.env.INVITE_RATE_LIMITER, c)) {
-    return c.json({ error: 'rate_limited' }, 429);
-  }
-
-  const found = await c.var.repositories.parties.findBySlug(
-    c.req.param('slug'),
-  );
-  // A party that does not exist, one whose link the owner closed, and one
-  // stored only so a co-organiser could open it all answer alike: there is
-  // nothing useful to tell a link holder apart from "this is not a party", and
-  // distinguishing them would leak that a slug is real.
-  if (!found.ok || !found.value.invitesOpen) {
-    return c.json({ error: 'party_not_found' }, 404);
-  }
-  const party = found.value;
-
-  const body = await c.req
-    .json<InviteOpenRequest>()
-    .catch(() => ({}) as InviteOpenRequest);
+  const party = c.get('party');
+  const body = await readBody(c);
 
   const opened = await c.var.repositories.invites.open({
     partyId: party.id,
-    referrerToken: body.referrer ?? null,
+    referrerToken: text(body, 'referrer') || null,
     rootToken: party.rootToken,
-    existingInviteId: body.inviteId ?? null,
+    existingInviteId: text(body, 'inviteId') || null,
   });
-  if (!opened.ok) return c.json({ error: opened.error }, 500);
-
-  const invite = opened.value;
-  const dto: InviteOpenDTO = {
-    party: toPartyDTO(party, await isFull(c.var.repositories, party), c.env),
-    inviteId: invite.id,
-    forwardToken: forwardTokenFor(invite, party),
-    status: invite.status,
-    name: invite.name,
-    depth: invite.depth,
-    payment: paymentFor(invite, party),
-  };
-  return c.json(dto);
+  if (!opened.ok) return fail(c, opened.error);
+  return c.json(await inviteOpenDTO(c, opened.value));
 });
 
 /**
@@ -189,63 +145,37 @@ invites.post('/:slug/open', async (c) => {
  * funnel's "reached" count with people who were only ever one guest.
  */
 invites.post('/:slug/answer', async (c) => {
-  if (await rateLimited(c.env.INVITE_RATE_LIMITER, c)) {
-    return c.json({ error: 'rate_limited' }, 429);
-  }
-
-  const found = await c.var.repositories.parties.findBySlug(
-    c.req.param('slug'),
-  );
-  if (!found.ok || !found.value.invitesOpen) {
-    return c.json({ error: 'party_not_found' }, 404);
-  }
-  const party = found.value;
-
-  const body = await c.req.json<unknown>().catch(() => null);
-  if (typeof body !== 'object' || body === null) {
-    return c.json({ error: 'invalid_answer' }, 400);
-  }
-  const fields = body as Record<string, unknown>;
-  const { inviteId, name, answer } = fields;
+  const party = c.get('party');
+  const body = await readBody(c);
+  const { inviteId, answer } = body;
 
   if (typeof inviteId !== 'string' || !isInviteAnswer(answer)) {
     return c.json({ error: 'invalid_answer' }, 400);
   }
-  const trimmed = typeof name === 'string' ? name.trim().slice(0, 60) : '';
-  if (trimmed === '') return c.json({ error: 'name_required' }, 400);
+  const name = guestName(text(body, 'name'));
+  if (name === '') return c.json({ error: 'name_required' }, 400);
 
-  const contact = contactFor(party, answer, fields);
+  const contact = answerContact(
+    answer === 'confirmed',
+    partyIsPaid(party),
+    text(body, 'email'),
+    text(body, 'phone'),
+  );
   if ('error' in contact) return c.json({ error: contact.error }, 400);
 
   const answered = await c.var.repositories.invites.answer({
     inviteId,
     partyId: party.id,
-    name: trimmed,
+    name,
     answer,
     maxCapacity: party.maxCapacity,
     contact,
   });
-
-  if (!answered.ok) {
-    if (answered.error === INVITE_ERRORS.PARTY_FULL) {
-      return c.json({ error: answered.error }, 409);
-    }
-    // A stale inviteId (the host unpublished and republished, say) is a 404, so
-    // the client knows to open again rather than retrying an answer forever.
-    return c.json({ error: answered.error }, 404);
-  }
-
-  const invite = answered.value;
-  const dto: InviteOpenDTO = {
-    party: toPartyDTO(party, await isFull(c.var.repositories, party), c.env),
-    inviteId: invite.id,
-    forwardToken: forwardTokenFor(invite, party),
-    status: invite.status,
-    name: invite.name,
-    depth: invite.depth,
-    payment: paymentFor(invite, party),
-  };
-  return c.json(dto);
+  // A stale inviteId (the host unpublished and republished, say) is a 404, so
+  // the client knows to open again rather than retrying an answer forever; a
+  // full party is a 409.
+  if (!answered.ok) return fail(c, answered.error);
+  return c.json(await inviteOpenDTO(c, answered.value));
 });
 
 export default invites;
