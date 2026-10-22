@@ -15,6 +15,9 @@ import { qrCanvas } from './qr';
  */
 const QR_LOGO_SRC = `${import.meta.env.BASE_URL}logoLight.svg`;
 
+/** The plate's proportions, as fractions of the QR's width. */
+const QR_LOGO = { size: 0.2, pad: 0.022 };
+
 /** Turns an image URL into something a canvas can draw. */
 export type ImageLoader = (src: string) => Promise<CanvasImageSource>;
 
@@ -55,10 +58,10 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 function overlayLogo(canvas: HTMLCanvasElement, logo: CanvasImageSource): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const size = canvas.width * 0.2;
+  const size = canvas.width * QR_LOGO.size;
   const x = (canvas.width - size) / 2;
   const y = (canvas.height - size) / 2;
-  const pad = canvas.width * 0.022;
+  const pad = canvas.width * QR_LOGO.pad;
   ctx.fillStyle = '#ffffff';
   roundRectPath(ctx, x - pad, y - pad, size + pad * 2, size + pad * 2, pad);
   ctx.fill();

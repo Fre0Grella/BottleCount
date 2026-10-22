@@ -110,6 +110,9 @@ inflate the top of the funnel and make the conversion rate a lie.
   hash of the guest's name so it is stable across reloads, drawn from the same
   alphabet so a guest cannot tell the difference. Two guests of one party could
   in principle collide; with one device on one door, the name settles it.
+  (Since amended: a guest typed in gets a drawn code stored on their invite,
+  and guests saved before that get their hashed code stored once, so renaming
+  a guest no longer changes the code on their ticket.)
 - **Undo exists**, because the alternative to a wrong check-in being reversible
   is a guest standing outside while two organisers argue.
 - **Check-in still needs the network to be shared.** Two phones both offline
