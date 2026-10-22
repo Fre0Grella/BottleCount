@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { COVERS } from '../lib/store';
+import { coverOf } from '../lib/covers';
 import { downloadFile } from '../lib/download';
 import { brandedQrDataUrl, buildTicketFile } from '../lib/drawing';
 import type { TicketLinkDTO } from '../../shared/ticketLinks';
@@ -36,7 +36,7 @@ const saving = ref(false);
 
 const base = import.meta.env.BASE_URL as string;
 
-const cover = computed(() => COVERS[ticket.value?.cover ?? 0] ?? COVERS[0]);
+const cover = computed(() => coverOf(ticket.value?.cover));
 
 const dateLabel = computed(() => {
   const iso = ticket.value?.date;

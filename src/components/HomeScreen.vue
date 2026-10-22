@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore, COVERS } from '../lib/store';
+import { useStore } from '../lib/store';
+import { coverOf } from '../lib/covers';
 import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
 import Logo from './Logo.vue';
@@ -36,7 +37,7 @@ interface PartyCard {
 
 const partyCards = computed<PartyCard[]>(() => {
   return store.state.parties.map((p) => {
-    const cv = COVERS[p.cover ?? 0] ?? COVERS[0];
+    const cv = coverOf(p.cover);
     const where =
       [p.venue?.place, p.venue?.city].filter(Boolean).join(', ') || '—';
     const dateLabel = p.date

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore, COVERS, VIBES, BUFFERS } from '../../lib/store';
+import { useStore } from '../../lib/store';
+import { COVERS, coverOf } from '../../lib/covers';
+import { VIBES, BUFFERS } from '../../lib/planPresets';
 import { runsBar } from '../../lib/core';
 import Icon from '../Icon.vue';
 import Slider from '../Slider.vue';
@@ -17,11 +19,7 @@ const planningDrinks = computed(() => (p.value ? runsBar(p.value) : true));
 
 // ── Venue hero ─────────────────────────────────────────────────────────────
 
-const heroCover = computed(() => {
-  const party = p.value;
-  if (!party) return COVERS[0];
-  return COVERS[party.cover ?? 0] ?? COVERS[0];
-});
+const heroCover = computed(() => coverOf(p.value?.cover));
 
 const venueWhere = computed(() => {
   const party = p.value;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useStore, COVERS } from '../../lib/store';
+import { useStore } from '../../lib/store';
+import { coverOf } from '../../lib/covers';
 import { findInvite, ticketCode } from '../../lib/ticket';
 import {
   partyDateShort as shortDate,
@@ -28,11 +29,7 @@ const guest = computed(() => {
 });
 const guestName = computed(() => guest.value?.name ?? '');
 
-const cover = computed(() => {
-  const p = party.value;
-  if (!p) return COVERS[0];
-  return COVERS[p.cover] ?? COVERS[0];
-});
+const cover = computed(() => coverOf(party.value?.cover));
 
 const partyDateShort = computed(() =>
   party.value ? shortDate(party.value.date) : '',

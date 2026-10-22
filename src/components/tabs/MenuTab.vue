@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useStore, SIMPLE } from '../../lib/store';
+import { useStore } from '../../lib/store';
+import { isSimpleCategory } from '../../lib/menu';
 import { cocktailRecipe } from '../../lib/catalog';
 import Icon from '../Icon.vue';
 import type { IconName } from '../../lib/icons';
@@ -493,7 +494,7 @@ function toggleSpirit(cat: string, spirit: string): void {
 
             <!-- Chevron for drinks (only if NOT simple category) -->
             <button
-              v-if="!SIMPLE.includes(cat)"
+              v-if="!isSimpleCategory(cat)"
               style="
                 cursor: pointer;
                 display: flex;
@@ -554,7 +555,7 @@ function toggleSpirit(cat: string, spirit: string): void {
           <!-- Expanded: drinks / cocktails -->
           <div
             v-if="
-              !SIMPLE.includes(cat) &&
+              !isSimpleCategory(cat) &&
               store.state.expandedSpirit === `${cat}:${spirit}`
             "
             style="

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore, COVERS } from '../lib/store';
+import { useStore } from '../lib/store';
+import { COVERS } from '../lib/covers';
 import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
 

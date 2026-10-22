@@ -49,6 +49,7 @@
     "eslint-plugin-astro": "^1.7.0",
     "eslint-plugin-vue": "^10.9.0",
     "eslint-plugin-vuejs-accessibility": "^2.6.3",
+    "fake-indexeddb": "^6.2.6",
     "globals": "^17.5.0",
     "husky": "^9.1.7",
     "jscpd": "^5.4.2",

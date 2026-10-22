@@ -21,13 +21,6 @@ import type { Party } from './types';
 
 const PUSH_DEBOUNCE_MS = 700;
 
-export interface SyncTarget {
-  /** The party's id on the server. */
-  remoteId: string;
-  /** The version the local copy was built from. */
-  version: number;
-}
-
 export interface SyncCallbacks {
   /** The document as the server now has it, after somebody else's edit. */
   onRemoteDocument(document: PartyDocument, version: number): void;

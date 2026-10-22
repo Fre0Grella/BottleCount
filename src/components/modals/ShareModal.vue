@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore, COVERS } from '../../lib/store';
+import { useStore } from '../../lib/store';
+import { coverOf } from '../../lib/covers';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import ShareChannels from '../ShareChannels.vue';
@@ -10,11 +11,7 @@ const store = useStore();
 
 const party = computed(() => store.activeParty());
 
-const cover = computed(() => {
-  const p = party.value;
-  if (!p) return COVERS[0];
-  return COVERS[p.cover] ?? COVERS[0];
-});
+const cover = computed(() => coverOf(party.value?.cover));
 
 /**
  * The host's own link, or '' until the party has been published.

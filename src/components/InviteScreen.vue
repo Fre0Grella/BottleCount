@@ -6,7 +6,7 @@ import { inviteUrl } from '../../shared/invites';
 import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
-import { COVERS } from '../lib/store';
+import { coverOf } from '../lib/covers';
 import BrandMark from './BrandMark.vue';
 import Icon from './Icon.vue';
 import ShareChannels from './ShareChannels.vue';
@@ -108,7 +108,7 @@ function rememberContact(s: string, contact: { email: string; phone: string }) {
   }
 }
 
-const cover = computed(() => COVERS[data.value?.party.cover ?? 0] ?? COVERS[0]);
+const cover = computed(() => coverOf(data.value?.party.cover));
 
 const dateLabel = computed(() => {
   const iso = data.value?.party.date;

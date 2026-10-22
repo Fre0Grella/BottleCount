@@ -4,15 +4,7 @@ import type {
   CalculationResult,
   ShoppingItem,
 } from './types';
-
-const SIMPLE_CATEGORIES = new Set(['Beer', 'Wine']);
-
-export const ALCOHOL_LEVELS: Record<number, string> = {
-  25: '🌿 Soft',
-  50: '🍹 Aperitivo',
-  75: '🎉 Party',
-  100: '🔥 Hardcore',
-};
+import { isSimpleCategory } from './menu';
 
 /**
  * Whether the host plans the drinks for this party. Absent means yes: parties
@@ -79,7 +71,7 @@ export function calculate(
       const ing = ingredients[spiritName];
       if (!ing) continue;
 
-      if (SIMPLE_CATEGORIES.has(category)) {
+      if (isSimpleCategory(category)) {
         if ((ing.abv ?? 0) <= 0) continue;
         volumeTotal[spiritName] =
           (volumeTotal[spiritName] ?? 0) + spiritAlcohol / ing.abv;
@@ -158,38 +150,4 @@ export function calculate(
       Math.round((revenue - totalMin - fixedCosts - venueFees) * 100) / 100,
     break_even: margin > 0 ? Math.ceil(fixedCosts / margin) : null,
   };
-}
-
-export function validateMenu(menu: Settings['menu']): string[] {
-  const errors: string[] = [];
-  const macroSum = Object.values(menu).reduce((s, v) => s + v.macro_pct, 0);
-  if (Math.abs(macroSum - 1.0) > 0.01)
-    errors.push(
-      `Macro categories sum = ${(macroSum * 100).toFixed(1)}% (must be 100%)`,
-    );
-
-  for (const [cat, catData] of Object.entries(menu)) {
-    const spiritsSum = Object.values(catData.spirits).reduce(
-      (s, v) => s + v.pct,
-      0,
-    );
-    if (Math.abs(spiritsSum - 1.0) > 0.01)
-      errors.push(
-        `[${cat}] Spirits sum = ${(spiritsSum * 100).toFixed(1)}% (must be 100%)`,
-      );
-
-    if (!SIMPLE_CATEGORIES.has(cat)) {
-      for (const [spirit, spiritData] of Object.entries(catData.spirits)) {
-        const drinksSum = Object.values(spiritData.drinks ?? {}).reduce(
-          (s, v) => s + v,
-          0,
-        );
-        if (Math.abs(drinksSum - 1.0) > 0.01)
-          errors.push(
-            `[${cat} → ${spirit}] Drinks sum = ${(drinksSum * 100).toFixed(1)}% (must be 100%)`,
-          );
-      }
-    }
-  }
-  return errors;
 }

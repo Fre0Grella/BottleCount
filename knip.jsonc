@@ -33,10 +33,5 @@
     "shared/patch.ts": ["types"],
     "shared/session.ts": ["types"],
     "shared/tiers.ts": ["exports"],
-    "src/lib/core.ts": ["exports"],
-    "src/lib/db.ts": ["exports"],
-    "src/lib/menu.ts": ["exports"],
-    "src/lib/sync.ts": ["types"],
-    "src/lib/types.ts": ["types"],
   },
 }

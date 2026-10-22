@@ -1,14 +1,13 @@
 import type { FeatureSet } from '../../shared/tiers';
 import type { InviteStatus } from '../../shared/invites';
 import type { PaymentDetails } from '../../shared/payments';
-import type { TicketQRPayload } from '../../shared/tickets';
 
 /**
  * Re-exported so components import their types from one place. The states
  * themselves are the server's — see shared/invites.ts — because a guest's
  * answer is what sets them.
  */
-export type { InviteStatus, TicketQRPayload };
+export type { InviteStatus };
 
 // ── Catalog ────────────────────────────────────────────────────────────────
 
@@ -30,7 +29,7 @@ export interface Ingredient {
   custom?: boolean;
 }
 
-export interface CocktailRecipeItem {
+interface CocktailRecipeItem {
   quantity: number;
   unit?: string;
 }
@@ -49,17 +48,17 @@ export interface Catalog {
 
 // ── Settings ───────────────────────────────────────────────────────────────
 
-export interface ExtraItem {
+interface ExtraItem {
   qty_per_person: number;
   min_qty?: number;
 }
 
-export interface DrinkEntry {
+interface DrinkEntry {
   pct: number;
   drinks?: Record<string, number>;
 }
 
-export interface CategoryEntry {
+interface CategoryEntry {
   macro_pct: number;
   spirits: Record<string, DrinkEntry>;
 }
@@ -78,7 +77,7 @@ export interface Settings {
 }
 
 /** Per-party overrideable settings (guests, ticket price, venue, equipment) */
-export interface PartySettings {
+interface PartySettings {
   guests: number;
   ticket_price: number;
   venue_cost: number;
@@ -121,7 +120,7 @@ export interface CalculationResult {
 
 // ── Venue & Invites ────────────────────────────────────────────────────────
 
-export interface Venue {
+interface Venue {
   place: string;
   city: string;
   time: string;
@@ -165,7 +164,7 @@ export interface Invite {
   paidAt?: string;
 }
 
-// ── Tickets ────────────────────────────────────────────────────────────────
+// ── Party ──────────────────────────────────────────────────────────────────
 
 /** Drink menu stored per party — same shape as Settings['menu'] */
 export type PartyMenu = Record<string, CategoryEntry>;
@@ -175,7 +174,7 @@ export interface Party {
   name: string;
   date: string;
   createdAt: string;
-  cover: number; // 0..5 index into COVERS
+  cover: number; // 0..5 index into COVERS (covers.ts)
   venue: Venue;
   settings: PartySettings; // existing interface
   menu: PartyMenu; // existing type (Record<string, CategoryEntry>)
@@ -229,15 +228,6 @@ export interface PartyPublication {
    */
   ticketKey?: JsonWebKey | null;
   publishedAt: string;
-}
-
-export interface Ticket {
-  id?: number;
-  partyId: number;
-  guestName: string;
-  used: boolean;
-  usedAt?: string;
-  expiresAt: string;
 }
 
 // ── IndexedDB userdata keys ────────────────────────────────────────────────

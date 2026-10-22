@@ -1,5 +1,6 @@
-import Dexie, { type Table } from 'dexie';
-import type { Party, Ticket, UserDataKey } from './types';
+import Dexie, { type DexieOptions, type Table } from 'dexie';
+import { upgradeParty } from './partyDefaults';
+import type { Party, UserDataKey } from './types';
 
 interface UserDataRow {
   key: UserDataKey;
@@ -8,11 +9,11 @@ interface UserDataRow {
 
 export class BottleCountDB extends Dexie {
   parties!: Table<Party, number>;
-  tickets!: Table<Ticket, number>;
   userdata!: Table<UserDataRow, UserDataKey>;
 
-  constructor() {
-    super('BottleCount');
+  /** Both arguments are for tests, which open a fake IndexedDB by another name. */
+  constructor(name = 'BottleCount', options?: DexieOptions) {
+    super(name, options);
 
     // version(1) had only parties + tickets (no userdata table).
     // Keep it declared so Dexie knows the baseline schema and won't
@@ -40,6 +41,36 @@ export class BottleCountDB extends Dexie {
       tickets: '++id, partyId, guestName, used, expiresAt',
       userdata: 'key',
     });
+
+    // version(4) brings every stored party up to the current shape once, here,
+    // instead of on every load: fields added since it was saved, the renamed
+    // invite statuses, and the ticket codes of local guests saved before codes
+    // were stored (#47). It also drops `tickets`, which nothing has read since
+    // tickets moved onto the party's guests.
+    //
+    // A party that fails to upgrade is left as it is rather than failing the
+    // upgrade: a throw here would abort the open, and the app would not start
+    // on that phone again. The store's load runs the same upgrade on it.
+    this.version(4)
+      .stores({
+        parties: '++id, name, date, createdAt',
+        tickets: null,
+        userdata: 'key',
+      })
+      .upgrade((tx) =>
+        tx
+          .table<Party, number>('parties')
+          .toCollection()
+          .modify((party) => {
+            try {
+              const upgraded = structuredClone(party);
+              upgradeParty(upgraded);
+              Object.assign(party, upgraded);
+            } catch (err) {
+              console.error('Party left for the next load to upgrade', err);
+            }
+          }),
+      );
   }
 }
 
