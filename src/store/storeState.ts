@@ -141,7 +141,7 @@ export function update(mutator: (p: Party) => void): void {
   save(p, mutator);
   // Every edit goes through here, so this is the one place that has to tell the
   // sync engine something changed. It diffs against what the server is believed
-  // to hold and sends only that, debounced — see lib/sync.ts.
+  // to hold and sends only that, debounced — see features/sync/sync.ts.
   session.record(p);
 }
 

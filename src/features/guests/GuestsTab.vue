@@ -218,7 +218,7 @@ const isPhone = computed(() => store.state.device === 'phone');
 // ── Live funnel ────────────────────────────────────────────────────────────
 
 // Guests answer while the host is looking, so the open party's session polls
-// the funnel (lib/partySession.ts). Opening this tab asks once more on top, so
+// the funnel (features/sync/partySession.ts). Opening this tab asks once more on top, so
 // the list is fresh now rather than at the next poll.
 onMounted(() => void store.syncFunnel());
 

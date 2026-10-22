@@ -20,7 +20,7 @@ import Icon from '../components/ui/Icon.vue';
  * A guest's ticket, opened from the link the host sent them.
  *
  * Like the invite page it has no account and no server call: everything is in
- * the URL fragment (see `lib/ticketLink.ts`). The QR drawn here is the same
+ * the URL fragment (see `features/tickets/ticketLink.ts`). The QR drawn here is the same
  * signed string the host's ticket carries, so the door scans it exactly as it
  * would the host's copy.
  */

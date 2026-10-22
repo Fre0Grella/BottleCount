@@ -770,7 +770,7 @@ Key behaviours:
 
 #### 3.2 Calculator core logic (domain layer)
 
-Implemented in `src/lib/core.ts` (not fully quoted here but used by `Calculator.vue`).[cite:14][cite:12]
+Implemented in `src/features/party/core.ts` (not fully quoted here but used by `Calculator.vue`).[cite:14][cite:12]
 
 Responsibilities:
 
@@ -800,7 +800,7 @@ Responsibilities:
 
 #### 3.4 Ticket cryptography
 
-Implemented in `src/lib/crypto.ts`.[cite:14][cite:13]
+Implemented in `src/features/tickets/crypto.ts`.[cite:14][cite:13]
 
 Responsibilities:
 

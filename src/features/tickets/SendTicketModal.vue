@@ -43,7 +43,7 @@ const code = computed(() => {
 
 const initial = computed(() => guestName.value.charAt(0).toUpperCase());
 
-/** The words sent with the ticket — see `lib/ticketMessage.ts`. */
+/** The words sent with the ticket — see `ticketMessage.ts`. */
 const shareText = computed(() => {
   const p = party.value;
   if (!p || !ticketLink.value) return '';

@@ -9,7 +9,7 @@ import TicketScreen from '../../screens/TicketScreen.vue';
   <!--
     Every ticket is this one page. The ticket itself is in the URL fragment
     (`/t/#t=…`), which never reaches a server, so unlike `/i/<slug>` this
-    needs no Pages Function to route it — see src/lib/ticketLink.ts.
+    needs no Pages Function to route it — see src/features/tickets/ticketLink.ts.
   -->
   <TicketScreen client:only="vue" />
 </BaseLayout>
