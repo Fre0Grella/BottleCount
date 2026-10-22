@@ -9,21 +9,23 @@ import type {
 import { db } from './db';
 import { fetchSession, ANONYMOUS_SESSION } from './session';
 import {
-  addRemoteGuest,
-  checkInRemote,
-  fetchFunnel,
   mergeFunnel,
   adoptRemoteGuest,
   awaitingPayment,
   sameInvites,
+} from './invites';
+import {
+  addRemoteGuest,
+  checkInRemote,
+  earlierCheckIn,
+  fetchFunnel,
   setRemoteContact,
   setRemoteInviteStatus,
   setRemotePaid,
   undoCheckInRemote,
-} from './invites';
+} from './api/guests';
+import { applyDocument, documentOf } from './collab';
 import {
-  applyDocument,
-  documentOf,
   closeInviteLink,
   createCollaboratorInvite,
   deleteRemoteParty,
@@ -34,7 +36,8 @@ import {
   removeMember,
   revokeCollaboratorInvites,
   storeParty,
-} from './collab';
+} from './api/parties';
+import { errorCode } from './api/request';
 import { PartySync } from './sync';
 import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
 import type { GuestContact } from '../../shared/contact';
@@ -741,7 +744,7 @@ async function shareActiveParty(): Promise<boolean> {
   try {
     const result = await storeParty(p);
     if (!result.ok || !result.value) {
-      state.publishError = result.error ?? 'share_failed';
+      state.publishError = result.ok ? 'share_failed' : errorCode(result.error);
       return false;
     }
     const shared = result.value;
@@ -778,7 +781,9 @@ async function openPartyInviteLink(): Promise<boolean> {
   try {
     const result = await openInviteLink(remoteId);
     if (!result.ok || !result.value) {
-      state.publishError = result.error ?? 'publish_failed';
+      state.publishError = result.ok
+        ? 'publish_failed'
+        : errorCode(result.error);
       return false;
     }
     update((party) => {
@@ -799,7 +804,7 @@ async function closePartyInviteLink(): Promise<boolean> {
 
   const result = await closeInviteLink(remoteId);
   if (!result.ok) {
-    state.publishError = result.error ?? 'unpublish_failed';
+    state.publishError = errorCode(result.error);
     return false;
   }
   update((party) => {
@@ -818,7 +823,7 @@ async function unshareActiveParty(): Promise<boolean> {
 
   const result = await deleteRemoteParty(remoteId);
   if (!result.ok) {
-    state.publishError = result.error ?? 'unshare_failed';
+    state.publishError = errorCode(result.error);
     return false;
   }
   stopSync();
@@ -848,7 +853,7 @@ async function inviteCoOrganiser(): Promise<string | null> {
 
   const result = await createCollaboratorInvite(remoteId);
   if (!result.ok || !result.value) {
-    state.publishError = result.error ?? 'invite_failed';
+    state.publishError = result.ok ? 'invite_failed' : errorCode(result.error);
     return null;
   }
   return result.value.token;
@@ -1102,7 +1107,8 @@ async function setInviteContact(
     invite.remoteId,
     contact,
   );
-  if (!result.ok || !result.value) return result.error ?? 'save_failed';
+  if (!result.ok) return errorCode(result.error);
+  if (!result.value) return 'save_failed';
   apply(result.value.email, result.value.phone);
   return null;
 }
@@ -1173,10 +1179,11 @@ async function checkInGuest(
   const result = await checkInRemote(remoteId, inviteRemoteId);
   if (result.ok) return { ok: true };
 
-  if (result.error === 'already_checked_in') {
+  const earlier = earlierCheckIn(result.error);
+  if (earlier) {
     // Somebody else's phone got there first. Adopt their time — ours was a
     // guess made a moment ago and theirs is what actually happened.
-    const alreadyAt = result.value?.checkedInAt ?? null;
+    const alreadyAt = earlier.at;
     update((p) => {
       const target = p.invites.find((i) => i.id === id);
       if (target && alreadyAt) target.usedAt = alreadyAt;

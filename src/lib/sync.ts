@@ -1,6 +1,8 @@
 import type { PartyDocument } from '../../shared/collab';
 import { apply, diff, squash, type MergePatch } from '../../shared/patch';
-import { documentOf, patchParty } from './collab';
+import { patchParty } from './api/parties';
+import { errorCode } from './api/request';
+import { documentOf } from './collab';
 import type { Party } from './types';
 
 /**
@@ -108,7 +110,9 @@ export class PartySync {
       }
     } else {
       this.pending = this.pending ? squash(patch, this.pending) : patch;
-      this.callbacks.onError(result.error ?? 'sync_failed');
+      this.callbacks.onError(
+        result.ok ? 'sync_failed' : errorCode(result.error),
+      );
       this.schedule();
     }
 
