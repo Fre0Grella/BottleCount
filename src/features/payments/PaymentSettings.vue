@@ -7,10 +7,10 @@ import {
   normalisePaypal,
   normaliseRevolut,
   normaliseSatispay,
-} from '../../shared/payments';
-import type { PaymentDetails } from '../../shared/payments';
-import { useStore } from '../store/store';
-import Icon from './ui/Icon.vue';
+} from '../../../shared/payments';
+import type { PaymentDetails } from '../../../shared/payments';
+import { useStore } from '../../store/store';
+import Icon from '../../components/ui/Icon.vue';
 
 /**
  * Where guests pay the host — the Plan tab's "Getting paid" card.

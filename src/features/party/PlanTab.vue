@@ -7,7 +7,7 @@ import { runsBar } from './core';
 import { formatEuro, venueWhere as whereOf } from '../../lib/display';
 import Icon from '../../components/ui/Icon.vue';
 import Slider from '../../components/ui/Slider.vue';
-import PaymentSettings from '../../components/PaymentSettings.vue';
+import PaymentSettings from '../payments/PaymentSettings.vue';
 
 const store = useStore();
 
