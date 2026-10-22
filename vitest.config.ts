@@ -13,7 +13,11 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    include: ['src/**/*.spec.ts', 'shared/**/*.spec.ts'],
+    include: [
+      'src/**/*.spec.ts',
+      'shared/**/*.spec.ts',
+      'functions/**/*.spec.ts',
+    ],
     environment: 'node',
   },
 });
