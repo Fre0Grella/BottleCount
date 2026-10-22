@@ -1,4 +1,4 @@
-import type { TicketQRPayload, TicketRejection } from '../../shared/tickets';
+import type { TicketQRPayload, TicketRejection } from '../../../shared/tickets';
 import {
   generateTicketCode,
   isTicketCode,
@@ -7,10 +7,10 @@ import {
   TICKET_CODE_ATTEMPTS,
   TICKET_CODE_LENGTH,
   ticketState,
-} from '../../shared/tickets';
+} from '../../../shared/tickets';
 import type { TicketCheck } from './crypto';
-import { parseLocalDate } from './dates';
-import type { Invite, Party } from './types';
+import { parseLocalDate } from '../../lib/dates';
+import type { Invite, Party } from '../../lib/types';
 
 /**
  * A guest's ticket: its code, what its QR carries, how long it lasts, and

@@ -37,8 +37,8 @@ export default defineConfig({
           include: [
             'src/**/*.tz.spec.ts',
             'src/lib/dates.spec.ts',
-            'src/lib/ticket.spec.ts',
-            'src/lib/ticketMessage.spec.ts',
+            'src/features/tickets/ticket.spec.ts',
+            'src/features/tickets/ticketMessage.spec.ts',
           ],
           environment: 'node',
           env: { TZ: 'America/New_York' },

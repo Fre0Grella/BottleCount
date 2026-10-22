@@ -1,12 +1,12 @@
-import { getKey, setKey } from './db';
-import type { TicketQRPayload } from '../../shared/tickets';
+import { getKey, setKey } from '../../lib/db';
+import type { TicketQRPayload } from '../../../shared/tickets';
 import {
   base64ToBytes,
   bytesToBase64,
   encodeTicketPayload,
   parseSignedTicket,
-} from '../../shared/tickets';
-import type { Party } from './types';
+} from '../../../shared/tickets';
+import type { Party } from '../../lib/types';
 
 /**
  * Signing and checking tickets.

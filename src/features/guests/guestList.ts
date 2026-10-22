@@ -12,7 +12,7 @@ import {
 import { errorCode } from '../../lib/api/request';
 import { adoptRemoteGuest } from './invites';
 import { activeParty, save, session, update } from '../../store/storeState';
-import { newLocalTicketCode } from '../../lib/ticket';
+import { newLocalTicketCode } from '../tickets/ticket';
 import type { Invite, Party } from '../../lib/types';
 
 /**

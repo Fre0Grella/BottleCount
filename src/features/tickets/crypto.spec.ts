@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { TicketQRPayload } from '../../shared/tickets';
-import { parseSignedTicket } from '../../shared/tickets';
+import type { TicketQRPayload } from '../../../shared/tickets';
+import { parseSignedTicket } from '../../../shared/tickets';
 import { importKey, signWithKey, verifyWithKey } from './crypto';
 
 /**

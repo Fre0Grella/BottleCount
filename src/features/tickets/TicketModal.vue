@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore } from '../../store/store';
-import { signTicket } from '../../lib/crypto';
+import { signTicket } from './crypto';
 import { brandedQrDataUrl } from '../../lib/drawing';
 import {
   findInvite,
   ticketCode,
   ticketPayload,
   ticketExpiryLabel,
-} from '../../lib/ticket';
-import Modal from '../ui/Modal.vue';
-import Icon from '../ui/Icon.vue';
+} from './ticket';
+import Modal from '../../components/ui/Modal.vue';
+import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
 

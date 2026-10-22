@@ -3,7 +3,7 @@ import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BottleCountDB } from './db';
 import { upgradeParty } from '../features/party/partyDefaults';
-import { ticketCode } from './ticket';
+import { ticketCode } from '../features/tickets/ticket';
 import type { Party } from './types';
 
 /**

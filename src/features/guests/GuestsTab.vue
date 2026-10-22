@@ -9,7 +9,7 @@ import {
   signedTicketLink,
   ticketEmailSubject,
   ticketMessage,
-} from '../../lib/ticketMessage';
+} from '../tickets/ticketMessage';
 import type { Invite } from '../../lib/types';
 import { useStore } from '../../store/store';
 import { formatClockTime } from '../../lib/dates';

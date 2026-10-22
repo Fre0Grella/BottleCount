@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { TicketQRPayload } from '../../shared/tickets';
-import { ticketUrl } from '../../shared/urls';
+import type { TicketQRPayload } from '../../../shared/tickets';
+import { ticketUrl } from '../../../shared/urls';
 import { openTicket, parseTicketHash } from './ticketLink';
 
 const payload: TicketQRPayload = {

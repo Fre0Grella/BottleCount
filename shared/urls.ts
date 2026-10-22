@@ -65,7 +65,7 @@ export interface TicketDisplay {
 /**
  * A long ticket link: the signed ticket and what the page shows beside it, all
  * in the fragment, which browsers never send to a server (see
- * `src/lib/ticketLink.ts`).
+ * `src/features/tickets/ticketLink.ts`).
  */
 export function ticketUrl(
   origin: string,

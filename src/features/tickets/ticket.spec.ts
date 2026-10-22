@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { emptyPaymentDetails } from '../../shared/payments';
-import type { TicketQRPayload } from '../../shared/tickets';
-import { isTicketCode } from '../../shared/tickets';
+import { emptyPaymentDetails } from '../../../shared/payments';
+import type { TicketQRPayload } from '../../../shared/tickets';
+import { isTicketCode } from '../../../shared/tickets';
 import {
   checkTicket,
   newLocalTicketCode,
@@ -11,7 +11,7 @@ import {
   ticketPayload,
   withStoredTicketCodes,
 } from './ticket';
-import type { Invite, Party } from './types';
+import type { Invite, Party } from '../../lib/types';
 
 function guest(over: Partial<Invite> & Pick<Invite, 'id' | 'name'>): Invite {
   return {

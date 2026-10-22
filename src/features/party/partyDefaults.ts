@@ -1,7 +1,7 @@
 import { emptyPaymentDetails } from '../../../shared/payments';
 import settingsData from '../../data/settings.json';
 import { localIsoDate } from '../../lib/dates';
-import { withStoredTicketCodes } from '../../lib/ticket';
+import { withStoredTicketCodes } from '../tickets/ticket';
 import type { Party, PartyMenu } from '../../lib/types';
 
 /**

@@ -1,9 +1,9 @@
 import { signTicket } from './crypto';
-import { shortDate } from './dates';
+import { shortDate } from '../../lib/dates';
 import { findInvite, ticketPayload } from './ticket';
-import { storeTicketLink } from './api/tickets';
-import { shortTicketUrl, ticketUrl } from '../../shared/urls';
-import type { Invite, Party } from './types';
+import { storeTicketLink } from '../../lib/api/tickets';
+import { shortTicketUrl, ticketUrl } from '../../../shared/urls';
+import type { Invite, Party } from '../../lib/types';
 
 /**
  * What a guest is sent with their ticket, and where it goes.

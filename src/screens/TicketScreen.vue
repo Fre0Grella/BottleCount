@@ -10,7 +10,7 @@ import {
   openTicket,
   parseTicketHash,
   type OpenedTicket,
-} from '../lib/ticketLink';
+} from '../features/tickets/ticketLink';
 import { ticketSlugFromPath } from '../../shared/urls';
 import { formatLocalDate, shortDate } from '../lib/dates';
 import { safeLocal } from '../lib/safeStorage';

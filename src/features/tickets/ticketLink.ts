@@ -1,6 +1,6 @@
-import type { TicketQRPayload } from '../../shared/tickets';
-import { parseSignedTicket } from '../../shared/tickets';
-import type { TicketDisplay } from '../../shared/urls';
+import type { TicketQRPayload } from '../../../shared/tickets';
+import { parseSignedTicket } from '../../../shared/tickets';
+import type { TicketDisplay } from '../../../shared/urls';
 
 /**
  * A ticket a guest can open from a link.

@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore } from '../../store/store';
-import { coverOf } from '../../features/party/covers';
-import { findInvite, ticketCode } from '../../lib/ticket';
+import { coverOf } from '../party/covers';
+import { findInvite, ticketCode } from './ticket';
 import { shortDate } from '../../lib/dates';
 import {
   signedTicketLink,
   ticketEmailSubject,
   ticketMessage,
-} from '../../lib/ticketMessage';
-import Modal from '../ui/Modal.vue';
-import Icon from '../ui/Icon.vue';
-import ShareChannels from '../../features/sharing/ShareChannels.vue';
+} from './ticketMessage';
+import Modal from '../../components/ui/Modal.vue';
+import Icon from '../../components/ui/Icon.vue';
+import ShareChannels from '../sharing/ShareChannels.vue';
 
 const store = useStore();
 

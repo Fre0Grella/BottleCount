@@ -2,11 +2,11 @@
 import { ref, watch, onUnmounted } from 'vue';
 import QrScanner from 'qr-scanner';
 import { useStore } from '../../store/store';
-import { verifyTicket } from '../../lib/crypto';
-import { checkTicket } from '../../lib/ticket';
+import { verifyTicket } from './crypto';
+import { checkTicket } from './ticket';
 import { formatClockTime } from '../../lib/dates';
-import type { DoorEntry, DoorVerdict } from '../../lib/ticket';
-import Icon from '../ui/Icon.vue';
+import type { DoorEntry, DoorVerdict } from './ticket';
+import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
 

@@ -18,7 +18,7 @@ import {
   update,
 } from './storeState';
 import { currentTheme, toggleTheme as switchTheme } from '../lib/theme';
-import { findInvite } from '../lib/ticket';
+import { findInvite } from '../features/tickets/ticket';
 import type { CalculationResult, Party, Settings } from '../lib/types';
 
 /**

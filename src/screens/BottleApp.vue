@@ -16,10 +16,10 @@ import AddBottleModal from '../features/menu/AddBottleModal.vue';
 import CocktailBuilderModal from '../features/menu/CocktailBuilderModal.vue';
 import ManageIngredientsModal from '../features/menu/ManageIngredientsModal.vue';
 import ShareModal from '../features/sharing/ShareModal.vue';
-import SendTicketModal from '../components/modals/SendTicketModal.vue';
-import TicketModal from '../components/modals/TicketModal.vue';
+import SendTicketModal from '../features/tickets/SendTicketModal.vue';
+import TicketModal from '../features/tickets/TicketModal.vue';
 import AddGuestModal from '../features/guests/AddGuestModal.vue';
-import DoorScannerModal from '../components/modals/DoorScannerModal.vue';
+import DoorScannerModal from '../features/tickets/DoorScannerModal.vue';
 import UpgradeModal from '../features/account/UpgradeModal.vue';
 import CoOrganisersModal from '../features/sharing/CoOrganisersModal.vue';
 
