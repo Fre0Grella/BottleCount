@@ -2,8 +2,8 @@
 import { computed } from 'vue';
 import { useStore } from '../../lib/store';
 import { coverOf } from '../../lib/covers';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
 import ShareChannels from '../ShareChannels.vue';
 import { inviteUrl, linkLabel } from '../../../shared/urls';
 import { shortDate } from '../../lib/dates';

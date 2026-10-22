@@ -7,8 +7,8 @@ import {
   setPriceOverride,
 } from '../../lib/catalog';
 import type { IngredientType } from '../../lib/types';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
 import { TYPE_META } from '../../lib/ingredientTypes';
 import { formatEuroRange } from '../../lib/display';
 

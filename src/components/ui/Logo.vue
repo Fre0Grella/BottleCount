@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BOTTLE_PATHS, MARK } from '../lib/brand';
+import { BOTTLE_PATHS, MARK } from '../../lib/brand';
 
 /**
  * The BottleCount mark, optionally with the wordmark beside it.

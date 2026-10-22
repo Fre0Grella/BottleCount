@@ -3,10 +3,10 @@ import { computed, ref } from 'vue';
 import { useStore } from '../../lib/store';
 import { isSimpleCategory } from '../../lib/menu';
 import { cocktailRecipe } from '../../lib/catalog';
-import Icon from '../Icon.vue';
+import Icon from '../ui/Icon.vue';
 import type { IconName } from '../../lib/icons';
 import { TYPE_META } from '../../lib/ingredientTypes';
-import Slider from '../Slider.vue';
+import Slider from '../ui/Slider.vue';
 import { segColor } from '../../lib/display';
 
 const store = useStore();

@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue';
 import { collaboratorUrl, linkLabel } from '../../../shared/urls';
 import { useStore } from '../../lib/store';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
 
 const store = useStore();
 

@@ -10,7 +10,7 @@ import {
 } from '../../shared/payments';
 import type { PaymentDetails } from '../../shared/payments';
 import { useStore } from '../lib/store';
-import Icon from './Icon.vue';
+import Icon from './ui/Icon.vue';
 
 /**
  * Where guests pay the host — the Plan tab's "Getting paid" card.

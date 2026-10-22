@@ -5,8 +5,8 @@ import { redeemLicence } from '../lib/api/session';
 import { errorCode } from '../lib/api/request';
 import type { Feature } from '../../shared/tiers';
 import { APP_URL } from '../lib/links';
-import Modal from './Modal.vue';
-import Icon from './Icon.vue';
+import Modal from './ui/Modal.vue';
+import Icon from './ui/Icon.vue';
 
 const store = useStore();
 

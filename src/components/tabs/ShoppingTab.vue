@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useStore } from '../../lib/store';
-import Icon from '../Icon.vue';
+import Icon from '../ui/Icon.vue';
 import { TYPE_META } from '../../lib/ingredientTypes';
 import type { IngredientType } from '../../lib/types';
 

@@ -5,8 +5,8 @@ import { COVERS, coverOf } from '../../lib/covers';
 import { VIBES, BUFFERS } from '../../lib/planPresets';
 import { runsBar } from '../../lib/core';
 import { formatEuro, venueWhere as whereOf } from '../../lib/display';
-import Icon from '../Icon.vue';
-import Slider from '../Slider.vue';
+import Icon from '../ui/Icon.vue';
+import Slider from '../ui/Slider.vue';
 import PaymentSettings from '../PaymentSettings.vue';
 
 const store = useStore();

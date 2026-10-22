@@ -9,8 +9,8 @@ import {
   ticketEmailSubject,
   ticketMessage,
 } from '../../lib/ticketMessage';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
 import ShareChannels from '../ShareChannels.vue';
 
 const store = useStore();

@@ -2,9 +2,9 @@
 import { computed, ref, watch } from 'vue';
 import { useStore } from '../../lib/store';
 import { savePersonalCocktail, deleteCocktail } from '../../lib/catalog';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
-import Slider from '../Slider.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
+import Slider from '../ui/Slider.vue';
 
 const store = useStore();
 

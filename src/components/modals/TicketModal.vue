@@ -9,8 +9,8 @@ import {
   ticketPayload,
   ticketExpiryLabel,
 } from '../../lib/ticket';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
 
 const store = useStore();
 

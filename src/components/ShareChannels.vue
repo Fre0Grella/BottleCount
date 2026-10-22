@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 import { brandedQrDataUrl } from '../lib/drawing';
 import { mailtoUrl, smsUrl, whatsappUrl } from '../lib/sendLinks';
-import Icon from './Icon.vue';
+import Icon from './ui/Icon.vue';
 import type { IconName } from '../lib/icons';
 
 /**

@@ -10,8 +10,8 @@ import { coverOf } from '../lib/covers';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, venueWhere } from '../lib/display';
 import { safeLocal } from '../lib/safeStorage';
-import BrandMark from './BrandMark.vue';
-import Icon from './Icon.vue';
+import BrandMark from './ui/BrandMark.vue';
+import Icon from './ui/Icon.vue';
 import ShareChannels from './ShareChannels.vue';
 
 /**

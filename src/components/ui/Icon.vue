@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ICONS, type IconName } from '../lib/icons';
+import { ICONS, type IconName } from '../../lib/icons';
 
 /**
  * One icon from the registry in src/lib/icons.ts. Astro pages use it too: with

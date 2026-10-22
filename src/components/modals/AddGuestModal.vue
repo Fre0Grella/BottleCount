@@ -2,8 +2,8 @@
 import { computed, ref, watch, nextTick } from 'vue';
 import { optionalContact } from '../../../shared/contact';
 import { useStore } from '../../lib/store';
-import Modal from '../Modal.vue';
-import Icon from '../Icon.vue';
+import Modal from '../ui/Modal.vue';
+import Icon from '../ui/Icon.vue';
 
 /**
  * Adds a guest by hand, or — opened from a guest's row — sets where to send

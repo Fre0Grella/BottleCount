@@ -6,7 +6,7 @@ import { verifyTicket } from '../../lib/crypto';
 import { checkTicket } from '../../lib/ticket';
 import { formatClockTime } from '../../lib/dates';
 import type { DoorEntry, DoorVerdict } from '../../lib/ticket';
-import Icon from '../Icon.vue';
+import Icon from '../ui/Icon.vue';
 
 const store = useStore();
 

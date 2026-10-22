@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { useStore } from '../lib/store';
 import { COVERS } from '../lib/covers';
 import { runsBar } from '../lib/core';
-import Icon from './Icon.vue';
+import Icon from './ui/Icon.vue';
 
 const store = useStore();
 

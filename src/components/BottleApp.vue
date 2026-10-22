@@ -2,9 +2,9 @@
 import { onMounted, computed } from 'vue';
 import { useStore } from '../lib/store';
 import { runsBar } from '../lib/core';
-import Icon from './Icon.vue';
-import Logo from './Logo.vue';
-import AppFooter from './AppFooter.vue';
+import Icon from './ui/Icon.vue';
+import Logo from './ui/Logo.vue';
+import AppFooter from './site/AppFooter.vue';
 import HomeScreen from './HomeScreen.vue';
 import PartyHeader from './PartyHeader.vue';
 import KpiBar from './KpiBar.vue';

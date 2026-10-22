@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useStore } from '../lib/store';
 import type { Feature } from '../../shared/tiers';
-import Icon from './Icon.vue';
+import Icon from './ui/Icon.vue';
 
 /**
  * Wraps a paid feature.

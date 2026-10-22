@@ -33,10 +33,11 @@ module.exports = {
     {
       name: 'lib-no-components',
       comment:
-        'src/lib holds the domain and must not import .vue components; ' +
-        'components call into lib, never the reverse.',
+        'Modules hold the domain and must not import .vue components: not ' +
+        "src/lib, not the store, not a feature folder's .ts files. " +
+        'Components call into them, never the reverse.',
       severity: 'error',
-      from: { path: '^src/lib/' },
+      from: { path: '^src/(lib|store|features)/.*\\.ts$' },
       to: { path: '\\.vue$' },
     },
   ],

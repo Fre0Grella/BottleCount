@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { useStore } from '../lib/store';
 import { devSignIn, logout } from '../lib/api/session';
-import Icon from './Icon.vue';
+import Icon from './ui/Icon.vue';
 
 const store = useStore();
 
