@@ -332,7 +332,9 @@ async function respond(answer: InviteAnswer): Promise<void> {
         party: { ...data.value.party, full: true },
       };
     }
-  } else if (failure && isNotFound(failure)) {
+  } else if (code === 'party_not_found') {
+    // The host closed the link while this guest had the page open. Any other
+    // 404 here is a stale invite on a party that is still open, not a gone one.
     phase.value = 'gone';
   } else {
     error.value = "Couldn't send that. Try again in a moment.";
