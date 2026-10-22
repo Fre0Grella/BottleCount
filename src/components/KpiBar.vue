@@ -2,17 +2,13 @@
 import { computed } from 'vue';
 import { useStore } from '../lib/store';
 import { runsBar } from '../lib/core';
+import { formatEuro, formatEuroRange } from '../lib/display';
 import Icon from './Icon.vue';
 
 const store = useStore();
 
-function fmt(v: number): string {
-  return '€' + v.toFixed(0);
-}
-
 function fmtRange(a: number, b: number): string {
-  if (Math.abs(a - b) < 1) return fmt(a);
-  return fmt(a) + '–' + fmt(b);
+  return Math.abs(a - b) < 1 ? formatEuro(a) : formatEuroRange(a, b);
 }
 
 const kpis = computed(() => {
@@ -29,10 +25,11 @@ const kpis = computed(() => {
     ? {
         v: fmtRange(Math.round(r.total_min), Math.round(r.total_max)),
         sub:
-          fmt((r.total_min + r.total_max) / 2 / (p.settings.guests || 1)) +
-          ' / guest',
+          formatEuro(
+            (r.total_min + r.total_max) / 2 / (p.settings.guests || 1),
+          ) + ' / guest',
       }
-    : { v: fmt(r.fixed_costs + r.venue_fees), sub: 'venue + equipment' };
+    : { v: formatEuro(r.fixed_costs + r.venue_fees), sub: 'venue + equipment' };
 
   return [
     {
@@ -44,14 +41,14 @@ const kpis = computed(() => {
     {
       label: 'Revenue',
       icon: 'euro' as const,
-      v: fmt(r.revenue),
+      v: formatEuro(r.revenue),
       sub: p.settings.guests + ' × €' + p.settings.ticket_price,
       c: 'var(--text)',
     },
     {
       label: 'Profit',
       icon: 'trend' as const,
-      v: fmt(avgProfit),
+      v: formatEuro(avgProfit),
       sub: fmtRange(Math.round(r.profit_min), Math.round(r.profit_max)),
       c: avgProfit >= 0 ? 'var(--good)' : 'var(--bad)',
     },

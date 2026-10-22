@@ -255,20 +255,3 @@ export interface CollaboratorPreviewDTO {
   /** True when this user is already on the party — the link is then a no-op. */
   alreadyMember: boolean;
 }
-
-/**
- * Where a co-organiser invite points.
- *
- * Kept beside `inviteUrl` in spirit but separate in fact: a guest invite and a
- * co-organiser invite grant wildly different things, and one function taking a
- * flag to decide which is a function that will eventually hand a guest an
- * editor's link.
- */
-export function collaboratorUrl(
-  origin: string,
-  base: string,
-  token: string,
-): string {
-  const prefix = base.endsWith('/') ? base : `${base}/`;
-  return `${origin}${prefix}join/${encodeURIComponent(token)}`;
-}

@@ -4,6 +4,7 @@ import { useStore } from '../../lib/store';
 import { COVERS, coverOf } from '../../lib/covers';
 import { VIBES, BUFFERS } from '../../lib/planPresets';
 import { runsBar } from '../../lib/core';
+import { formatEuro, venueWhere as whereOf } from '../../lib/display';
 import Icon from '../Icon.vue';
 import Slider from '../Slider.vue';
 import PaymentSettings from '../PaymentSettings.vue';
@@ -24,8 +25,7 @@ const heroCover = computed(() => coverOf(p.value?.cover));
 const venueWhere = computed(() => {
   const party = p.value;
   if (!party) return '';
-  const parts = [party.venue.place, party.venue.city].filter(Boolean);
-  return parts.length ? parts.join(' · ') : 'No venue set';
+  return whereOf(party.venue) || 'No venue set';
 });
 
 function onNameInput(e: Event): void {
@@ -166,10 +166,6 @@ function onEquipmentCost(e: Event): void {
 
 const calc = computed(() => store.calc());
 
-function fmtEur(v: number): string {
-  return '€' + Math.round(v).toLocaleString();
-}
-
 const pnlRows = computed(() => {
   const r = calc.value;
   const drinksAvg = (r.total_min + r.total_max) / 2;
@@ -177,7 +173,7 @@ const pnlRows = computed(() => {
   const rows = [
     {
       label: 'Ticket revenue',
-      v: fmtEur(r.revenue),
+      v: formatEuro(r.revenue),
       lc: 'var(--text)',
       lw: '400',
       vc: 'var(--text)',
@@ -186,7 +182,7 @@ const pnlRows = computed(() => {
     },
     {
       label: 'Drinks',
-      v: fmtEur(drinksAvg),
+      v: formatEuro(drinksAvg),
       lc: 'var(--dim)',
       lw: '400',
       vc: 'var(--dim)',
@@ -195,7 +191,7 @@ const pnlRows = computed(() => {
     },
     {
       label: 'Fixed costs',
-      v: fmtEur(r.fixed_costs),
+      v: formatEuro(r.fixed_costs),
       lc: 'var(--dim)',
       lw: '400',
       vc: 'var(--dim)',
@@ -204,7 +200,7 @@ const pnlRows = computed(() => {
     },
     {
       label: `Venue fee (${p.value?.settings.guests ?? 0} × €${p.value?.settings.venue_fee_per_person ?? 0})`,
-      v: fmtEur(r.venue_fees),
+      v: formatEuro(r.venue_fees),
       lc: 'var(--dim)',
       lw: '400',
       vc: 'var(--dim)',
@@ -213,7 +209,7 @@ const pnlRows = computed(() => {
     },
     {
       label: 'Net profit',
-      v: fmtEur(profitAvg),
+      v: formatEuro(profitAvg),
       lc: 'var(--text)',
       lw: '700',
       vc: profitAvg >= 0 ? 'var(--good)' : 'var(--bad)',

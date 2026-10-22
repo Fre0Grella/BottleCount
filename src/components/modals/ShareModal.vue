@@ -5,7 +5,9 @@ import { coverOf } from '../../lib/covers';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import ShareChannels from '../ShareChannels.vue';
-import { inviteUrl } from '../../../shared/invites';
+import { inviteUrl, linkLabel } from '../../../shared/urls';
+import { shortDate } from '../../lib/dates';
+import { venueWhere as whereOf } from '../../lib/display';
 
 const store = useStore();
 
@@ -38,10 +40,7 @@ const inviteLink = computed(() => {
   );
 });
 
-/** The link as the card shows it: without the scheme, which nobody reads. */
-const inviteLinkLabel = computed(() =>
-  inviteLink.value.replace(/^https?:\/\//, ''),
-);
+const inviteLinkLabel = computed(() => linkLabel(inviteLink.value));
 
 const publishing = computed(() => store.state.publishing);
 const publishFailed = computed(
@@ -51,17 +50,13 @@ const publishFailed = computed(
 const venueWhere = computed(() => {
   const p = party.value;
   if (!p) return '';
-  const parts = [p.venue.place, p.venue.city].filter(Boolean);
-  return parts.join(', ') || 'TBD';
+  return whereOf(p.venue) || 'TBD';
 });
 
 const partyDateShort = computed(() => {
   const p = party.value;
   if (!p) return '';
-  return new Date(p.date).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  });
+  return shortDate(p.date);
 });
 
 const allowForward = computed(() => party.value?.allowForward ?? false);

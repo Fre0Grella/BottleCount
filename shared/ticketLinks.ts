@@ -16,7 +16,7 @@
 import { parseSignedTicket } from './tickets';
 
 /** Lowercase, and without the letters people misread for digits (i, l, o, u). */
-const TICKET_SLUG_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
+export const TICKET_SLUG_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 export const TICKET_SLUG_LENGTH = 12;
 
 const SLUG_PATTERN = new RegExp(
@@ -25,15 +25,6 @@ const SLUG_PATTERN = new RegExp(
 
 export function isTicketSlug(value: string): boolean {
   return SLUG_PATTERN.test(value);
-}
-
-/** A fresh slug from the platform's CSPRNG. 32 divides 256, so no bias. */
-export function newTicketSlug(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(TICKET_SLUG_LENGTH));
-  return Array.from(
-    bytes,
-    (b) => TICKET_SLUG_ALPHABET[b % TICKET_SLUG_ALPHABET.length],
-  ).join('');
 }
 
 /**

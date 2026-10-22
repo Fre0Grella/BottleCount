@@ -1,13 +1,13 @@
-import { isTicketSlug } from '../../shared/ticketLinks';
 import type { TicketQRPayload } from '../../shared/tickets';
 import { parseSignedTicket } from '../../shared/tickets';
+import type { TicketDisplay } from '../../shared/urls';
 
 /**
  * A ticket a guest can open from a link.
  *
  * The signed QR string (`<payload>.<HMAC>`, see `crypto.ts`) is already
  * everything the door needs: it verifies offline against the party's key. So
- * the link carries that string — and the page draws the QR from it — with no
+ * the link carries that string (`ticketUrl` in `shared/urls.ts` builds it) — and the page draws the QR from it — with no
  * server storage and no new endpoint.
  *
  * It goes in the URL **fragment**, which browsers never send to any server, so
@@ -21,65 +21,10 @@ import { parseSignedTicket } from '../../shared/tickets';
  * signed string and the page fetches it. Either way the QR is identical.
  */
 
-/** What the ticket page shows that the signed payload does not carry. */
-export interface TicketDisplay {
-  party: string;
-  /** ISO date, `YYYY-MM-DD`. */
-  date: string;
-  /** Index into `COVERS`. */
-  cover: number;
-  /** Start time, `HH:MM`, when there is one. */
-  time?: string;
-}
-
 export interface OpenedTicket extends TicketDisplay {
   /** Exactly what goes in the QR, and what the door verifies. */
   signed: string;
   payload: TicketQRPayload;
-}
-
-/**
- * The one place a ticket URL is spelled. `base` is the app's base path — left
- * out, a build under a prefix would hand out links that miss it.
- */
-export function ticketUrl(
-  origin: string,
-  base: string,
-  signed: string,
-  display: TicketDisplay,
-): string {
-  const prefix = base.endsWith('/') ? base : `${base}/`;
-  // URLSearchParams escapes the `+`, `/` and `=` of the base64 halves, and
-  // decodes them back in parseTicketHash — never build this by concatenation.
-  const params = new URLSearchParams({
-    t: signed,
-    p: display.party,
-    d: display.date,
-    c: String(display.cover),
-  });
-  if (display.time) params.set('h', display.time);
-  return `${origin}${prefix}t/#${params.toString()}`;
-}
-
-/** A short ticket link: `<origin><base>t/<slug>`. */
-export function shortTicketUrl(
-  origin: string,
-  base: string,
-  slug: string,
-): string {
-  const prefix = base.endsWith('/') ? base : `${base}/`;
-  return `${origin}${prefix}t/${slug}`;
-}
-
-/** The slug of a short ticket link's path, or '' on the bare `/t/` page. */
-export function ticketSlugFromPath(pathname: string, base: string): string {
-  const prefix = base.endsWith('/') ? base : `${base}/`;
-  const rest = pathname.startsWith(prefix)
-    ? pathname.slice(prefix.length)
-    : pathname.replace(/^\//, '');
-  const match = /^t\/([^/?#]+)\/?$/.exec(rest);
-  const slug = match?.[1] ?? '';
-  return isTicketSlug(slug) ? slug : '';
 }
 
 /**

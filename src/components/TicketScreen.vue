@@ -9,9 +9,11 @@ import { isNotFound } from '../lib/api/request';
 import {
   openTicket,
   parseTicketHash,
-  ticketSlugFromPath,
   type OpenedTicket,
 } from '../lib/ticketLink';
+import { ticketSlugFromPath } from '../../shared/urls';
+import { formatLocalDate, shortDate } from '../lib/dates';
+import { safeLocal } from '../lib/safeStorage';
 import Icon from './Icon.vue';
 
 /**
@@ -38,15 +40,13 @@ const base = import.meta.env.BASE_URL as string;
 
 const cover = computed(() => coverOf(ticket.value?.cover));
 
-const dateLabel = computed(() => {
-  const iso = ticket.value?.date;
-  if (!iso) return '';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+const dateLabel = computed(() =>
+  formatLocalDate(ticket.value?.date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  });
-});
+  }),
+);
 
 const expired = computed(() => {
   const at = ticket.value?.payload.expiresAt;
@@ -95,32 +95,20 @@ async function fromShortLink(): Promise<OpenedTicket | null> {
   const key = `bc-ticket:${slug}`;
   const result = await fetchTicketLink(slug);
   if (result.ok && result.value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(result.value));
-    } catch {
-      /* private mode: it still opens, just not offline */
-    }
+    // Private mode: it still opens, just not offline.
+    safeLocal.setJSON(key, result.value);
     return openTicket(result.value.signed, result.value);
   }
 
   if (!result.ok && isNotFound(result.error)) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      /* nothing to forget */
-    }
+    safeLocal.remove(key);
     problem.value = 'gone';
     return null;
   }
 
-  try {
-    const cached = localStorage.getItem(key);
-    if (cached) {
-      const dto = JSON.parse(cached) as TicketLinkDTO;
-      return openTicket(dto.signed, dto);
-    }
-  } catch {
-    /* fall through to offline */
+  const cached = safeLocal.getJSON(key) as TicketLinkDTO | null;
+  if (cached && typeof cached.signed === 'string') {
+    return openTicket(cached.signed, cached);
   }
   problem.value = 'offline';
   return null;
@@ -140,10 +128,7 @@ async function saveImage(): Promise<void> {
   try {
     const file = await buildTicketFile({
       partyName: t.party || 'BottleCount',
-      dateLabel: new Date(`${t.date}T00:00:00`).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-      }),
+      dateLabel: shortDate(t.date),
       guestName: t.payload.guestName,
       code: t.payload.code,
       qrDataUrl: qr.value,

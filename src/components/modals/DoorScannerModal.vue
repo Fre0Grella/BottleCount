@@ -4,6 +4,7 @@ import QrScanner from 'qr-scanner';
 import { useStore } from '../../lib/store';
 import { verifyTicket } from '../../lib/crypto';
 import { checkTicket } from '../../lib/ticket';
+import { formatClockTime } from '../../lib/dates';
 import type { DoorEntry, DoorVerdict } from '../../lib/ticket';
 import Icon from '../Icon.vue';
 
@@ -15,13 +16,6 @@ let scanner: QrScanner | null = null;
 let lastScanTime = 0;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function nowHHMM(): string {
-  return new Date().toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 function nowHHMMSS(): string {
   return new Date().toLocaleTimeString('en-GB', {
     hour: '2-digit',
@@ -64,7 +58,9 @@ async function admit(entry: DoorEntry): Promise<DoorVerdict | null> {
   }
 
   const { invite } = verdict;
-  const result = await store.checkInGuest(invite.id, nowHHMM());
+  // ISO, like the server's: `formatClockTime` prints it, and the merge with
+  // the funnel compares like with like.
+  const result = await store.checkInGuest(invite.id, new Date().toISOString());
   if (!result.ok) {
     // The other phone on the door got there first. This is the case a
     // device-local tally could never catch.
@@ -137,7 +133,7 @@ function rejection(
     case 'already_used':
       return {
         name: who,
-        sub: `Already scanned at ${formatSeen(verdict.invite?.usedAt)} — do not let in again`,
+        sub: `Already scanned at ${formatClockTime(verdict.invite?.usedAt) || '?'} — do not let in again`,
       };
   }
 }
@@ -149,18 +145,6 @@ function reject(
   store.state.scanResult = { ok: false, ...rejection(entry, verdict) };
   navigator.vibrate?.(300);
   scheduleClear();
-}
-
-/** Check-in times are ISO from the server and HH:MM from this device. */
-function formatSeen(value: string | null | undefined): string {
-  if (!value) return '?';
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : parsed.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
 }
 
 // ── Real scan callback ─────────────────────────────────────────────────────

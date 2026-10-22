@@ -9,6 +9,9 @@ import { isNotFound } from '../lib/api/request';
 import { fetchSession } from '../lib/session';
 import { coverOf } from '../lib/covers';
 import { APP_URL } from '../lib/links';
+import { pathParam } from '../../shared/urls';
+import { formatLocalDate } from '../lib/dates';
+import { safeSession } from '../lib/safeStorage';
 import Icon from './Icon.vue';
 
 /**
@@ -28,24 +31,20 @@ const joining = ref(false);
 const base = import.meta.env.BASE_URL as string;
 
 function tokenFromPath(): string {
-  const path = window.location.pathname.replace(base, '/');
-  const match = /^\/join\/([^/?#]+)/.exec(path);
-  return match?.[1] ? decodeURIComponent(match[1]) : '';
+  return pathParam(window.location.pathname, base, 'join');
 }
 
 const token = ref('');
 
 const cover = computed(() => coverOf(preview.value?.cover));
 
-const dateLabel = computed(() => {
-  const iso = preview.value?.date;
-  if (!iso) return '';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+const dateLabel = computed(() =>
+  formatLocalDate(preview.value?.date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  });
-});
+  }),
+);
 
 onMounted(async () => {
   token.value = tokenFromPath();
@@ -86,11 +85,9 @@ async function accept(): Promise<void> {
  * the app once the session exists.
  */
 function signIn(): void {
-  try {
-    sessionStorage.setItem('bc-after-signin', window.location.pathname);
-  } catch {
-    /* Private window. They land on the app and can reopen the link. */
-  }
+  // Private window: nothing is remembered, they land on the app and can
+  // reopen the link.
+  safeSession.set('bc-after-signin', window.location.pathname);
   window.location.href = '/auth/google';
 }
 </script>

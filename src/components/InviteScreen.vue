@@ -2,11 +2,14 @@
 import { computed, onMounted, ref } from 'vue';
 import { requireContact } from '../../shared/contact';
 import type { InviteAnswer, InviteOpenDTO } from '../../shared/invites';
-import { inviteUrl } from '../../shared/invites';
+import { inviteUrl, pathParam } from '../../shared/urls';
 import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
 import { coverOf } from '../lib/covers';
+import { formatLocalDate } from '../lib/dates';
+import { formatEuro, venueWhere } from '../lib/display';
+import { safeLocal } from '../lib/safeStorage';
 import BrandMark from './BrandMark.vue';
 import Icon from './Icon.vue';
 import ShareChannels from './ShareChannels.vue';
@@ -44,9 +47,7 @@ const base = import.meta.env.BASE_URL as string;
  * read back off the URL here.
  */
 function slugFromPath(): string {
-  const path = window.location.pathname.replace(base, '/');
-  const match = /^\/i\/([^/?#]+)/.exec(path);
-  return match?.[1] ? decodeURIComponent(match[1]) : '';
+  return pathParam(window.location.pathname, base, 'i');
 }
 
 const slug = ref('');
@@ -56,23 +57,15 @@ function storageKey(s: string): string {
   return `bc-invite:${s}`;
 }
 
+// Where storage is blocked (private windows, blocked site data) a guest is
+// counted as a new visitor on their next visit, which overstates "reached"
+// slightly — far better than refusing to let them RSVP at all.
 function rememberedInviteId(s: string): string | null {
-  try {
-    return localStorage.getItem(storageKey(s));
-  } catch {
-    // Private windows and blocked site data. They will be counted as a new
-    // visitor on their next visit, which overstates "reached" slightly — far
-    // better than refusing to let them RSVP at all.
-    return null;
-  }
+  return safeLocal.get(storageKey(s));
 }
 
 function rememberInviteId(s: string, id: string): void {
-  try {
-    localStorage.setItem(storageKey(s), id);
-  } catch {
-    /* see above */
-  }
+  safeLocal.set(storageKey(s), id);
 }
 
 /**
@@ -88,43 +81,32 @@ function contactKey(s: string): string {
 }
 
 function rememberedContact(s: string): { email: string; phone: string } {
-  try {
-    const raw = localStorage.getItem(contactKey(s));
-    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    return {
-      email: typeof parsed['email'] === 'string' ? parsed['email'] : '',
-      phone: typeof parsed['phone'] === 'string' ? parsed['phone'] : '',
-    };
-  } catch {
-    return { email: '', phone: '' };
-  }
+  const stored = safeLocal.getJSON(contactKey(s));
+  const parsed = (stored && typeof stored === 'object' ? stored : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    email: typeof parsed['email'] === 'string' ? parsed['email'] : '',
+    phone: typeof parsed['phone'] === 'string' ? parsed['phone'] : '',
+  };
 }
 
 function rememberContact(s: string, contact: { email: string; phone: string }) {
-  try {
-    localStorage.setItem(contactKey(s), JSON.stringify(contact));
-  } catch {
-    /* see rememberedInviteId */
-  }
+  safeLocal.setJSON(contactKey(s), contact);
 }
 
 const cover = computed(() => coverOf(data.value?.party.cover));
 
-const dateLabel = computed(() => {
-  const iso = data.value?.party.date;
-  if (!iso) return '';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+const dateLabel = computed(() =>
+  formatLocalDate(data.value?.party.date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  });
-});
+  }),
+);
 
-const whereLabel = computed(() => {
-  const venue = data.value?.party.venue;
-  if (!venue) return '';
-  return [venue.place, venue.city].filter(Boolean).join(', ');
-});
+const whereLabel = computed(() => venueWhere(data.value?.party.venue));
 
 const isConfirmed = computed(() => data.value?.status === 'confirmed');
 /** Guests pay for this party, so saying yes needs somewhere to send the ticket. */
@@ -202,7 +184,7 @@ const forwardLink = computed(() => {
 const forwardMessage = computed(() => {
   const party = data.value?.party;
   if (!party) return forwardLink.value;
-  const day = new Date(`${party.date}T00:00:00`).toLocaleDateString(undefined, {
+  const day = formatLocalDate(party.date, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -224,7 +206,7 @@ const payment = computed(() =>
 const priceLabel = computed(() => {
   const price = payment.value?.price ?? 0;
   if (price <= 0) return '';
-  return `€${Number.isInteger(price) ? price : price.toFixed(2)}`;
+  return formatEuro(price, 'auto');
 });
 
 /** The causale, so the host can tell whose transfer is whose. */

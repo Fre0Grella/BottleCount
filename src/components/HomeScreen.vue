@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import { useStore } from '../lib/store';
 import { coverOf } from '../lib/covers';
 import { runsBar } from '../lib/core';
+import { formatLocalDate } from '../lib/dates';
+import { formatEuro, segColor, venueWhere } from '../lib/display';
 import Icon from './Icon.vue';
 import Logo from './Logo.vue';
 import AppFooter from './AppFooter.vue';
@@ -38,35 +40,26 @@ interface PartyCard {
 const partyCards = computed<PartyCard[]>(() => {
   return store.state.parties.map((p) => {
     const cv = coverOf(p.cover);
-    const where =
-      [p.venue?.place, p.venue?.city].filter(Boolean).join(', ') || '—';
-    const dateLabel = p.date
-      ? new Date(p.date + 'T00:00:00').toLocaleDateString(undefined, {
-          weekday: 'short',
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })
-      : '—';
+    const where = venueWhere(p.venue) || '—';
+    const dateLabel =
+      formatLocalDate(p.date, {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }) || '—';
 
     const accepted = p.invites.filter((i) => i.status === 'confirmed').length;
     const r = store.calcForParty(p);
     const avgProfit = (r.profit_min + r.profit_max) / 2;
     const profitColor = avgProfit >= 0 ? 'var(--good)' : 'var(--bad)';
-    const profit = '€' + Math.round(avgProfit).toLocaleString();
+    const profit = formatEuro(avgProfit);
 
     // macro split bar
-    const SEG_COLORS = [
-      'var(--seg-0)',
-      'var(--seg-1)',
-      'var(--seg-2)',
-      'var(--seg-3)',
-      'var(--seg-4)',
-    ];
     // No drink split to show when the venue runs the bar.
     const bar = (runsBar(p) ? Object.values(p.menu) : []).map((cat, i) => ({
       w: (cat.macro_pct * 100).toFixed(1) + '%',
-      c: SEG_COLORS[i % SEG_COLORS.length],
+      c: segColor(i),
     }));
 
     return {

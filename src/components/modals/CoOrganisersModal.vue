@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { collaboratorUrl } from '../../../shared/collab';
+import { collaboratorUrl, linkLabel } from '../../../shared/urls';
 import { useStore } from '../../lib/store';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
@@ -31,7 +31,7 @@ async function createLink(): Promise<void> {
 
   const token = await store.inviteCoOrganiser();
   if (token) {
-    link.value = collaboratorUrl(window.location.host, base, token);
+    link.value = collaboratorUrl(window.location.origin, base, token);
   } else {
     error.value = "Couldn't create a link. Try again in a moment.";
   }
@@ -40,7 +40,7 @@ async function createLink(): Promise<void> {
 
 function copyLink(): void {
   navigator.clipboard
-    ?.writeText(`https://${link.value}`)
+    ?.writeText(link.value)
     .then(() => {
       copied.value = true;
       setTimeout(() => (copied.value = false), 2000);
@@ -271,7 +271,7 @@ watch(
                 overflow-wrap: anywhere;
               "
             >
-              {{ link }}
+              {{ linkLabel(link) }}
             </div>
             <div style="display: flex; gap: 8px">
               <button
