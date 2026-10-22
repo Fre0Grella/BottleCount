@@ -7,7 +7,7 @@ import {
 } from '../lib/api/parties';
 import { isNotFound } from '../lib/api/request';
 import { fetchSession } from '../lib/session';
-import { COVERS } from '../lib/store';
+import { coverOf } from '../lib/covers';
 import { APP_URL } from '../lib/links';
 import Icon from './Icon.vue';
 
@@ -35,7 +35,7 @@ function tokenFromPath(): string {
 
 const token = ref('');
 
-const cover = computed(() => COVERS[preview.value?.cover ?? 0] ?? COVERS[0]);
+const cover = computed(() => coverOf(preview.value?.cover));
 
 const dateLabel = computed(() => {
   const iso = preview.value?.date;

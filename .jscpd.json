@@ -9,5 +9,5 @@
     "docs/design/**"
   ],
   "reporters": ["console"],
-  "threshold": 3.4
+  "threshold": 3.38
 }

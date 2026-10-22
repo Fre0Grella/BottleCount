@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
 import { ticketState } from '../../../shared/tickets';
 import { venueFeeFor, venueFeePerPerson } from '../../lib/core';
@@ -242,38 +242,12 @@ const isPhone = computed(() => store.state.device === 'phone');
 
 // ── Live funnel ────────────────────────────────────────────────────────────
 
-/**
- * Guests answer while the host is looking at this tab, so it polls.
- *
- * Polling rather than a socket because the whole exchange is two small reads a
- * minute against a Worker that is already awake — a Durable Object to push
- * three RSVPs would cost more to run and more to reason about than it saves.
- * It only runs while this tab is mounted, and only for a published party.
- */
-const REFRESH_MS = 20_000;
-let timer: ReturnType<typeof setInterval> | null = null;
+// Guests answer while the host is looking, so the open party's session polls
+// the funnel (lib/partySession.ts). Opening this tab asks once more on top, so
+// the list is fresh now rather than at the next poll.
+onMounted(() => void store.syncFunnel());
 
 const published = computed(() => party.value?.publication != null);
-
-function stopPolling(): void {
-  if (timer !== null) {
-    clearInterval(timer);
-    timer = null;
-  }
-}
-
-function startPolling(): void {
-  stopPolling();
-  if (!published.value) return;
-  void store.syncFunnel();
-  timer = setInterval(() => void store.syncFunnel(), REFRESH_MS);
-}
-
-onMounted(startPolling);
-onBeforeUnmount(stopPolling);
-
-// Publishing from the share sheet, or switching party, changes what to poll for.
-watch([published, () => party.value?.id], startPolling);
 
 const lastSyncedLabel = computed(() => {
   const iso = store.state.funnelSyncedAt;
