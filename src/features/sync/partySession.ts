@@ -3,13 +3,13 @@ import type {
   PartyMemberDTO,
   PartyRole,
   SharedPartyDTO,
-} from '../../shared/collab';
-import { fetchFunnel } from './api/guests';
-import { fetchParty } from './api/parties';
-import { applyDocument, documentOf, publicationOf } from './collab';
-import { mergeFunnel, sameInvites } from '../features/guests/invites';
+} from '../../../shared/collab';
+import { fetchFunnel } from '../../lib/api/guests';
+import { fetchParty } from '../../lib/api/parties';
+import { applyDocument, documentOf, publicationOf } from '../../lib/collab';
+import { mergeFunnel, sameInvites } from '../guests/invites';
 import { PartySync } from './sync';
-import type { Party, PartyPublication } from './types';
+import type { Party, PartyPublication } from '../../lib/types';
 
 /**
  * Everything that runs while a shared party is open: the push of local edits

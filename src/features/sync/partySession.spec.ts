@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reactive, toRaw } from 'vue';
-import type { SharedPartyDTO } from '../../shared/collab';
-import type { HostInviteDTO } from '../../shared/invites';
-import { emptyPaymentDetails } from '../../shared/payments';
-import { fetchFunnel } from './api/guests';
-import { fetchParty, patchParty } from './api/parties';
-import type { ApiResult } from './api/request';
-import { documentOf } from './collab';
+import type { SharedPartyDTO } from '../../../shared/collab';
+import type { HostInviteDTO } from '../../../shared/invites';
+import { emptyPaymentDetails } from '../../../shared/payments';
+import { fetchFunnel } from '../../lib/api/guests';
+import { fetchParty, patchParty } from '../../lib/api/parties';
+import type { ApiResult } from '../../lib/api/request';
+import { documentOf } from '../../lib/collab';
 import {
   FUNNEL_MS,
   PULL_MS,
@@ -14,10 +14,13 @@ import {
   type SessionHost,
   type SessionStatus,
 } from './partySession';
-import type { Party } from './types';
+import type { Party } from '../../lib/types';
 
-vi.mock('./api/parties', () => ({ fetchParty: vi.fn(), patchParty: vi.fn() }));
-vi.mock('./api/guests', () => ({ fetchFunnel: vi.fn() }));
+vi.mock('../../lib/api/parties', () => ({
+  fetchParty: vi.fn(),
+  patchParty: vi.fn(),
+}));
+vi.mock('../../lib/api/guests', () => ({ fetchFunnel: vi.fn() }));
 
 const pullMock = vi.mocked(fetchParty);
 const funnelMock = vi.mocked(fetchFunnel);

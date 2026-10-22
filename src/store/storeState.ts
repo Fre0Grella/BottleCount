@@ -3,7 +3,10 @@ import type { SessionDTO } from '../../shared/session';
 import { canUse, type Feature } from '../../shared/tiers';
 import { db } from '../lib/db';
 import type { Device } from '../lib/device';
-import { PartySession, type SessionStatus } from '../lib/partySession';
+import {
+  PartySession,
+  type SessionStatus,
+} from '../features/sync/partySession';
 import { ANONYMOUS_SESSION } from '../features/account/session';
 import type { Catalog, Party } from '../lib/types';
 

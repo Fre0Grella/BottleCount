@@ -1,9 +1,9 @@
-import type { PartyDocument } from '../../shared/collab';
-import { apply, diff, squash, type MergePatch } from '../../shared/patch';
-import { patchParty } from './api/parties';
-import { errorCode } from './api/request';
-import { documentOf } from './collab';
-import type { Party } from './types';
+import type { PartyDocument } from '../../../shared/collab';
+import { apply, diff, squash, type MergePatch } from '../../../shared/patch';
+import { patchParty } from '../../lib/api/parties';
+import { errorCode } from '../../lib/api/request';
+import { documentOf } from '../../lib/collab';
+import type { Party } from '../../lib/types';
 
 /**
  * Keeps one party's document in step with the server while it is open.

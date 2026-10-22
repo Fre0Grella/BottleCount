@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { emptyPaymentDetails } from '../../shared/payments';
-import { fakeWorker, sent } from './api/testing';
-import { documentOf } from './collab';
+import { emptyPaymentDetails } from '../../../shared/payments';
+import { fakeWorker, sent } from '../../lib/api/testing';
+import { documentOf } from '../../lib/collab';
 import { PartySync, type SyncCallbacks } from './sync';
-import type { Party } from './types';
+import type { Party } from '../../lib/types';
 
 function aParty(): Party {
   return {
