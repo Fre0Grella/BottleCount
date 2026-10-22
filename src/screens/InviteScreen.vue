@@ -12,7 +12,7 @@ import { formatEuro, venueWhere } from '../lib/display';
 import { safeLocal } from '../lib/safeStorage';
 import BrandMark from '../components/ui/BrandMark.vue';
 import Icon from '../components/ui/Icon.vue';
-import ShareChannels from '../components/ShareChannels.vue';
+import ShareChannels from '../features/sharing/ShareChannels.vue';
 
 /**
  * The page a guest lands on. It is the only screen in the app with no account

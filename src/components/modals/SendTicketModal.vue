@@ -11,7 +11,7 @@ import {
 } from '../../lib/ticketMessage';
 import Modal from '../ui/Modal.vue';
 import Icon from '../ui/Icon.vue';
-import ShareChannels from '../ShareChannels.vue';
+import ShareChannels from '../../features/sharing/ShareChannels.vue';
 
 const store = useStore();
 

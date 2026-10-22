@@ -1,4 +1,4 @@
-import type { PartyDocument } from '../../shared/collab';
+import type { PartyDocument } from '../../../shared/collab';
 import {
   closeInviteLink,
   createCollaboratorInvite,
@@ -10,10 +10,10 @@ import {
   removeMember,
   revokeCollaboratorInvites,
   storeParty,
-} from './api/parties';
-import { errorCode } from './api/request';
-import { applyDocument, publicationOf } from './collab';
-import { db } from './db';
+} from '../../lib/api/parties';
+import { errorCode } from '../../lib/api/request';
+import { applyDocument, publicationOf } from '../../lib/collab';
+import { db } from '../../lib/db';
 import {
   activeParty,
   can,
@@ -21,8 +21,8 @@ import {
   session,
   state,
   update,
-} from '../store/storeState';
-import type { Party } from './types';
+} from '../../store/storeState';
+import type { Party } from '../../lib/types';
 
 /**
  * Putting a party on the server, the guest-facing invite link, and the

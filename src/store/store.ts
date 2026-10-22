@@ -8,7 +8,7 @@ import * as guests from '../features/guests/guestList';
 import * as menu from '../features/menu/menu';
 import { newParty, upgradeParty } from '../features/party/partyDefaults';
 import { fetchSession } from '../features/account/session';
-import * as sharing from '../lib/sharing';
+import * as sharing from '../features/sharing/sharing';
 import {
   activeParty,
   can,

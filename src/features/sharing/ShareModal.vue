@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useStore } from '../../store/store';
-import { coverOf } from '../../features/party/covers';
-import Modal from '../ui/Modal.vue';
-import Icon from '../ui/Icon.vue';
-import ShareChannels from '../ShareChannels.vue';
+import { coverOf } from '../party/covers';
+import Modal from '../../components/ui/Modal.vue';
+import Icon from '../../components/ui/Icon.vue';
+import ShareChannels from './ShareChannels.vue';
 import { inviteUrl, linkLabel } from '../../../shared/urls';
 import { shortDate } from '../../lib/dates';
 import { venueWhere as whereOf } from '../../lib/display';

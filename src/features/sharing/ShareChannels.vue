@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { brandedQrDataUrl } from '../lib/drawing';
-import { mailtoUrl, smsUrl, whatsappUrl } from '../lib/sendLinks';
-import Icon from './ui/Icon.vue';
-import type { IconName } from '../lib/icons';
+import { brandedQrDataUrl } from '../../lib/drawing';
+import { mailtoUrl, smsUrl, whatsappUrl } from './sendLinks';
+import Icon from '../../components/ui/Icon.vue';
+import type { IconName } from '../../lib/icons';
 
 /**
  * The ways to pass a link on: Copy, WhatsApp, Email, Messages, Instagram, and a
