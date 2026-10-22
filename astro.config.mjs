@@ -84,15 +84,17 @@ const backendDevUrl = process.env.BACKEND_DEV_URL ?? 'http://localhost:8787';
  * Pages Functions, so without this every call 404s, the session resolves to
  * anonymous, and every paid feature sits locked with no way to unlock it.
  *
- * `/auth/*` is listed path by path for the same reason `functions/auth/` is
- * three files rather than a catchall: `/auth/callback` is a page, not a route.
+ * `/auth/*` is listed path by path for the same reason `functions/auth/` has
+ * no catchall: `/auth/callback` is a page, not a route. functions/routes.spec.ts
+ * checks this list against the Worker's routes.
  */
-const DEV_PROXY_PATHS = [
+export const DEV_PROXY_PATHS = [
   '/api',
   '/invite',
   '/ticket',
   '/auth/dev',
   '/auth/google',
+  '/auth/guest-google',
   '/auth/logout',
 ];
 
@@ -103,18 +105,20 @@ const DEV_PROXY_PATHS = [
  * dev server; the browser's URL is untouched and the page still reads the slug
  * off it.
  */
+/** @type {[RegExp, string][]} */
+export const DEV_REWRITES = [
+  [/^\/i\/[^/?#]+/, '/i/'],
+  [/^\/join\/[^/?#]+/, '/join/'],
+  [/^\/t\/[^/?#]+/, '/t/'],
+];
+
 function devRewrites() {
-  const REWRITES = [
-    [/^\/i\/[^/?#]+/, '/i/'],
-    [/^\/join\/[^/?#]+/, '/join/'],
-    [/^\/t\/[^/?#]+/, '/t/'],
-  ];
   return {
     name: 'bottlecount:dev-rewrites',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
-        for (const [pattern, target] of REWRITES) {
+        for (const [pattern, target] of DEV_REWRITES) {
           if (req.url && pattern.test(req.url)) {
             req.url = req.url.replace(pattern, target);
             break;
