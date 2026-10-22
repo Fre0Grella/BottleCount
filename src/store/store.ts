@@ -1,14 +1,14 @@
 import { ticketState } from '../../shared/tickets';
-import { deleteRemoteParty } from './api/parties';
-import { defaultExtras, loadCatalog } from './catalog';
-import { calculate, planFor, runsBar } from './core';
-import { db } from './db';
-import { watchDevice } from './device';
-import * as guests from './guestList';
-import * as menu from './menu';
-import { newParty, upgradeParty } from './partyDefaults';
-import { fetchSession } from './session';
-import * as sharing from './sharing';
+import { deleteRemoteParty } from '../lib/api/parties';
+import { defaultExtras, loadCatalog } from '../lib/catalog';
+import { calculate, planFor, runsBar } from '../lib/core';
+import { db } from '../lib/db';
+import { watchDevice } from '../lib/device';
+import * as guests from '../lib/guestList';
+import * as menu from '../lib/menu';
+import { newParty, upgradeParty } from '../lib/partyDefaults';
+import { fetchSession } from '../lib/session';
+import * as sharing from '../lib/sharing';
 import {
   activeParty,
   can,
@@ -17,9 +17,9 @@ import {
   state,
   update,
 } from './storeState';
-import { currentTheme, toggleTheme as switchTheme } from './theme';
-import { findInvite } from './ticket';
-import type { CalculationResult, Party, Settings } from './types';
+import { currentTheme, toggleTheme as switchTheme } from '../lib/theme';
+import { findInvite } from '../lib/ticket';
+import type { CalculationResult, Party, Settings } from '../lib/types';
 
 /**
  * The planner's store: the reactive state every screen reads, and the actions

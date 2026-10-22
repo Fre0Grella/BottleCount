@@ -9,7 +9,7 @@ import {
   normaliseSatispay,
 } from '../../shared/payments';
 import type { PaymentDetails } from '../../shared/payments';
-import { useStore } from '../lib/store';
+import { useStore } from '../store/store';
 import Icon from './ui/Icon.vue';
 
 /**

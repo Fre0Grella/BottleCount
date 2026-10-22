@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import { savePersonalIngredient } from '../../lib/catalog';
 import Modal from '../ui/Modal.vue';
 import Icon from '../ui/Icon.vue';

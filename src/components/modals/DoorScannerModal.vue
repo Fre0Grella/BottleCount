@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue';
 import QrScanner from 'qr-scanner';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import { verifyTicket } from '../../lib/crypto';
 import { checkTicket } from '../../lib/ticket';
 import { formatClockTime } from '../../lib/dates';

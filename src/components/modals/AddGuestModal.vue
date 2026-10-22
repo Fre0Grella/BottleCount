@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
 import { optionalContact } from '../../../shared/contact';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import Modal from '../ui/Modal.vue';
 import Icon from '../ui/Icon.vue';
 

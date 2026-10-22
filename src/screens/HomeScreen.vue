@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from '../lib/store';
+import { useStore } from '../store/store';
 import { coverOf } from '../lib/covers';
 import { runsBar } from '../lib/core';
 import { formatLocalDate } from '../lib/dates';

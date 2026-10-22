@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import { isSimpleCategory } from '../../lib/menu';
 import { cocktailRecipe } from '../../lib/catalog';
 import Icon from '../ui/Icon.vue';

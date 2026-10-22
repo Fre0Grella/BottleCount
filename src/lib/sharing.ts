@@ -21,7 +21,7 @@ import {
   session,
   state,
   update,
-} from './storeState';
+} from '../store/storeState';
 import type { Party } from './types';
 
 /**

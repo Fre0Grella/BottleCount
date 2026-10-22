@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { collaboratorUrl, linkLabel } from '../../../shared/urls';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import Modal from '../ui/Modal.vue';
 import Icon from '../ui/Icon.vue';
 

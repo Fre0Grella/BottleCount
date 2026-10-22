@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue';
-import { useStore } from '../lib/store';
+import { useStore } from '../store/store';
 import { runsBar } from '../lib/core';
 import Icon from '../components/ui/Icon.vue';
 import Logo from '../components/ui/Logo.vue';

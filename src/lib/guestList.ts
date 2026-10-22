@@ -11,7 +11,7 @@ import {
 } from './api/guests';
 import { errorCode } from './api/request';
 import { adoptRemoteGuest } from './invites';
-import { activeParty, save, session, update } from './storeState';
+import { activeParty, save, session, update } from '../store/storeState';
 import { newLocalTicketCode } from './ticket';
 import type { Invite, Party } from './types';
 

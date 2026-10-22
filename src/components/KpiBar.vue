@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from '../lib/store';
+import { useStore } from '../store/store';
 import { runsBar } from '../lib/core';
 import { formatEuro, formatEuroRange } from '../lib/display';
 import Icon from './ui/Icon.vue';

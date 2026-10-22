@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import { signTicket } from '../../lib/crypto';
 import { brandedQrDataUrl } from '../../lib/drawing';
 import {

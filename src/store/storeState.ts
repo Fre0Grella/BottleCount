@@ -1,11 +1,11 @@
 import { reactive, toRaw } from 'vue';
 import type { SessionDTO } from '../../shared/session';
 import { canUse, type Feature } from '../../shared/tiers';
-import { db } from './db';
-import type { Device } from './device';
-import { PartySession, type SessionStatus } from './partySession';
-import { ANONYMOUS_SESSION } from './session';
-import type { Catalog, Party } from './types';
+import { db } from '../lib/db';
+import type { Device } from '../lib/device';
+import { PartySession, type SessionStatus } from '../lib/partySession';
+import { ANONYMOUS_SESSION } from '../lib/session';
+import type { Catalog, Party } from '../lib/types';
 
 /**
  * The store's state and the one way to change a party.

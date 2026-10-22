@@ -11,7 +11,7 @@ import {
   ticketMessage,
 } from '../../lib/ticketMessage';
 import type { Invite } from '../../lib/types';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import { formatClockTime } from '../../lib/dates';
 import { segColor } from '../../lib/display';
 import Icon from '../ui/Icon.vue';

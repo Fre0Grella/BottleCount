@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useStore } from '../lib/store';
+import { useStore } from '../store/store';
 import { redeemLicence } from '../lib/api/session';
 import { errorCode } from '../lib/api/request';
 import type { Feature } from '../../shared/tiers';

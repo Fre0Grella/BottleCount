@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useStore } from '../../lib/store';
+import { useStore } from '../../store/store';
 import { COVERS, coverOf } from '../../lib/covers';
 import { VIBES, BUFFERS } from '../../lib/planPresets';
 import { runsBar } from '../../lib/core';
