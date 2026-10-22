@@ -1,5 +1,5 @@
 import { toRaw } from 'vue';
-import type { GuestContact } from '../../shared/contact';
+import type { GuestContact } from '../../../shared/contact';
 import {
   addRemoteGuest,
   checkInRemote,
@@ -8,12 +8,12 @@ import {
   setRemoteInviteStatus,
   setRemotePaid,
   undoCheckInRemote,
-} from './api/guests';
-import { errorCode } from './api/request';
+} from '../../lib/api/guests';
+import { errorCode } from '../../lib/api/request';
 import { adoptRemoteGuest } from './invites';
-import { activeParty, save, session, update } from '../store/storeState';
-import { newLocalTicketCode } from './ticket';
-import type { Invite, Party } from './types';
+import { activeParty, save, session, update } from '../../store/storeState';
+import { newLocalTicketCode } from '../../lib/ticket';
+import type { Invite, Party } from '../../lib/types';
 
 /**
  * The host's guest list: adding guests, their answer, where to send their

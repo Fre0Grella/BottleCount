@@ -4,7 +4,7 @@ import { defaultExtras, loadCatalog } from '../lib/catalog';
 import { calculate, planFor, runsBar } from '../lib/core';
 import { db } from '../lib/db';
 import { watchDevice } from '../lib/device';
-import * as guests from '../lib/guestList';
+import * as guests from '../features/guests/guestList';
 import * as menu from '../lib/menu';
 import { newParty, upgradeParty } from '../lib/partyDefaults';
 import { fetchSession } from '../features/account/session';

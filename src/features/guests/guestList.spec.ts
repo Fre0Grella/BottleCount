@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isTicketCode } from '../../shared/tickets';
+import { isTicketCode } from '../../../shared/tickets';
 import {
   manualInvite,
   setCheckedIn,
@@ -7,7 +7,7 @@ import {
   setPaidAt,
   setStatus,
 } from './guestList';
-import type { Invite, Party } from './types';
+import type { Invite, Party } from '../../lib/types';
 
 function guest(over: Partial<Invite> = {}): Invite {
   return {

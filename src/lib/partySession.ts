@@ -7,7 +7,7 @@ import type {
 import { fetchFunnel } from './api/guests';
 import { fetchParty } from './api/parties';
 import { applyDocument, documentOf, publicationOf } from './collab';
-import { mergeFunnel, sameInvites } from './invites';
+import { mergeFunnel, sameInvites } from '../features/guests/invites';
 import { PartySync } from './sync';
 import type { Party, PartyPublication } from './types';
 

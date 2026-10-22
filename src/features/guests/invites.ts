@@ -1,5 +1,5 @@
-import type { HostInviteDTO } from '../../shared/invites';
-import type { Invite } from './types';
+import type { HostInviteDTO } from '../../../shared/invites';
+import type { Invite } from '../../lib/types';
 
 // ── Merging the funnel into the local party ─────────────────────────────────
 

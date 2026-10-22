@@ -14,8 +14,8 @@ import type { Invite } from '../../lib/types';
 import { useStore } from '../../store/store';
 import { formatClockTime } from '../../lib/dates';
 import { segColor } from '../../lib/display';
-import Icon from '../ui/Icon.vue';
-import ProLock from '../../features/account/ProLock.vue';
+import Icon from '../../components/ui/Icon.vue';
+import ProLock from '../account/ProLock.vue';
 import type { InviteStatus } from '../../lib/types';
 
 const store = useStore();

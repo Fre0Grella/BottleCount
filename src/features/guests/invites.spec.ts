@@ -1,8 +1,8 @@
 import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
-import type { HostInviteDTO } from '../../shared/invites';
+import type { HostInviteDTO } from '../../../shared/invites';
 import { adoptRemoteGuest, mergeFunnel, sameInvites } from './invites';
-import type { Invite } from './types';
+import type { Invite } from '../../lib/types';
 
 function remote(overrides: Partial<HostInviteDTO> = {}): HostInviteDTO {
   return {
