@@ -194,16 +194,26 @@ describe('invitePayment', () => {
 });
 
 describe('isPaidParty', () => {
+  // Only the two fields it reads; a stored document's payment may be partial.
+  const party = (ticket_price: number, payment: unknown) =>
+    ({ settings: { ticket_price }, payment }) as unknown as Parameters<
+      typeof isPaidParty
+    >[0];
+
   it('needs a price and a way to pay', () => {
-    expect(isPaidParty(15, { paypal: 'marcog' })).toBe(true);
+    expect(isPaidParty(party(15, { paypal: 'marcog' }))).toBe(true);
   });
 
   it('is not paid on the default price alone', () => {
-    expect(isPaidParty(15, undefined)).toBe(false);
+    expect(isPaidParty(party(15, undefined))).toBe(false);
   });
 
   it('is not paid at €0, even with a method left in place', () => {
-    expect(isPaidParty(0, { paypal: 'marcog' })).toBe(false);
+    expect(isPaidParty(party(0, { paypal: 'marcog' }))).toBe(false);
+  });
+
+  it('is free when there is no document to read', () => {
+    expect(isPaidParty(null)).toBe(false);
   });
 });
 

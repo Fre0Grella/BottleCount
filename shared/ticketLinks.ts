@@ -13,8 +13,10 @@
  * afternoon, and every hit would be someone else's ticket.
  */
 
+import { parseSignedTicket } from './tickets';
+
 /** Lowercase, and without the letters people misread for digits (i, l, o, u). */
-export const TICKET_SLUG_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
+const TICKET_SLUG_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 export const TICKET_SLUG_LENGTH = 12;
 
 const SLUG_PATTERN = new RegExp(
@@ -34,10 +36,6 @@ export function newTicketSlug(): string {
   ).join('');
 }
 
-/** Far above any real ticket (a few hundred characters), far below abuse. */
-const SIGNED_MAX = 2048;
-const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
-
 /**
  * The ticket code inside a signed QR string (`<payload>.<HMAC>`), or null when
  * the string is not shaped like one.
@@ -48,17 +46,7 @@ const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
  * guest's ticket to another guest's link.
  */
 export function signedTicketCode(signed: string): string | null {
-  if (signed.length > SIGNED_MAX) return null;
-  const [payloadB64, signature, extra] = signed.split('.');
-  if (!payloadB64 || !signature || extra !== undefined) return null;
-  if (!BASE64.test(payloadB64) || !BASE64.test(signature)) return null;
-
-  try {
-    const payload = JSON.parse(atob(payloadB64)) as Record<string, unknown>;
-    return typeof payload['code'] === 'string' ? payload['code'] : null;
-  } catch {
-    return null;
-  }
+  return parseSignedTicket(signed)?.payload.code ?? null;
 }
 
 /** What `GET /ticket/:slug` answers with. */

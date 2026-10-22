@@ -8,12 +8,7 @@ import type {
 } from './types';
 import { db } from './db';
 import { fetchSession, ANONYMOUS_SESSION } from './session';
-import {
-  mergeFunnel,
-  adoptRemoteGuest,
-  awaitingPayment,
-  sameInvites,
-} from './invites';
+import { mergeFunnel, adoptRemoteGuest, sameInvites } from './invites';
 import {
   addRemoteGuest,
   checkInRemote,
@@ -39,6 +34,12 @@ import {
 } from './api/parties';
 import { errorCode } from './api/request';
 import { PartySync } from './sync';
+import {
+  findInvite,
+  newLocalTicketCode,
+  withStoredTicketCodes,
+} from './ticket';
+import { ticketState } from '../../shared/tickets';
 import type { PartyMemberDTO, PartyRole } from '../../shared/collab';
 import type { GuestContact } from '../../shared/contact';
 import {
@@ -130,8 +131,10 @@ interface StoreState {
   cocktailFor: { cat: string; spirit: string } | null;
   ingMgrOpen: boolean;
   shareOpen: boolean;
-  ticketFor: string | null;
-  sendTicketFor: string | null;
+  /** The invite id whose ticket is open, if any. */
+  ticketFor: number | null;
+  /** The invite id whose Send sheet is open, if any. */
+  sendTicketFor: number | null;
   addGuestOpen: boolean;
   /** The guest whose email and phone the add-guest sheet is editing, if any. */
   contactFor: number | null;
@@ -309,6 +312,15 @@ async function load(): Promise<void> {
       const legacy = invite.status as string;
       if (legacy === 'accepted') invite.status = 'confirmed';
       else if (legacy === 'pending') invite.status = 'opened';
+    }
+
+    // Local guests saved before their ticket code was: store the code their
+    // ticket already carries, so renaming them no longer changes it. Built
+    // from the raw list: IndexedDB cannot clone the proxies it would hold.
+    const coded = withStoredTicketCodes(toRaw(p));
+    if (coded) {
+      p.invites = coded;
+      void persist(p);
     }
   }
 
@@ -999,6 +1011,9 @@ function addInvite(
     p.invites.unshift({
       id: localId,
       name,
+      // Stored now, so the ticket keeps its code if the guest is renamed. On a
+      // shared party the server's replaces it once their row exists.
+      ticketCode: newLocalTicketCode(p),
       status: 'confirmed',
       depth: 0,
       referrer: null,
@@ -1270,30 +1285,27 @@ function closeShare(): void {
 }
 
 /**
- * Whether the guest of this name may have their ticket made yet. On a party
- * guests pay for, not before an organiser has marked them as paid — checked
- * here rather than only by hiding buttons, so no screen can get round it.
+ * Whether this guest may have their ticket made yet: they are coming and, on a
+ * party guests pay for, an organiser has marked them as paid — checked here
+ * rather than only by hiding buttons, so no screen can get round it.
  */
-function ticketReady(name: string): boolean {
+function ticketReady(inviteId: number): boolean {
   const party = activeParty();
-  if (!party) return false;
-  const invite = party.invites.find(
-    (i) => i.name === name && i.status === 'confirmed',
-  );
-  return !invite || !awaitingPayment(party, invite);
+  const invite = party && findInvite(party, inviteId);
+  return !!invite && ticketState(invite, party) === 'live';
 }
 
-function openTicket(name: string): void {
-  if (!ticketReady(name)) return;
-  state.ticketFor = name;
+function openTicket(inviteId: number): void {
+  if (!ticketReady(inviteId)) return;
+  state.ticketFor = inviteId;
 }
 function closeTicket(): void {
   state.ticketFor = null;
 }
 
-function openSendTicket(name: string): void {
-  if (!ticketReady(name)) return;
-  state.sendTicketFor = name;
+function openSendTicket(inviteId: number): void {
+  if (!ticketReady(inviteId)) return;
+  state.sendTicketFor = inviteId;
 }
 function closeSendTicket(): void {
   state.sendTicketFor = null;

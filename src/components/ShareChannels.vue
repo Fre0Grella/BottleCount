@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { brandedQrDataUrl } from '../lib/qr';
+import { brandedQrDataUrl } from '../lib/drawing';
 import { mailtoUrl, smsUrl, whatsappUrl } from '../lib/sendLinks';
 import Icon from './Icon.vue';
 

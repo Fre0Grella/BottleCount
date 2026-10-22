@@ -14,6 +14,8 @@
  * `https://` on its own domain instead.
  */
 
+import type { PartyDocument } from './collab';
+
 /** Where the host wants to be paid. Empty strings mean "not offered". */
 export interface PaymentDetails {
   /** A PayPal.me username, without the domain. */
@@ -235,13 +237,18 @@ export function invitePayment(
  * in place on a party they have since made free.
  *
  * This is what makes a guest's email required, and what puts "paid" in the
- * guest list, so both sides call it rather than each deciding for itself.
+ * guest list, so both sides call it rather than each deciding for itself. A
+ * party with no stored document (an old row on the server) is free.
  */
-export function isPaidParty(price: number, details: unknown): boolean {
+export function isPaidParty(
+  party: Pick<PartyDocument, 'settings' | 'payment'> | null | undefined,
+): boolean {
+  if (!party) return false;
+  const price = party.settings.ticket_price;
   return (
     Number.isFinite(price) &&
     price > 0 &&
-    invitePayment(price, details) !== null
+    invitePayment(price, party.payment) !== null
   );
 }
 

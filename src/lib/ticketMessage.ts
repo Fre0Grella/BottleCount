@@ -1,5 +1,5 @@
 import { signTicket } from './crypto';
-import { ticketPayload } from './ticket';
+import { findInvite, ticketPayload } from './ticket';
 import { storeTicketLink } from './api/tickets';
 import { shortTicketUrl, ticketUrl } from './ticketLink';
 import type { Invite, Party } from './types';
@@ -50,16 +50,16 @@ export function ticketEmailSubject(
  */
 export async function signedTicketLink(
   party: Party,
-  guestName: string,
+  inviteId: number,
 ): Promise<string> {
-  const signed = await signTicket(party, ticketPayload(party, guestName));
+  const payload = ticketPayload(party, inviteId);
+  if (!payload) throw new Error('no such guest');
+  const signed = await signTicket(party, payload);
   const origin = window.location.origin;
   const base = import.meta.env.BASE_URL as string;
 
   const partyRemoteId = party.publication?.remoteId;
-  const invite = party.invites.find(
-    (i) => i.name === guestName && i.status === 'confirmed',
-  );
+  const invite = findInvite(party, inviteId);
   if (partyRemoteId && invite?.remoteId) {
     const stored = await storeTicketLink(
       partyRemoteId,

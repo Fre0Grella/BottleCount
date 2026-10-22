@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore, COVERS } from '../../lib/store';
-import { ticketCode } from '../../lib/ticket';
+import { findInvite, ticketCode } from '../../lib/ticket';
 import {
   partyDateShort as shortDate,
   signedTicketLink,
@@ -20,15 +20,13 @@ const ticketLink = ref('');
 const prepareFailed = ref(false);
 
 const party = computed(() => store.activeParty());
-const guestName = computed(() => store.state.sendTicketFor ?? '');
-
 /** The guest being sent to, for the email and phone they left. */
-const guest = computed(
-  () =>
-    party.value?.invites.find(
-      (i) => i.name === guestName.value && i.status === 'confirmed',
-    ) ?? null,
-);
+const guest = computed(() => {
+  const p = party.value;
+  const id = store.state.sendTicketFor;
+  return (p && id !== null && findInvite(p, id)) || null;
+});
+const guestName = computed(() => guest.value?.name ?? '');
 
 const cover = computed(() => {
   const p = party.value;
@@ -42,8 +40,8 @@ const partyDateShort = computed(() =>
 
 const code = computed(() => {
   const p = party.value;
-  if (!p || !guestName.value) return '';
-  return ticketCode(p, guestName.value);
+  const g = guest.value;
+  return p && g ? ticketCode(p, g.id) : '';
 });
 
 const initial = computed(() => guestName.value.charAt(0).toUpperCase());
@@ -62,10 +60,10 @@ const qrFileName = computed(
 /** Signs the guest's ticket and builds the link that carries it. */
 async function prepare(): Promise<void> {
   const p = party.value;
-  const name = guestName.value;
-  if (!p || !name) return;
+  const id = guest.value?.id;
+  if (!p || id === undefined) return;
   try {
-    ticketLink.value = await signedTicketLink(p, name);
+    ticketLink.value = await signedTicketLink(p, id);
   } catch {
     prepareFailed.value = true;
   }
@@ -83,9 +81,9 @@ watch(
 
 /** The ticket QR itself, full screen — what the door scans. Not a share. */
 function showQR(): void {
-  const name = guestName.value;
+  const id = guest.value?.id;
   store.closeSendTicket();
-  store.openTicket(name);
+  if (id !== undefined) store.openTicket(id);
 }
 
 function handleClose(): void {

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore } from '../../lib/store';
+import { signTicket } from '../../lib/crypto';
+import { brandedQrDataUrl } from '../../lib/drawing';
 import {
+  findInvite,
   ticketCode,
   ticketPayload,
   ticketExpiryLabel,
-  ticketQrDataUrl,
 } from '../../lib/ticket';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
@@ -16,12 +18,17 @@ const qrDataUrl = ref<string | null>(null);
 const qrLoading = ref(false);
 
 const party = computed(() => store.activeParty());
-const guestName = computed(() => store.state.ticketFor ?? '');
+const inviteId = computed(() => store.state.ticketFor);
+const guestName = computed(() => {
+  const p = party.value;
+  const id = inviteId.value;
+  return (p && id !== null && findInvite(p, id)?.name) || '';
+});
 
 const ticketId = computed(() => {
   const p = party.value;
-  if (!p || !guestName.value) return '';
-  return ticketCode(p, guestName.value);
+  const id = inviteId.value;
+  return p && id !== null ? ticketCode(p, id) : '';
 });
 
 const ticketExpiry = computed(() => {
@@ -30,9 +37,10 @@ const ticketExpiry = computed(() => {
   return ticketExpiryLabel(p);
 });
 
-async function generateQR(name: string) {
+async function generateQR(id: number) {
   const p = party.value;
-  if (!p || !name) {
+  const payload = p ? ticketPayload(p, id) : null;
+  if (!p || !payload) {
     qrDataUrl.value = null;
     return;
   }
@@ -41,7 +49,7 @@ async function generateQR(name: string) {
   qrDataUrl.value = null;
 
   try {
-    qrDataUrl.value = await ticketQrDataUrl(p, ticketPayload(p, name));
+    qrDataUrl.value = await brandedQrDataUrl(await signTicket(p, payload));
   } catch {
     qrDataUrl.value = null;
   } finally {
@@ -52,9 +60,9 @@ async function generateQR(name: string) {
 // Re-generate QR whenever the modal opens with a new guest
 watch(
   () => store.state.ticketFor,
-  (name) => {
-    if (name) {
-      void generateQR(name);
+  (id) => {
+    if (id !== null) {
+      void generateQR(id);
     } else {
       qrDataUrl.value = null;
       qrLoading.value = false;

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
+import { ticketState } from '../../../shared/tickets';
 import { venueFeeFor, venueFeePerPerson } from '../../lib/core';
-import { awaitingPayment } from '../../lib/invites';
 import { mailtoUrl, whatsappUrl } from '../../lib/sendLinks';
 import {
   sendRoute,
@@ -38,13 +38,10 @@ const checkedIn = computed(() => confirmed.value.filter((i) => i.used).length);
  * same test the invite page uses to ask for an email, so "paid" only appears
  * where guests were actually asked for money.
  */
-const paidParty = computed(() => {
-  const p = party.value;
-  return !!p && isPaidParty(p.settings.ticket_price, p.payment);
-});
+const paidParty = computed(() => isPaidParty(party.value));
 /** Coming, but no ticket until they have paid. */
-function unpaid(inv: Parameters<typeof awaitingPayment>[1]): boolean {
-  return !!party.value && awaitingPayment(party.value, inv);
+function unpaid(inv: Invite): boolean {
+  return ticketState(inv, party.value) === 'unpaid';
 }
 
 /**
@@ -68,7 +65,7 @@ async function togglePaid(inv: Invite): Promise<void> {
   const marked = store.setInvitePaid(inv.id, true);
 
   if (route === 'sheet') {
-    store.openSendTicket(inv.name);
+    store.openSendTicket(inv.id);
     await marked;
     return;
   }
@@ -76,7 +73,7 @@ async function togglePaid(inv: Invite): Promise<void> {
   const p = party.value;
   try {
     if (!p) throw new Error('no party');
-    const link = await signedTicketLink(p, inv.name);
+    const link = await signedTicketLink(p, inv.id);
     const message = ticketMessage(p, inv.name, link);
     if (route === 'whatsapp') {
       const url = whatsappUrl(message, inv.phone);
@@ -1439,7 +1436,7 @@ const lastSyncedLabel = computed(() => {
                     color: var(--accent);
                     min-height: 36px;
                   "
-                  @click="store.openTicket(inv.name)"
+                  @click="store.openTicket(inv.id)"
                 >
                   <span style="display: flex"
                     ><Icon name="ticket" :size="13"
@@ -1461,7 +1458,7 @@ const lastSyncedLabel = computed(() => {
                     color: var(--dim);
                     min-height: 36px;
                   "
-                  @click="store.openSendTicket(inv.name)"
+                  @click="store.openSendTicket(inv.id)"
                 >
                   <span style="display: flex"
                     ><Icon name="mail" :size="13"
