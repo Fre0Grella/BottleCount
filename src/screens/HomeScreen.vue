@@ -5,10 +5,10 @@ import { coverOf } from '../lib/covers';
 import { runsBar } from '../lib/core';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, segColor, venueWhere } from '../lib/display';
-import Icon from './ui/Icon.vue';
-import Logo from './ui/Logo.vue';
-import AppFooter from './site/AppFooter.vue';
-import AccountButton from './AccountButton.vue';
+import Icon from '../components/ui/Icon.vue';
+import Logo from '../components/ui/Logo.vue';
+import AppFooter from '../components/site/AppFooter.vue';
+import AccountButton from '../components/AccountButton.vue';
 import type { Party } from '../lib/types';
 
 const store = useStore();

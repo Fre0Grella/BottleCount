@@ -10,9 +10,9 @@ import { coverOf } from '../lib/covers';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, venueWhere } from '../lib/display';
 import { safeLocal } from '../lib/safeStorage';
-import BrandMark from './ui/BrandMark.vue';
-import Icon from './ui/Icon.vue';
-import ShareChannels from './ShareChannels.vue';
+import BrandMark from '../components/ui/BrandMark.vue';
+import Icon from '../components/ui/Icon.vue';
+import ShareChannels from '../components/ShareChannels.vue';
 
 /**
  * The page a guest lands on. It is the only screen in the app with no account

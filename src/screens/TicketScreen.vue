@@ -14,7 +14,7 @@ import {
 import { ticketSlugFromPath } from '../../shared/urls';
 import { formatLocalDate, shortDate } from '../lib/dates';
 import { safeLocal } from '../lib/safeStorage';
-import Icon from './ui/Icon.vue';
+import Icon from '../components/ui/Icon.vue';
 
 /**
  * A guest's ticket, opened from the link the host sent them.

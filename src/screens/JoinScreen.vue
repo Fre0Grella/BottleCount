@@ -12,7 +12,7 @@ import { APP_URL } from '../lib/links';
 import { pathParam } from '../../shared/urls';
 import { formatLocalDate } from '../lib/dates';
 import { safeSession } from '../lib/safeStorage';
-import Icon from './ui/Icon.vue';
+import Icon from '../components/ui/Icon.vue';
 
 /**
  * Where a co-organiser invite lands.
