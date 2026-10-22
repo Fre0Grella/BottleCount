@@ -9,6 +9,7 @@ import {
   ticketState,
 } from '../../shared/tickets';
 import type { TicketCheck } from './crypto';
+import { parseLocalDate } from './dates';
 import type { Invite, Party } from './types';
 
 /**
@@ -128,8 +129,10 @@ function ticketPartyId(party: Party): string {
 
 /** A ticket lasts until 06:00 the morning after the party, local time. */
 export function ticketExpiry(party: Pick<Party, 'date'>): Date {
-  const exp = new Date(`${party.date}T06:00:00`);
+  const exp = parseLocalDate(party.date);
+  if (!exp) return new Date(NaN);
   exp.setDate(exp.getDate() + 1);
+  exp.setHours(6);
   return exp;
 }
 

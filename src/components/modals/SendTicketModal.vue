@@ -3,8 +3,8 @@ import { ref, computed, watch } from 'vue';
 import { useStore } from '../../lib/store';
 import { coverOf } from '../../lib/covers';
 import { findInvite, ticketCode } from '../../lib/ticket';
+import { shortDate } from '../../lib/dates';
 import {
-  partyDateShort as shortDate,
   signedTicketLink,
   ticketEmailSubject,
   ticketMessage,

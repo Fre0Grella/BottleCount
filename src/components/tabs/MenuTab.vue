@@ -7,6 +7,7 @@ import Icon from '../Icon.vue';
 import type { IconName } from '../../lib/icons';
 import { TYPE_META } from '../../lib/ingredientTypes';
 import Slider from '../Slider.vue';
+import { segColor } from '../../lib/display';
 
 const store = useStore();
 
@@ -34,10 +35,6 @@ function catIcon(name: string): IconName {
   if (n.includes('beer')) return TYPE_META.beer.icon;
   if (n.includes('wine')) return TYPE_META.wine.icon;
   return TYPE_META.spirit.icon;
-}
-
-function segColor(i: number): string {
-  return `var(--seg-${i % 5})`;
 }
 
 // ── Derived data ─────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { emptyPaymentDetails } from '../../shared/payments';
 import settingsData from '../data/settings.json';
+import { localIsoDate } from './dates';
 import { withStoredTicketCodes } from './ticket';
 import type { Party, PartyMenu } from './types';
 
@@ -16,7 +17,7 @@ import type { Party, PartyMenu } from './types';
 export function newParty(now: Date = new Date()): Party {
   return {
     name: 'New party',
-    date: now.toISOString().slice(0, 10),
+    date: localIsoDate(now),
     createdAt: now.toISOString(),
     cover: 0,
     venue: { place: '', city: '', time: '21:00' },

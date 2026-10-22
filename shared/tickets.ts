@@ -8,6 +8,7 @@
 
 import type { PartyDocument } from './collab';
 import { isPaidParty } from './payments';
+import { randomString } from './random';
 
 // ── The code ────────────────────────────────────────────────────────────────
 
@@ -32,33 +33,12 @@ export const TICKET_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const TICKET_CODE_LENGTH = 5;
 
 /**
- * The largest multiple of the alphabet size that fits in a byte. Bytes at or
- * above it are thrown away rather than folded with `%`, which would hand the
- * first few characters a slightly better chance than the rest. Nobody is
- * guessing these — a ticket also needs its guest's name — but an even draw is
- * free here and awkward to retrofit.
- */
-const REJECTION_CEILING =
-  Math.floor(256 / TICKET_CODE_ALPHABET.length) * TICKET_CODE_ALPHABET.length;
-
-/**
- * A fresh ticket code. Uniqueness is not this function's job — it draws, and
- * the unique index plus a bounded redraw deals with the rare collision.
+ * A fresh ticket code, drawn evenly from the alphabet (see `random.ts`).
+ * Uniqueness is not this function's job — it draws, and the unique index plus
+ * a bounded redraw deals with the rare collision.
  */
 export function generateTicketCode(): string {
-  let code = '';
-  while (code.length < TICKET_CODE_LENGTH) {
-    // A generous batch, so the common case is one trip to the CSPRNG even after
-    // a few rejections.
-    const bytes = new Uint8Array(TICKET_CODE_LENGTH * 2);
-    crypto.getRandomValues(bytes);
-    for (const byte of bytes) {
-      if (byte >= REJECTION_CEILING) continue;
-      code += TICKET_CODE_ALPHABET[byte % TICKET_CODE_ALPHABET.length];
-      if (code.length === TICKET_CODE_LENGTH) break;
-    }
-  }
-  return code;
+  return randomString(TICKET_CODE_ALPHABET, TICKET_CODE_LENGTH);
 }
 
 /** How many codes to try before treating collisions as a fault, not bad luck. */

@@ -1,23 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isTicketSlug,
-  newTicketSlug,
-  signedTicketCode,
-  TICKET_SLUG_LENGTH,
-} from './ticketLinks';
+import { isTicketSlug, signedTicketCode } from './ticketLinks';
 import { encodeTicketPayload } from './tickets';
 
 function signed(payload: unknown): string {
   return `${btoa(JSON.stringify(payload))}.${btoa('signature-bytes')}`;
 }
-
-describe('newTicketSlug', () => {
-  it('is long and random enough not to be guessed', () => {
-    const slug = newTicketSlug();
-    expect(slug).toHaveLength(TICKET_SLUG_LENGTH);
-    expect(isTicketSlug(slug)).toBe(true);
-  });
-});
 
 describe('isTicketSlug', () => {
   it.each(['', 'xqk8', 'ABCDEFGHJKMN', '0123456789ab/', 'iiiiiiiiiiii'])(

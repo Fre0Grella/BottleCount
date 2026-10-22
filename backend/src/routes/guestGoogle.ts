@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { sign, verify } from 'hono/jwt';
 import { guestName, normaliseEmail } from '../../../shared/contact';
+import { inviteUrl } from '../../../shared/urls';
 import { newToken } from '../lib/tokens';
 import type { AppEnv } from '../appEnv';
 import { deployment } from '../deployment';
@@ -59,8 +60,8 @@ function callbackUrl(env: Bindings): string {
 }
 
 function backToInvite(c: Context<Env>, slug: string, fragment: string) {
-  const base = resolveFrontendUrl(c.env);
-  return c.redirect(`${base}/i/${encodeURIComponent(slug)}#${fragment}`);
+  const invite = inviteUrl(resolveFrontendUrl(c.env), '/', slug);
+  return c.redirect(`${invite}#${fragment}`);
 }
 
 /** base64url, so the fragment survives without escaping. */

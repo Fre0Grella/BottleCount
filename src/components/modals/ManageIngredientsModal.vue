@@ -10,6 +10,7 @@ import type { IngredientType } from '../../lib/types';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import { TYPE_META } from '../../lib/ingredientTypes';
+import { formatEuroRange } from '../../lib/display';
 
 import catalogData from '../../data/catalog.json';
 import type { Catalog } from '../../lib/types';
@@ -70,13 +71,7 @@ function metaLine(ing: (typeof ingredients.value)[string]): string {
   } else if (ing.unit) {
     parts.push(ing.unit);
   }
-  const minStr = ing.price_min.toFixed(2);
-  const maxStr = ing.price_max.toFixed(2);
-  if (minStr === maxStr) {
-    parts.push(`€${minStr}`);
-  } else {
-    parts.push(`€${minStr}–€${maxStr}`);
-  }
+  parts.push(formatEuroRange(ing.price_min, ing.price_max, 'always'));
   return parts.join(' · ');
 }
 

@@ -1,4 +1,5 @@
 import { faviconUrl, type Theme } from './brand';
+import { safeLocal } from './safeStorage';
 
 /**
  * The Theme: which one is active, and the Theme Switch's Manual Override.
@@ -76,10 +77,7 @@ export function currentTheme(): Theme {
 export function toggleTheme(): Theme {
   const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';
   showTheme(next, FAVICONS);
-  try {
-    localStorage.setItem(THEME_KEY, next);
-  } catch {
-    // Storage blocked: the switch still works, it just won't be remembered.
-  }
+  // Storage blocked: the switch still works, it just won't be remembered.
+  safeLocal.set(THEME_KEY, next);
   return next;
 }

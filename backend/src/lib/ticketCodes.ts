@@ -2,10 +2,10 @@ import {
   generateTicketCode,
   TICKET_CODE_ATTEMPTS,
 } from '../../../shared/tickets';
-import { newTicketSlug } from '../../../shared/ticketLinks';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type { Result } from '../repositories/result';
 import { err } from '../repositories/result';
+import { newTicketSlug } from './tokens';
 
 /**
  * Runs a write that needs a value no other row holds, redrawing when the

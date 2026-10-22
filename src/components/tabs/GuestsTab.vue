@@ -12,6 +12,8 @@ import {
 } from '../../lib/ticketMessage';
 import type { Invite } from '../../lib/types';
 import { useStore } from '../../lib/store';
+import { formatClockTime } from '../../lib/dates';
+import { segColor } from '../../lib/display';
 import Icon from '../Icon.vue';
 import ProLock from '../ProLock.vue';
 import type { InviteStatus } from '../../lib/types';
@@ -182,18 +184,6 @@ const spreadFactor = computed(() => {
   return (total / d).toFixed(1) + '×';
 });
 
-const SEG_COLORS = [
-  'var(--seg-0)',
-  'var(--seg-1)',
-  'var(--seg-2)',
-  'var(--seg-3)',
-  'var(--seg-4)',
-];
-
-function avatarColor(id: number) {
-  return SEG_COLORS[id % 5];
-}
-
 function avatarOpacity(status: InviteStatus) {
   if (status === 'confirmed') return 1;
   if (status === 'opened') return 0.55;
@@ -212,21 +202,6 @@ function initial(name: string) {
  */
 function isNameless(inv: { name: string }) {
   return inv.name.trim() === '';
-}
-
-/**
- * A check-in time for the row. The server's is ISO; one scanned on this device
- * before the sync answered is already HH:MM, so that passes through.
- */
-function checkInTime(value: string | undefined): string {
-  if (!value) return '';
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : parsed.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
 }
 
 function referrerFirst(referrer: string | null) {
@@ -780,7 +755,7 @@ const lastSyncedLabel = computed(() => {
                     border: 2px solid var(--surface2);
                   "
                   :style="{
-                    background: avatarColor(inv.id),
+                    background: segColor(inv.id),
                     marginLeft: idx === 0 ? '0' : '-8px',
                     opacity: String(avatarOpacity(inv.status)),
                   }"
@@ -839,7 +814,7 @@ const lastSyncedLabel = computed(() => {
                     border: 2px solid var(--surface2);
                   "
                   :style="{
-                    background: avatarColor(inv.id),
+                    background: segColor(inv.id),
                     marginLeft: idx === 0 ? '0' : '-8px',
                     opacity: String(avatarOpacity(inv.status)),
                   }"
@@ -1125,7 +1100,7 @@ const lastSyncedLabel = computed(() => {
               font-weight: 700;
             "
             :style="{
-              background: avatarColor(inv.id),
+              background: segColor(inv.id),
               opacity:
                 inv.status === 'confirmed'
                   ? '1'
@@ -1198,7 +1173,7 @@ const lastSyncedLabel = computed(() => {
               <span style="display: flex"
                 ><Icon name="check" :size="11"
               /></span>
-              Checked in · {{ checkInTime(inv.usedAt) }}
+              Checked in · {{ formatClockTime(inv.usedAt) }}
             </div>
             <div
               v-else-if="inv.status === 'confirmed'"

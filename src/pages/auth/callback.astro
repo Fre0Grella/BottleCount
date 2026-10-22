@@ -12,24 +12,6 @@ import { APP_URL } from '../../lib/links';
       of the way.
     -->
     <meta http-equiv="refresh" content={`2;url=${APP_URL}`} />
-    <script is:inline define:vars={{ APP_URL }}>
-      // A co-organiser invitation sends people through sign-in and expects them
-      // back on the invitation. The meta refresh above is the fallback for when
-      // there is nothing to come back to.
-      try {
-        const back = sessionStorage.getItem('bc-after-signin');
-        sessionStorage.removeItem('bc-after-signin');
-        // Same-origin paths only: an absolute URL here would make the sign-in
-        // flow an open redirect.
-        if (back && back.startsWith('/') && !back.startsWith('//')) {
-          window.location.replace(back);
-        } else {
-          window.location.replace(APP_URL);
-        }
-      } catch {
-        window.location.replace(APP_URL);
-      }
-    </script>
   </Fragment>
 
   <div class="signin">
@@ -38,6 +20,22 @@ import { APP_URL } from '../../lib/links';
     <a class="signin__link" href={APP_URL}>Continue</a>
   </div>
 </BaseLayout>
+
+<script>
+  import { APP_URL } from '../../lib/links';
+  import { safeSession } from '../../lib/safeStorage';
+
+  // A co-organiser invitation sends people through sign-in and expects them
+  // back on the invitation. The meta refresh above is the fallback for when
+  // this script does not run at all.
+  const back = safeSession.get('bc-after-signin');
+  safeSession.remove('bc-after-signin');
+  // Same-origin paths only: an absolute URL here would make the sign-in flow
+  // an open redirect.
+  window.location.replace(
+    back && back.startsWith('/') && !back.startsWith('//') ? back : APP_URL,
+  );
+</script>
 
 <style>
   .signin {

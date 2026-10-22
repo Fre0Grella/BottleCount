@@ -6,20 +6,21 @@
  * unguessable rather than short.
  */
 
+import { randomString } from '../../../shared/random';
+import {
+  TICKET_SLUG_ALPHABET,
+  TICKET_SLUG_LENGTH,
+} from '../../../shared/ticketLinks';
+
 // Base32-ish, no I/O/0/1: these end up in URLs people read aloud and retype.
 const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
-
-function randomString(length: number): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
-}
 
 /**
  * ~99 bits. Forward tokens identify a guest to anyone holding one, and a
  * guessable one would let a stranger claim someone else's referral tree.
  */
 export function newToken(): string {
-  return randomString(20);
+  return randomString(ALPHABET, 20);
 }
 
 /**
@@ -36,5 +37,10 @@ export function newSlug(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 32) || 'party';
-  return `${readable}-${randomString(10)}`;
+  return `${readable}-${randomString(ALPHABET, 10)}`;
+}
+
+/** A short ticket link's slug (see `shared/ticketLinks.ts`). */
+export function newTicketSlug(): string {
+  return randomString(TICKET_SLUG_ALPHABET, TICKET_SLUG_LENGTH);
 }

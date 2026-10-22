@@ -1,7 +1,8 @@
 import { signTicket } from './crypto';
+import { shortDate } from './dates';
 import { findInvite, ticketPayload } from './ticket';
 import { storeTicketLink } from './api/tickets';
-import { shortTicketUrl, ticketUrl } from './ticketLink';
+import { shortTicketUrl, ticketUrl } from '../../shared/urls';
 import type { Invite, Party } from './types';
 
 /**
@@ -11,14 +12,6 @@ import type { Invite, Party } from './types';
  * app straight away when the guest left only one way to reach them — so both
  * send the same words and the same link.
  */
-
-/** `14 Nov` — short enough for a WhatsApp preview line. */
-export function partyDateShort(date: string): string {
-  return new Date(date).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
 
 /**
  * The words sent with the ticket. Every channel sends the link — never the
@@ -30,7 +23,7 @@ export function ticketMessage(
   guestName: string,
   link: string,
 ): string {
-  return `🎫 ${guestName}, you're on the list for ${party.name} (${partyDateShort(party.date)}). Your ticket — show the QR at the door: ${link}`;
+  return `🎫 ${guestName}, you're on the list for ${party.name} (${shortDate(party.date)}). Your ticket — show the QR at the door: ${link}`;
 }
 
 export function ticketEmailSubject(

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TicketQRPayload } from '../../shared/tickets';
-import {
-  openTicket,
-  parseTicketHash,
-  shortTicketUrl,
-  ticketSlugFromPath,
-  ticketUrl,
-} from './ticketLink';
+import { ticketUrl } from '../../shared/urls';
+import { openTicket, parseTicketHash } from './ticketLink';
 
 const payload: TicketQRPayload = {
   code: 'AB23C',
@@ -100,36 +95,6 @@ describe('parseTicketHash', () => {
       'c=-2',
     );
     expect(parseTicketHash(hashOf(url))?.cover).toBe(0);
-  });
-});
-
-describe('short ticket links', () => {
-  const SLUG = 'k3fq9zpx2m7a';
-
-  it('are the origin, the base and the slug', () => {
-    expect(shortTicketUrl('https://bc.example', '/', SLUG)).toBe(
-      `https://bc.example/t/${SLUG}`,
-    );
-    expect(shortTicketUrl('https://x.io', '/BottleCount', SLUG)).toBe(
-      `https://x.io/BottleCount/t/${SLUG}`,
-    );
-  });
-
-  it('read their slug back off the path', () => {
-    expect(ticketSlugFromPath(`/t/${SLUG}`, '/')).toBe(SLUG);
-    expect(ticketSlugFromPath(`/t/${SLUG}/`, '/')).toBe(SLUG);
-    expect(ticketSlugFromPath(`/BottleCount/t/${SLUG}`, '/BottleCount/')).toBe(
-      SLUG,
-    );
-  });
-
-  it('find no slug on the bare page the long links use', () => {
-    expect(ticketSlugFromPath('/t/', '/')).toBe('');
-  });
-
-  it('find no slug in something that is not one', () => {
-    expect(ticketSlugFromPath('/t/xqk8', '/')).toBe('');
-    expect(ticketSlugFromPath('/t/../../etc', '/')).toBe('');
   });
 });
 

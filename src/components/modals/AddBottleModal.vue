@@ -5,6 +5,7 @@ import { savePersonalIngredient } from '../../lib/catalog';
 import Modal from '../Modal.vue';
 import Icon from '../Icon.vue';
 import { TYPE_META } from '../../lib/ingredientTypes';
+import { formatEuroRange } from '../../lib/display';
 
 const store = useStore();
 
@@ -52,10 +53,7 @@ const bottleOptions = computed(() => {
       icon: TYPE_META[v.type].icon,
       meta:
         (v.abv ? Math.round(v.abv * 100) + '% ABV · ' : '') +
-        '€' +
-        v.price_min.toFixed(2) +
-        '–' +
-        v.price_max.toFixed(2),
+        formatEuroRange(v.price_min, v.price_max, 'always'),
     }));
 });
 

@@ -159,24 +159,3 @@ export interface PublishPartyRequest {
   localId: number;
   document: PartyDocument;
 }
-
-// ── Link building ───────────────────────────────────────────────────────────
-
-/**
- * The one place an invite URL is spelled, so the host's share sheet, a guest's
- * forward link and the page that resolves them cannot drift.
- *
- * `base` is the app's base path (`/` on Cloudflare, `/BottleCount/` on GitHub
- * Pages) — leaving it out is how a build under a prefix hands out links that
- * miss the prefix.
- */
-export function inviteUrl(
-  origin: string,
-  base: string,
-  slug: string,
-  token?: string | null,
-): string {
-  const prefix = base.endsWith('/') ? base : `${base}/`;
-  const url = `${origin}${prefix}i/${slug}`;
-  return token ? `${url}?r=${encodeURIComponent(token)}` : url;
-}
