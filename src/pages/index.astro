@@ -1,774 +1,417 @@
 ---
-import '../styles/theme.css';
-import Canonical from '../components/Canonical.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import NavBar from '../components/NavBar.astro';
+import AppFooter from '../components/AppFooter.vue';
+import Icon from '../components/Icon.vue';
 import { APP_URL } from '../lib/links';
 const base = import.meta.env.BASE_URL;
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BottleCount — Throw the party. We'll count the bottles.</title>
-    <Canonical />
-    <link rel="icon" href={`${base}faviconDark.svg`} />
-    <script is:inline>
-      document.documentElement.dataset.theme =
-        localStorage.getItem('bc-theme') || 'dark';
-    </script>
-  </head>
-  <body>
-    <!-- ── Nav ── -->
-    <nav class="nav">
-      <div class="shell nav-inner">
-        <a class="brand" href={base}>
-          <span class="brand-icon">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M10 2h4v3l1 3v12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8l1-3z"
-              ></path>
-              <path d="M9 12h6"></path>
-            </svg>
-          </span>
-          <span class="brand-name"
-            >Bottle<span class="brand-accent">Count</span></span
-          >
-        </a>
-        <div class="nav-right">
-          <a class="nav-docs" href={`${base}docs`}>
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path
-                d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
-              ></path>
-              <path d="M14 3v5h5"></path>
-              <path d="M8 13h7"></path>
-              <path d="M8 17h5"></path>
-            </svg>
-            Docs
-          </a>
-          <a class="btn-accent" href={APP_URL}>
-            Open app
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M5 12h14"></path>
-              <path d="M12 5l7 7-7 7"></path>
-            </svg>
-          </a>
-          <button
-            class="theme-toggle"
-            id="themeToggle"
-            aria-label="Toggle theme"
-          >
-            <svg
-              class="icon-sun"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="4"></circle>
-              <path
-                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-              ></path>
-            </svg>
-            <svg
-              class="icon-moon"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </nav>
+<BaseLayout
+  title="BottleCount — Throw the party. We'll count the bottles."
+  canonical
+  bodyClass="landing"
+>
+  <NavBar />
 
-    <main>
-      <!-- ── Hero ── -->
-      <section class="hero">
-        <div class="shell hero-inner">
-          <!-- Floating line-drawing illustrations -->
-          <div
-            class="float-svg"
-            style="--rot:8deg;top:5%;right:33%;opacity:0.9;animation-duration:6s"
+  <main>
+    <!-- ── Hero ── -->
+    <section class="hero">
+      <div class="shell hero-inner">
+        <!-- Floating line-drawing illustrations -->
+        <div
+          class="float-svg"
+          style="--rot:8deg;top:5%;right:33%;opacity:0.9;animation-duration:6s"
+        >
+          <svg
+            width="150"
+            height="150"
+            viewBox="0 0 80 80"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <svg
-              width="150"
-              height="150"
-              viewBox="0 0 80 80"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <defs>
-                <linearGradient
-                  id="bcGrad1"
-                  x1="0"
-                  y1="0"
-                  x2="1"
-                  y2="1"
-                  gradientUnits="objectBoundingBox"
-                >
-                  <stop offset="0" stop-color="#FF7A3D"></stop>
-                  <stop offset="0.5" stop-color="#ffb347"></stop>
-                  <stop offset="1" stop-color="#FF7A3D"></stop>
-                </linearGradient>
-                <filter
-                  id="bcGlow1"
-                  x="-50%"
-                  y="-50%"
-                  width="200%"
-                  height="200%"
-                >
-                  <feGaussianBlur
-                    in="SourceGraphic"
-                    stdDeviation="2.8"
-                    result="blur"></feGaussianBlur>
-                  <feComposite in="SourceGraphic" in2="blur" operator="over"
-                  ></feComposite>
-                </filter>
-              </defs>
-              <g
-                stroke="url(#bcGrad1)"
-                stroke-width="3.4"
-                filter="url(#bcGlow1)"
+            <defs>
+              <linearGradient
+                id="bcGrad1"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+                gradientUnits="objectBoundingBox"
               >
-                <!-- Martini bowl + stem + foot, one continuous tube -->
-                <path
-                  d="M14 24 Q40 20 66 24
+                <stop offset="0" stop-color="#FF7A3D"></stop>
+                <stop offset="0.5" stop-color="#ffb347"></stop>
+                <stop offset="1" stop-color="#FF7A3D"></stop>
+              </linearGradient>
+              <filter id="bcGlow1" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur
+                  in="SourceGraphic"
+                  stdDeviation="2.8"
+                  result="blur"></feGaussianBlur>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"
+                ></feComposite>
+              </filter>
+            </defs>
+            <g stroke="url(#bcGrad1)" stroke-width="3.4" filter="url(#bcGlow1)">
+              <!-- Martini bowl + stem + foot, one continuous tube -->
+              <path
+                d="M14 24 Q40 20 66 24
                      L40 50
                      L14 24
                      M40 50 L40 66
                      M27 68 Q40 73 53 68"
-                ></path>
-                <!-- olive on a pick -->
-                <path d="M54 13 L36 39"></path>
-                <circle cx="37" cy="38" r="4"></circle>
-                <!-- sparkle -->
-                <path d="M60 50v6 M57 53h6" opacity="0.7"></path>
-              </g>
-            </svg>
-          </div>
-          <div
-            class="float-svg float-svg-hero"
-            style="--rot:-4deg;top:9%;right:5%;opacity:0.96;animation-duration:8s"
+              ></path>
+              <!-- olive on a pick -->
+              <path d="M54 13 L36 39"></path>
+              <circle cx="37" cy="38" r="4"></circle>
+              <!-- sparkle -->
+              <path d="M60 50v6 M57 53h6" opacity="0.7"></path>
+            </g>
+          </svg>
+        </div>
+        <div
+          class="float-svg float-svg-hero"
+          style="--rot:-4deg;top:9%;right:5%;opacity:0.96;animation-duration:8s"
+        >
+          <svg
+            width="212"
+            height="352"
+            viewBox="0 0 120 200"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="overflow:visible"
           >
-            <svg
-              width="212"
-              height="352"
-              viewBox="0 0 120 200"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              style="overflow:visible"
-            >
-              <defs>
-                <linearGradient
-                  id="bcGrad2"
-                  x1="0"
-                  y1="0"
-                  x2="1"
-                  y2="1"
-                  gradientUnits="objectBoundingBox"
-                >
-                  <stop offset="0" stop-color="#FF7A3D"></stop>
-                  <stop offset="0.5" stop-color="#ffb347"></stop>
-                  <stop offset="1" stop-color="#FF7A3D"></stop>
-                </linearGradient>
-                <filter
-                  id="bcGlow2"
-                  x="-50%"
-                  y="-50%"
-                  width="200%"
-                  height="200%"
-                >
-                  <feGaussianBlur
-                    in="SourceGraphic"
-                    stdDeviation="2.6"
-                    result="blur"></feGaussianBlur>
-                  <feComposite in="SourceGraphic" in2="blur" operator="over"
-                  ></feComposite>
-                </filter>
-              </defs>
-              <g stroke="url(#bcGrad2)" stroke-width="3" filter="url(#bcGlow2)">
-                <!-- Tilted bottle, pouring down-left — one continuous neon tube -->
-                <g transform="translate(54 90) rotate(-142)">
-                  <!-- single unbroken outline: cap → left wall → base → right wall -->
-                  <path
-                    d="M5 2 L5 -4 Q5 -6 3 -6 L-3 -6 Q-5 -6 -5 -4 L-5 2
+            <defs>
+              <linearGradient
+                id="bcGrad2"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+                gradientUnits="objectBoundingBox"
+              >
+                <stop offset="0" stop-color="#FF7A3D"></stop>
+                <stop offset="0.5" stop-color="#ffb347"></stop>
+                <stop offset="1" stop-color="#FF7A3D"></stop>
+              </linearGradient>
+              <filter id="bcGlow2" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur
+                  in="SourceGraphic"
+                  stdDeviation="2.6"
+                  result="blur"></feGaussianBlur>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"
+                ></feComposite>
+              </filter>
+            </defs>
+            <g stroke="url(#bcGrad2)" stroke-width="3" filter="url(#bcGlow2)">
+              <!-- Tilted bottle, pouring down-left — one continuous neon tube -->
+              <g transform="translate(54 90) rotate(-142)">
+                <!-- single unbroken outline: cap → left wall → base → right wall -->
+                <path
+                  d="M5 2 L5 -4 Q5 -6 3 -6 L-3 -6 Q-5 -6 -5 -4 L-5 2
                        L-5 20 C-5.5 28 -14 32 -14 42 C-15 60 -14 82 -13 98
                        Q0 107 13 98
                        C14 82 15 60 14 42 C14 32 5.5 28 5 20 Z"
-                  ></path>
-                  <!-- wavy label bands -->
-                  <path d="M-14 64 Q0 70 14 64"></path>
-                  <path d="M-13 80 Q0 75 13 80"></path>
-                </g>
+                ></path>
+                <!-- wavy label bands -->
+                <path d="M-14 64 Q0 70 14 64"></path>
+                <path d="M-13 80 Q0 75 13 80"></path>
+              </g>
 
-                <!-- undulating pour stream, one tube -->
-                <path d="M50 95 C42 110 60 120 50 134"></path>
+              <!-- undulating pour stream, one tube -->
+              <path d="M50 95 C42 110 60 120 50 134"></path>
 
-                <!-- wine glass — one continuous line: rim → bowl → stem → foot -->
-                <path
-                  d="M31 132 Q50 127 69 132
+              <!-- wine glass — one continuous line: rim → bowl → stem → foot -->
+              <path
+                d="M31 132 Q50 127 69 132
                      C66 149 55 161 50 163
                      C45 161 34 149 31 132"
-                ></path>
-                <path d="M50 163 L50 183 M39 185 Q50 189 61 185"></path>
-                <!-- wine surface -->
-                <path d="M37 139 Q50 145 63 139" opacity="0.8"></path>
+              ></path>
+              <path d="M50 163 L50 183 M39 185 Q50 189 61 185"></path>
+              <!-- wine surface -->
+              <path d="M37 139 Q50 145 63 139" opacity="0.8"></path>
 
-                <!-- little splash + sparkles for flair -->
-                <path d="M56 124 q3 -3 6 1" opacity="0.85"></path>
-                <path d="M20 152 v7 M16.5 155.5 h7" opacity="0.7"></path>
-                <path d="M92 30 v6 M89 33 h6" opacity="0.6"></path>
-              </g>
-            </svg>
-          </div>
-          <div
-            class="float-svg"
-            style="--rot:14deg;top:66%;right:31%;opacity:0.7;animation-duration:5.5s"
+              <!-- little splash + sparkles for flair -->
+              <path d="M56 124 q3 -3 6 1" opacity="0.85"></path>
+              <path d="M20 152 v7 M16.5 155.5 h7" opacity="0.7"></path>
+              <path d="M92 30 v6 M89 33 h6" opacity="0.6"></path>
+            </g>
+          </svg>
+        </div>
+        <div
+          class="float-svg"
+          style="--rot:14deg;top:66%;right:31%;opacity:0.7;animation-duration:5.5s"
+        >
+          <svg
+            width="92"
+            height="92"
+            viewBox="0 0 50 50"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <svg
-              width="92"
-              height="92"
-              viewBox="0 0 50 50"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <defs>
-                <linearGradient
-                  id="bcGrad3"
-                  x1="0"
-                  y1="0"
-                  x2="1"
-                  y2="1"
-                  gradientUnits="objectBoundingBox"
-                >
-                  <stop offset="0" stop-color="#FF7A3D"></stop>
-                  <stop offset="0.5" stop-color="#ffb347"></stop>
-                  <stop offset="1" stop-color="#FF7A3D"></stop>
-                </linearGradient>
-                <filter
-                  id="bcGlow3"
-                  x="-50%"
-                  y="-50%"
-                  width="200%"
-                  height="200%"
-                >
-                  <feGaussianBlur
-                    in="SourceGraphic"
-                    stdDeviation="2.2"
-                    result="blur"></feGaussianBlur>
-                  <feComposite in="SourceGraphic" in2="blur" operator="over"
-                  ></feComposite>
-                </filter>
-              </defs>
-              <g
-                stroke="url(#bcGrad3)"
-                stroke-width="2.8"
-                filter="url(#bcGlow3)"
+            <defs>
+              <linearGradient
+                id="bcGrad3"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+                gradientUnits="objectBoundingBox"
               >
-                <!-- Champagne flute — one continuous tube: bowl → stem → foot -->
-                <path
-                  d="M19 7 Q25 5 31 7
+                <stop offset="0" stop-color="#FF7A3D"></stop>
+                <stop offset="0.5" stop-color="#ffb347"></stop>
+                <stop offset="1" stop-color="#FF7A3D"></stop>
+              </linearGradient>
+              <filter id="bcGlow3" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur
+                  in="SourceGraphic"
+                  stdDeviation="2.2"
+                  result="blur"></feGaussianBlur>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"
+                ></feComposite>
+              </filter>
+            </defs>
+            <g stroke="url(#bcGrad3)" stroke-width="2.8" filter="url(#bcGlow3)">
+              <!-- Champagne flute — one continuous tube: bowl → stem → foot -->
+              <path
+                d="M19 7 Q25 5 31 7
                      C30 22 27 30 25 35
                      C23 30 20 22 19 7
                      M25 35 L25 44
                      M18 46 Q25 50 32 46"
-                ></path>
-                <!-- rising bubbles -->
-                <circle cx="24" cy="16" r="1.1"></circle>
-                <circle cx="26.5" cy="22" r="1"></circle>
-                <circle cx="24" cy="27" r="0.9"></circle>
-                <!-- fizz sparkle -->
-                <path d="M30 4v4 M28 6h4" opacity="0.7"></path>
-              </g>
-            </svg>
+              ></path>
+              <!-- rising bubbles -->
+              <circle cx="24" cy="16" r="1.1"></circle>
+              <circle cx="26.5" cy="22" r="1"></circle>
+              <circle cx="24" cy="27" r="0.9"></circle>
+              <!-- fizz sparkle -->
+              <path d="M30 4v4 M28 6h4" opacity="0.7"></path>
+            </g>
+          </svg>
+        </div>
+
+        <div class="hero-copy">
+          <!-- Badge -->
+          <div class="hero-badge">
+            <span class="badge-dot"></span>
+            For home hosts &amp; small party planners
           </div>
 
-          <div class="hero-copy">
-            <!-- Badge -->
-            <div class="hero-badge">
-              <span class="badge-dot"></span>
-              For home hosts &amp; small party planners
+          <!-- H1 -->
+          <h1 class="hero-h1">
+            Throw the party.<br />We'll count the <span class="gradient-text"
+              >bottles</span
+            >.
+          </h1>
+
+          <!-- Subtitle -->
+          <p class="hero-sub">
+            Tell BottleCount who's coming and the vibe. It balances your drink
+            menu, works out the <strong>exact</strong> shopping list and budget, then
+            runs your invites and the door — all in one calm screen.
+          </p>
+
+          <!-- CTA buttons -->
+          <div class="hero-actions">
+            <a class="btn-accent btn-lg" href={APP_URL}>
+              Plan a party
+              <Icon name="arrowR" size={16} />
+            </a>
+            <a class="btn-ghost btn-lg" href={`${base}docs`}>
+              <Icon name="doc" size={16} />
+              How it works
+            </a>
+          </div>
+
+          <!-- Stats -->
+          <div class="hero-stats">
+            <div class="stat">
+              <span class="stat-val">75 ml</span>
+              <span class="stat-label">alcohol / guest model</span>
             </div>
+            <div class="stat">
+              <span class="stat-val">€ exact</span>
+              <span class="stat-label">shopping list &amp; budget</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val">QR door</span>
+              <span class="stat-label">check-in built in</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-            <!-- H1 -->
-            <h1 class="hero-h1">
-              Throw the party.<br />We'll count the <span class="gradient-text"
-                >bottles</span
-              >.
-            </h1>
-
-            <!-- Subtitle -->
-            <p class="hero-sub">
-              Tell BottleCount who's coming and the vibe. It balances your drink
-              menu, works out the <strong>exact</strong> shopping list and budget,
-              then runs your invites and the door — all in one calm screen.
+    <!-- ── Four steps ── -->
+    <section class="steps-section">
+      <div class="shell">
+        <p class="section-eyebrow">The flow</p>
+        <h2 class="section-h2">Four steps, no spreadsheet</h2>
+        <div class="steps-grid">
+          <!-- Step 1 -->
+          <article class="step-card">
+            <span class="step-num">1</span>
+            <span class="step-chip step-chip--0">
+              <Icon name="mapPin" size={20} />
+            </span>
+            <h3 class="step-title">Set the scene</h3>
+            <p class="step-body">
+              Name it, pin the venue, pick the date and how hard it goes.
             </p>
+          </article>
 
-            <!-- CTA buttons -->
-            <div class="hero-actions">
-              <a class="btn-accent btn-lg" href={APP_URL}>
-                Plan a party
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M5 12h14"></path>
-                  <path d="M12 5l7 7-7 7"></path>
-                </svg>
-              </a>
-              <a class="btn-ghost btn-lg" href={`${base}docs`}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
-                  ></path>
-                  <path d="M14 3v5h5"></path>
-                  <path d="M8 13h7"></path>
-                  <path d="M8 17h5"></path>
-                </svg>
-                How it works
-              </a>
-            </div>
+          <!-- Step 2 -->
+          <article class="step-card">
+            <span class="step-num">2</span>
+            <span class="step-chip step-chip--1">
+              <Icon name="glass" size={20} />
+            </span>
+            <h3 class="step-title">Balance the bar</h3>
+            <p class="step-body">
+              Drag sliders to mix beer, wine and cocktails. We pour the math.
+            </p>
+          </article>
 
-            <!-- Stats -->
-            <div class="hero-stats">
-              <div class="stat">
-                <span class="stat-val">75 ml</span>
-                <span class="stat-label">alcohol / guest model</span>
-              </div>
-              <div class="stat">
-                <span class="stat-val">€ exact</span>
-                <span class="stat-label">shopping list &amp; budget</span>
-              </div>
-              <div class="stat">
-                <span class="stat-val">QR door</span>
-                <span class="stat-label">check-in built in</span>
-              </div>
-            </div>
+          <!-- Step 3 -->
+          <article class="step-card">
+            <span class="step-num">3</span>
+            <span class="step-chip step-chip--2">
+              <Icon name="cart" size={20} />
+            </span>
+            <h3 class="step-title">Shop smart</h3>
+            <p class="step-body">
+              An exact bottle-by-bottle list with a price range and a buffer.
+            </p>
+          </article>
+
+          <!-- Step 4 -->
+          <article class="step-card">
+            <span class="step-num">4</span>
+            <span class="step-chip step-chip--3">
+              <Icon name="users" size={20} />
+            </span>
+            <h3 class="step-title">Fill the room</h3>
+            <p class="step-body">
+              Send invites, watch RSVPs spread, scan tickets at the door.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Features ── -->
+    <section class="features-section">
+      <div class="shell">
+        <h2 class="section-h2">Everything a host actually needs</h2>
+        <div class="features-grid">
+          <!-- Feature 1 -->
+          <article class="feat-card">
+            <span class="feat-icon">
+              <Icon name="glass" size={18} />
+            </span>
+            <h3 class="feat-title">Auto-balancing menu</h3>
+            <p class="feat-body">
+              Move one drink and the rest rebalance to 100%. Pin the ones you
+              care about.
+            </p>
+          </article>
+
+          <!-- Feature 2 -->
+          <article class="feat-card">
+            <span class="feat-icon">
+              <Icon name="sparkle" size={18} />
+            </span>
+            <h3 class="feat-title">Custom cocktails</h3>
+            <p class="feat-body">
+              Pick classics per spirit or build your own from mixers —
+              quantities feed the list.
+            </p>
+          </article>
+
+          <!-- Feature 3 -->
+          <article class="feat-card">
+            <span class="feat-icon">
+              <Icon name="trend" size={18} />
+            </span>
+            <h3 class="feat-title">Live budget</h3>
+            <p class="feat-body">
+              Spend, revenue, profit and the exact break-even headcount, always
+              on screen.
+            </p>
+          </article>
+
+          <!-- Feature 4 -->
+          <article class="feat-card">
+            <span class="feat-icon">
+              <Icon name="users" size={18} />
+            </span>
+            <h3 class="feat-title">RSVP funnel</h3>
+            <p class="feat-body">
+              See reached, confirmed and maybes against your capacity at a
+              glance.
+            </p>
+          </article>
+
+          <!-- Feature 5 -->
+          <article class="feat-card">
+            <span class="feat-icon">
+              <Icon name="share" size={18} />
+            </span>
+            <h3 class="feat-title">Friends invite friends</h3>
+            <p class="feat-body">
+              Let guests forward the invite and watch how far the word travels.
+            </p>
+          </article>
+
+          <!-- Feature 6 -->
+          <article class="feat-card">
+            <span class="feat-icon">
+              <Icon name="scan" size={18} />
+            </span>
+            <h3 class="feat-title">Door scanner</h3>
+            <p class="feat-body">
+              Every accepted guest gets a QR ticket. Scan them in, no clipboard
+              needed.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CTA Banner ── -->
+    <section class="cta-section">
+      <div class="shell">
+        <div class="cta-banner">
+          <div class="cta-glow"></div>
+          <div class="cta-content">
+            <h2 class="cta-h2">Your next party, sorted in five minutes.</h2>
+            <p class="cta-sub">
+              No login needed for the demo — jump in, drag a few sliders, watch
+              the numbers land.
+            </p>
+            <a class="btn-dark btn-lg" href={APP_URL}>
+              Open the console
+              <Icon name="arrowR" size={16} />
+            </a>
           </div>
         </div>
-      </section>
 
-      <!-- ── Four steps ── -->
-      <section class="steps-section">
-        <div class="shell">
-          <p class="section-eyebrow">The flow</p>
-          <h2 class="section-h2">Four steps, no spreadsheet</h2>
-          <div class="steps-grid">
-            <!-- Step 1 -->
-            <article class="step-card">
-              <span class="step-num">1</span>
-              <span
-                class="step-chip"
-                style="background:var(--accent-soft);color:var(--accent)"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"
-                  ></path>
-                  <circle cx="12" cy="10" r="2.5"></circle>
-                </svg>
-              </span>
-              <h3 class="step-title">Set the scene</h3>
-              <p class="step-body">
-                Name it, pin the venue, pick the date and how hard it goes.
-              </p>
-            </article>
-
-            <!-- Step 2 -->
-            <article class="step-card">
-              <span class="step-num">2</span>
-              <span
-                class="step-chip"
-                style="background:rgba(45,212,191,0.16);color:#2DD4BF"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M4 4h16l-8 9-8-9z"></path>
-                  <path d="M12 13v7"></path>
-                  <path d="M8 20h8"></path>
-                </svg>
-              </span>
-              <h3 class="step-title">Balance the bar</h3>
-              <p class="step-body">
-                Drag sliders to mix beer, wine and cocktails. We pour the math.
-              </p>
-            </article>
-
-            <!-- Step 3 -->
-            <article class="step-card">
-              <span class="step-num">3</span>
-              <span
-                class="step-chip"
-                style="background:rgba(167,139,250,0.16);color:#A78BFA"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M3 4h2l2 12h11l2-8H6"></path>
-                  <circle cx="9" cy="20" r="1"></circle>
-                  <circle cx="18" cy="20" r="1"></circle>
-                </svg>
-              </span>
-              <h3 class="step-title">Shop smart</h3>
-              <p class="step-body">
-                An exact bottle-by-bottle list with a price range and a buffer.
-              </p>
-            </article>
-
-            <!-- Step 4 -->
-            <article class="step-card">
-              <span class="step-num">4</span>
-              <span
-                class="step-chip"
-                style="background:rgba(96,165,250,0.16);color:#60A5FA"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"></path>
-                  <circle cx="9.5" cy="6.5" r="3.5"></circle>
-                  <path d="M21 19v-1a4 4 0 0 0-3-3.87"></path>
-                  <path d="M16.5 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-              </span>
-              <h3 class="step-title">Fill the room</h3>
-              <p class="step-body">
-                Send invites, watch RSVPs spread, scan tickets at the door.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Features ── -->
-      <section class="features-section">
-        <div class="shell">
-          <h2 class="section-h2">Everything a host actually needs</h2>
-          <div class="features-grid">
-            <!-- Feature 1 -->
-            <article class="feat-card">
-              <span class="feat-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M4 4h16l-8 9-8-9z"></path>
-                  <path d="M12 13v7"></path>
-                  <path d="M8 20h8"></path>
-                </svg>
-              </span>
-              <h3 class="feat-title">Auto-balancing menu</h3>
-              <p class="feat-body">
-                Move one drink and the rest rebalance to 100%. Pin the ones you
-                care about.
-              </p>
-            </article>
-
-            <!-- Feature 2 -->
-            <article class="feat-card">
-              <span class="feat-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"
-                  ></path>
-                  <path d="M19 15l.6 2L22 18l-2.4.6L19 21l-.6-2.4L16 18l2.4-.6z"
-                  ></path>
-                </svg>
-              </span>
-              <h3 class="feat-title">Custom cocktails</h3>
-              <p class="feat-body">
-                Pick classics per spirit or build your own from mixers —
-                quantities feed the list.
-              </p>
-            </article>
-
-            <!-- Feature 3 -->
-            <article class="feat-card">
-              <span class="feat-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M3 17l6-6 4 4 8-8"></path>
-                  <path d="M15 7h6v6"></path>
-                </svg>
-              </span>
-              <h3 class="feat-title">Live budget</h3>
-              <p class="feat-body">
-                Spend, revenue, profit and the exact break-even headcount,
-                always on screen.
-              </p>
-            </article>
-
-            <!-- Feature 4 -->
-            <article class="feat-card">
-              <span class="feat-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"></path>
-                  <circle cx="9.5" cy="6.5" r="3.5"></circle>
-                  <path d="M21 19v-1a4 4 0 0 0-3-3.87"></path>
-                  <path d="M16.5 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-              </span>
-              <h3 class="feat-title">RSVP funnel</h3>
-              <p class="feat-body">
-                See reached, confirmed and maybes against your capacity at a
-                glance.
-              </p>
-            </article>
-
-            <!-- Feature 5 -->
-            <article class="feat-card">
-              <span class="feat-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="18" cy="5" r="3"></circle>
-                  <circle cx="6" cy="12" r="3"></circle>
-                  <circle cx="18" cy="19" r="3"></circle>
-                  <path d="M8.6 13.5l6.8 4"></path>
-                  <path d="M15.4 6.5l-6.8 4"></path>
-                </svg>
-              </span>
-              <h3 class="feat-title">Friends invite friends</h3>
-              <p class="feat-body">
-                Let guests forward the invite and watch how far the word
-                travels.
-              </p>
-            </article>
-
-            <!-- Feature 6 -->
-            <article class="feat-card">
-              <span class="feat-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M4 8V6a2 2 0 0 1 2-2h2"></path>
-                  <path d="M16 4h2a2 2 0 0 1 2 2v2"></path>
-                  <path d="M20 16v2a2 2 0 0 1-2 2h-2"></path>
-                  <path d="M8 20H6a2 2 0 0 1-2-2v-2"></path>
-                  <path d="M4 12h16"></path>
-                </svg>
-              </span>
-              <h3 class="feat-title">Door scanner</h3>
-              <p class="feat-body">
-                Every accepted guest gets a QR ticket. Scan them in, no
-                clipboard needed.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── CTA Banner ── -->
-      <section class="cta-section">
-        <div class="shell">
-          <div class="cta-banner">
-            <div class="cta-glow"></div>
-            <div class="cta-content">
-              <h2 class="cta-h2">Your next party, sorted in five minutes.</h2>
-              <p class="cta-sub">
-                No login needed for the demo — jump in, drag a few sliders,
-                watch the numbers land.
-              </p>
-              <a class="btn-dark btn-lg" href={APP_URL}>
-                Open the console
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M5 12h14"></path>
-                  <path d="M12 5l7 7-7 7"></path>
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          <!-- Footer line -->
-          <footer class="footer-line">
-            <div class="footer-tag">
-              BottleCount · a calmer way to host · built for the people who
-              actually buy the booze
-            </div>
-            <div class="footer-meta">
-              <span class="footer-muted">Made with ❤️ by FreoGrella</span>
-              <span class="footer-sep">·</span>
-              <a
-                class="footer-a"
-                href="https://github.com/Fre0Grella"
-                target="_blank"
-                rel="noreferrer">GitHub</a
-              >
-              <span class="footer-sep">·</span>
-              <a
-                class="footer-a"
-                href="https://www.linkedin.com/in/marco-galeri-2b6500384/"
-                target="_blank"
-                rel="noreferrer">LinkedIn</a
-              >
-              <span class="footer-sep">·</span>
-              <a
-                class="footer-a footer-donate"
-                href="https://ko-fi.com/freogrella"
-                target="_blank"
-                rel="noreferrer">☕ Donate</a
-              >
-            </div>
-          </footer>
-        </div>
-      </section>
-    </main>
-
-    <script is:inline>
-      document.getElementById('themeToggle').addEventListener('click', () => {
-        const next =
-          document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-        document.documentElement.dataset.theme = next;
-        localStorage.setItem('bc-theme', next);
-      });
-    </script>
-  </body>
-</html>
+        <p class="tagline">
+          BottleCount · a calmer way to host · built for the people who actually
+          buy the booze
+        </p>
+      </div>
+    </section>
+  </main>
+  <AppFooter />
+</BaseLayout>
 
 <style>
   /* ── Page background ── */
-  body {
+  :global(body.landing) {
     background:
       radial-gradient(
         120% 80% at 80% -10%,
@@ -782,198 +425,6 @@ const base = import.meta.env.BASE_URL;
       ),
       var(--bg);
     min-height: 100vh;
-  }
-
-  /* ── Shell (max-width wrapper) ── */
-  .shell {
-    max-width: 1120px;
-    margin: 0 auto;
-    padding: 0 28px;
-  }
-
-  /* ── Nav ── */
-  .nav {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: transparent;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-
-  .nav-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 16px;
-    padding-bottom: 16px;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    text-decoration: none;
-    color: var(--text);
-  }
-
-  .brand-icon {
-    display: flex;
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: var(--on-accent);
-    flex-shrink: 0;
-  }
-
-  .brand-name {
-    font-family: var(--font-disp);
-    font-weight: 700;
-    font-size: 17px;
-    letter-spacing: -0.01em;
-  }
-
-  .brand-accent {
-    color: var(--accent);
-  }
-
-  .nav-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .nav-docs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 9px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--dim);
-    text-decoration: none;
-    transition:
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .nav-docs:hover {
-    color: var(--text);
-    border-color: var(--dim);
-  }
-
-  /* ── Buttons ── */
-  .btn-accent {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 9px 16px;
-    border-radius: 999px;
-    border: none;
-    background: var(--accent);
-    color: var(--on-accent);
-    text-decoration: none;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-
-  .btn-accent:hover {
-    opacity: 0.88;
-  }
-
-  .btn-accent.btn-lg {
-    font-size: 15px;
-    padding: 14px 24px;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(255, 122, 61, 0.28);
-  }
-
-  .btn-ghost {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    padding: 14px 22px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    text-decoration: none;
-    cursor: pointer;
-    transition:
-      border-color 0.15s,
-      background 0.15s;
-  }
-
-  .btn-ghost:hover {
-    border-color: var(--dim);
-  }
-
-  .btn-dark {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 700;
-    padding: 14px 24px;
-    border-radius: 13px;
-    border: none;
-    background: #0b1220;
-    color: #fff;
-    text-decoration: none;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-
-  .btn-dark:hover {
-    opacity: 0.88;
-  }
-
-  /* ── Theme toggle ── */
-  .theme-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--dim);
-    cursor: pointer;
-    transition:
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .theme-toggle:hover {
-    color: var(--text);
-    border-color: var(--dim);
-  }
-
-  [data-theme='dark'] .icon-sun {
-    display: block;
-  }
-
-  [data-theme='dark'] .icon-moon {
-    display: none;
-  }
-
-  [data-theme='light'] .icon-sun {
-    display: none;
-  }
-
-  [data-theme='light'] .icon-moon {
-    display: block;
   }
 
   /* ── Hero ── */
@@ -1170,7 +621,22 @@ const base = import.meta.env.BASE_URL;
     user-select: none;
   }
 
+  .step-chip--0 {
+    --chip: var(--seg-0);
+  }
+  .step-chip--1 {
+    --chip: var(--seg-1);
+  }
+  .step-chip--2 {
+    --chip: var(--seg-2);
+  }
+  .step-chip--3 {
+    --chip: var(--seg-3);
+  }
+
   .step-chip {
+    color: var(--chip);
+    background: color-mix(in srgb, var(--chip) 16%, transparent);
     position: relative;
     display: flex;
     width: 42px;
@@ -1252,6 +718,24 @@ const base = import.meta.env.BASE_URL;
   }
 
   /* ── CTA section ── */
+  .btn-dark {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 24px;
+    border-radius: 13px;
+    background: #0b1220;
+    color: #fff;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .btn-dark:hover {
+    opacity: 0.88;
+  }
+
   .cta-section {
     padding: 26px 0;
   }
@@ -1297,62 +781,20 @@ const base = import.meta.env.BASE_URL;
     color: #fff;
   }
 
-  /* ── Footer line ── */
-  .footer-line {
+  /* ── Tagline ── */
+  .tagline {
     text-align: center;
-    padding: 26px 0 36px 0;
+    padding: 26px 0 10px 0;
+    margin: 0;
     font-size: 12px;
     color: var(--faint);
-  }
-  .footer-tag {
-    margin-bottom: 12px;
-  }
-  .footer-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .footer-muted {
-    color: var(--dim);
-  }
-  .footer-sep {
-    color: var(--faint);
-  }
-  .footer-a {
-    color: var(--dim);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .footer-a:hover {
-    color: var(--text);
-  }
-  .footer-donate {
-    color: var(--accent);
-    font-weight: 600;
   }
 
   /* ── Responsive ── */
   @media (max-width: 700px) {
     /* belt-and-braces guard against sideways scroll (clip keeps sticky nav) */
-    body {
+    :global(body.landing) {
       overflow-x: clip;
-    }
-
-    .shell {
-      padding: 0 16px;
-    }
-
-    .nav-inner {
-      padding-top: 14px;
-      padding-bottom: 14px;
-    }
-
-    /* the hero already carries a "Plan a party" CTA — drop the nav one so the
-       nav row fits the viewport instead of forcing a horizontal scroll */
-    .nav .btn-accent {
-      display: none;
     }
 
     .hero {

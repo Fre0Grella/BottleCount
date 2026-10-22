@@ -1,8 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="BottleCount">
+  <!-- Generated from src/lib/brand.ts by `npm run brand`; edit that, not this. -->
   <rect width="64" height="64" rx="18" fill="#FF7A3D"/>
-  <!-- The app's bottle icon (Icon.vue), on its 24-unit grid, centred. -->
-  <g transform="translate(13.7 13.7) scale(1.525)" stroke="#1B0C04" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(0.4 11.5) scale(1.8)" stroke="#1B0C04" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M10 2h4v3l1 3v12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V8l1-3z"/>
     <path d="M9 12h6"/>
   </g>
+  <path d="M30.5 16h6.5a8.5 8.5 0 0 1 0 17h-6.5" stroke="#1B0C04" stroke-width="6" fill="none"/>
+  <path d="M30.5 30h8a9 9 0 0 1 0 18h-8z" fill="#FF7A3D"/>
+  <path d="M30.5 30h8a9 9 0 0 1 0 18h-8" stroke="#1B0C04" stroke-width="6" fill="none"/>
 </svg>

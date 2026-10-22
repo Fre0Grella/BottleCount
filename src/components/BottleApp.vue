@@ -3,6 +3,7 @@ import { onMounted, computed } from 'vue';
 import { useStore } from '../lib/store';
 import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
+import Logo from './Logo.vue';
 import AppFooter from './AppFooter.vue';
 import HomeScreen from './HomeScreen.vue';
 import PartyHeader from './PartyHeader.vue';
@@ -49,10 +50,10 @@ const shownTab = computed(() =>
 const tabs = computed(() => {
   const active = shownTab.value;
   return [
-    { key: 'plan' as const, label: 'Plan', icon: 'calc' },
-    { key: 'menu' as const, label: 'Menu', icon: 'glass' },
-    { key: 'shop' as const, label: 'Shopping', icon: 'cart' },
-    { key: 'guests' as const, label: 'Guests', icon: 'users' },
+    { key: 'plan' as const, label: 'Plan', icon: 'calc' as const },
+    { key: 'menu' as const, label: 'Menu', icon: 'glass' as const },
+    { key: 'shop' as const, label: 'Shopping', icon: 'cart' as const },
+    { key: 'guests' as const, label: 'Guests', icon: 'users' as const },
   ]
     .filter((t) => planningDrinks.value || !barTabs.has(t.key))
     .map((t) => ({
@@ -76,33 +77,9 @@ const tabs = computed(() => {
     "
   >
     <!-- splash -->
-    <div
-      v-if="!store.state.ready"
-      style="
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 18px;
-      "
-    >
-      <span
-        style="
-          display: flex;
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
-          align-items: center;
-          justify-content: center;
-          background: var(--accent);
-          color: var(--on-accent);
-          animation: bcPulse 1.4s ease-in-out infinite;
-        "
-      >
-        <Icon name="bottle" :size="26" />
-      </span>
-      <div style="font-size: 14px; color: var(--dim)">Pouring the data…</div>
+    <div v-if="!store.state.ready" class="splash">
+      <Logo :size="52" class="splash__mark" />
+      <div class="splash__note">Pouring the data…</div>
     </div>
 
     <!-- app shell -->
@@ -253,3 +230,21 @@ const tabs = computed(() => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.splash {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.splash__mark {
+  animation: bcPulse 1.4s ease-in-out infinite;
+}
+.splash__note {
+  font-size: 14px;
+  color: var(--dim);
+}
+</style>

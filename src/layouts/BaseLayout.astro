@@ -1,0 +1,52 @@
+---
+import '../styles/theme.css';
+import Canonical from '../components/Canonical.astro';
+import { faviconUrl } from '../lib/brand';
+import { themeInitScript } from '../lib/theme';
+
+/**
+ * The document every page is: the <head> they all share, and a <body>.
+ *
+ * - `canonical`: the pages built for both hosts (landing, docs, pricing,
+ *   legal) name the application's copy — see Canonical.astro.
+ * - `noindex`: pages reached only through a private link (an invite, a
+ *   ticket, a co-organiser token) stay out of search indexes.
+ * - `bodyClass`: a layout variant from theme.css, or a page's own hook.
+ *
+ * The Theme is resolved in the head, before first paint (src/lib/theme.ts);
+ * the favicon starts dark and the same script swaps it to match.
+ */
+interface Props {
+  title: string;
+  description?: string;
+  canonical?: boolean;
+  noindex?: boolean;
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description,
+  canonical = false,
+  noindex = false,
+  bodyClass,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    {canonical && <Canonical />}
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" type="image/svg+xml" href={faviconUrl('dark')} />
+    <script is:inline set:html={themeInitScript()} />
+    <slot name="head" />
+  </head>
+  <body class={bodyClass}>
+    <slot />
+  </body>
+</html>

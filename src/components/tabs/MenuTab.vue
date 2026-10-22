@@ -3,6 +3,8 @@ import { computed, ref } from 'vue';
 import { useStore, SIMPLE } from '../../lib/store';
 import { cocktailRecipe } from '../../lib/catalog';
 import Icon from '../Icon.vue';
+import type { IconName } from '../../lib/icons';
+import { TYPE_META } from '../../lib/ingredientTypes';
 import Slider from '../Slider.vue';
 
 const store = useStore();
@@ -26,11 +28,11 @@ function toggleRecipe(key: string): void {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function catIcon(name: string): string {
+function catIcon(name: string): IconName {
   const n = name.toLowerCase();
-  if (n.includes('beer')) return 'beer';
-  if (n.includes('wine')) return 'wine';
-  return 'glass';
+  if (n.includes('beer')) return TYPE_META.beer.icon;
+  if (n.includes('wine')) return TYPE_META.wine.icon;
+  return TYPE_META.spirit.icon;
 }
 
 function segColor(i: number): string {
@@ -486,7 +488,7 @@ function toggleSpirit(cat: string, spirit: string): void {
               }"
               @click="store.toggleLock('s:' + cat + ':' + spirit)"
             >
-              <Icon name="pinS" :size="13" />
+              <Icon name="pin" :size="13" />
             </button>
 
             <!-- Chevron for drinks (only if NOT simple category) -->

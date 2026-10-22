@@ -2,14 +2,14 @@
 import { ref, computed } from 'vue';
 import { useStore } from '../../lib/store';
 import Icon from '../Icon.vue';
+import { TYPE_META } from '../../lib/ingredientTypes';
+import type { IngredientType } from '../../lib/types';
 
 const store = useStore();
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type GroupType = 'spirit' | 'beer' | 'wine' | 'mixer' | 'extra' | 'snack';
-
-const TYPE_ORDER: GroupType[] = [
+const TYPE_ORDER: IngredientType[] = [
   'spirit',
   'beer',
   'wine',
@@ -17,15 +17,6 @@ const TYPE_ORDER: GroupType[] = [
   'extra',
   'snack',
 ];
-
-const TYPE_META: Record<GroupType, { label: string; icon: string }> = {
-  spirit: { label: 'Spirits', icon: 'glass' },
-  beer: { label: 'Beer', icon: 'beer' },
-  wine: { label: 'Wine', icon: 'wine' },
-  mixer: { label: 'Mixers & soft', icon: 'droplet' },
-  extra: { label: 'Extras', icon: 'sparkle' },
-  snack: { label: 'Snacks', icon: 'cart' },
-};
 
 // ── Reactive data ──────────────────────────────────────────────────────────
 

@@ -12,7 +12,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "prepare": "husky",
-    "lint": "eslint . --max-warnings 798",
+    "lint": "eslint . --max-warnings 790",
     "lint:fix": "eslint . --fix",
     "check:dupes": "jscpd",
     "check:deps": "depcruise src shared functions backend/src --ignore-known",
@@ -24,7 +24,8 @@
     "test": "vitest run && npm run -w backend test",
     "typecheck": "astro check && npm run -w backend typecheck",
     "test:frontend": "vitest run",
-    "build:docs": "BUILD_TARGET=docs BASE_PATH=/BottleCount/ SITE=https://fre0grella.github.io PUBLIC_APP_ORIGIN=https://bottlecount-epj.pages.dev astro build"
+    "build:docs": "BUILD_TARGET=docs BASE_PATH=/BottleCount/ SITE=https://fre0grella.github.io PUBLIC_APP_ORIGIN=https://bottlecount-epj.pages.dev astro build",
+    "brand": "node scripts/brand.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useStore, COVERS } from '../lib/store';
 import { runsBar } from '../lib/core';
 import Icon from './Icon.vue';
+import Logo from './Logo.vue';
 import AppFooter from './AppFooter.vue';
 import AccountButton from './AccountButton.vue';
 import type { Party } from '../lib/types';
@@ -110,39 +111,8 @@ async function handleDelete(e: Event, id: number): Promise<void> {
         border-bottom: 1px solid var(--border);
       "
     >
-      <a
-        :href="base"
-        style="
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          text-decoration: none;
-        "
-      >
-        <span
-          style="
-            display: flex;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            align-items: center;
-            justify-content: center;
-            background: var(--accent);
-            color: var(--on-accent);
-          "
-        >
-          <Icon name="bottle" :size="16" />
-        </span>
-        <span
-          style="
-            font-family: var(--font-disp);
-            font-weight: 700;
-            font-size: 18px;
-            color: var(--text);
-          "
-        >
-          Bottle<span style="color: var(--accent)">Count</span>
-        </span>
+      <a :href="base" class="home-brand">
+        <Logo wordmark />
       </a>
       <div style="display: flex; align-items: center; gap: 8px">
         <AccountButton />
@@ -178,6 +148,7 @@ async function handleDelete(e: Event, id: number): Promise<void> {
             background: var(--surface);
             color: var(--dim);
           "
+          aria-label="Switch theme"
           @click="store.toggleTheme()"
         >
           <Icon
@@ -444,3 +415,10 @@ async function handleDelete(e: Event, id: number): Promise<void> {
     <AppFooter />
   </div>
 </template>
+
+<style scoped>
+.home-brand {
+  display: flex;
+  text-decoration: none;
+}
+</style>
