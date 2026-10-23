@@ -271,7 +271,6 @@ const canCheck = computed(
           <input
             v-model="manualCode"
             type="text"
-            inputmode="latin"
             autocapitalize="characters"
             spellcheck="false"
             maxlength="7"

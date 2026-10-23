@@ -35,8 +35,15 @@ const marks = {
     :viewBox="marks[name].viewBox"
     fill="currentColor"
     aria-hidden="true"
-    style="display: block; flex-shrink: 0"
+    class="bc-brand-mark"
   >
     <path v-for="d in marks[name].paths" :key="d" :d="d" />
   </svg>
 </template>
+
+<style scoped>
+.bc-brand-mark {
+  display: block;
+  flex-shrink: 0;
+}
+</style>

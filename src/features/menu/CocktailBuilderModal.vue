@@ -302,6 +302,8 @@ watch(isOpen, (open) => {
         </div>
         <Slider
           :model-value="builder.mainQty"
+          :label="`${spiritShort} pour`"
+          :value-text="`${builder.mainQty} ml`"
           :min="BASE_POUR.min"
           :max="BASE_POUR.max"
           :step="BASE_POUR.step"

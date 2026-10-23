@@ -9,6 +9,7 @@ import PillButton from './PillButton.vue';
 import ProgressBar from './ProgressBar.vue';
 import Card from './Card.vue';
 import IconTile from './IconTile.vue';
+import Slider from './Slider.vue';
 
 const mounted: VueWrapper[] = [];
 afterEach(() => {
@@ -274,5 +275,68 @@ describe('Card and IconTile', () => {
     );
     expect(w.attributes('aria-hidden')).toBe('true');
     expect(w.find('svg').exists()).toBe(true);
+  });
+});
+
+describe('Slider', () => {
+  interface SliderProps {
+    label: string;
+    valueText?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+  }
+
+  function boundSlider(props: SliderProps, start: number) {
+    const value = ref(start);
+    const Host = defineComponent({
+      setup: () => () =>
+        h(Slider, {
+          ...props,
+          modelValue: value.value,
+          'onUpdate:modelValue': (v: number) => (value.value = v),
+        }),
+    });
+    const w = track(mount(Host, { attachTo: document.body }));
+    return { value, el: () => w.get('[role="slider"]') };
+  }
+
+  it('is a focusable, named slider that says its value', () => {
+    const { el } = boundSlider({ label: 'Gin share', valueText: '35%' }, 0.35);
+    expect(el().attributes('tabindex')).toBe('0');
+    expect(el().attributes('aria-label')).toBe('Gin share');
+    expect(el().attributes('aria-valuenow')).toBe('0.35');
+    expect(el().attributes('aria-valuetext')).toBe('35%');
+  });
+
+  it('steps with the arrows and pages, and jumps to the ends', async () => {
+    const { value, el } = boundSlider(
+      { label: 'Expected guests', min: 1, max: 600, step: 1 },
+      50,
+    );
+    await el().trigger('keydown', { key: 'ArrowRight' });
+    expect(value.value).toBe(51);
+    await el().trigger('keydown', { key: 'ArrowDown' });
+    expect(value.value).toBe(50);
+    await el().trigger('keydown', { key: 'PageUp' });
+    expect(value.value).toBe(60);
+    await el().trigger('keydown', { key: 'End' });
+    expect(value.value).toBe(600);
+    await el().trigger('keydown', { key: 'ArrowUp' });
+    expect(value.value).toBe(600);
+    await el().trigger('keydown', { key: 'Home' });
+    expect(value.value).toBe(1);
+  });
+
+  it('steps a hundredth of the range when it has no step', async () => {
+    const { value, el } = boundSlider({ label: 'Gin share' }, 0.5);
+    await el().trigger('keydown', { key: 'ArrowLeft' });
+    expect(value.value).toBeCloseTo(0.49);
+  });
+
+  it('leaves other keys alone', async () => {
+    const { value, el } = boundSlider({ label: 'Gin share' }, 0.5);
+    await el().trigger('keydown', { key: 'Tab' });
+    expect(value.value).toBe(0.5);
   });
 });
