@@ -7,6 +7,8 @@
   --font-disp: 'Space Grotesk', sans-serif;
   --font-body: 'IBM Plex Mono', monospace;
   --font-mono: 'IBM Plex Mono', monospace;
+  /* A switch's knob: white on the accent and on the track, in both Themes. */
+  --knob: #fff;
 }
 
 /* ── Dark theme (default) ── */
