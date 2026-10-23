@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useStore } from '../../store/store';
 import { COVERS } from './covers';
 import { runsBar } from './core';
+import { renameParty } from './planEdits';
 import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
@@ -16,6 +17,8 @@ const emoji = computed(() => {
   if (!p) return '🎉';
   return COVERS[p.cover ?? 0]?.emoji ?? '🎉';
 });
+
+const isDesktop = computed(() => store.state.device === 'desktop');
 
 const errCount = computed(() => store.menuErrors().length);
 
@@ -46,97 +49,40 @@ const syncLabel = computed(() =>
     ? { short: 'Not saved', title: "Couldn't reach the server — still trying" }
     : { short: 'Saving…', title: 'Saving your changes…' },
 );
-
-function onNameInput(e: Event): void {
-  const val = (e.target as HTMLInputElement).value;
-  store.update((p) => {
-    p.name = val;
-  });
-}
 </script>
 
 <template>
-  <div
-    v-if="party"
-    style="
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 20px;
-      border-bottom: 1px solid var(--border);
-    "
-  >
+  <div v-if="party" class="head">
     <!-- back button -->
     <button
-      style="
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        border-radius: var(--rs);
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--text);
-        flex-shrink: 0;
-      "
+      class="head__back"
+      aria-label="Back to your parties"
       @click="store.closeParty()"
     >
       <Icon name="arrowL" :size="18" />
     </button>
 
     <!-- emoji -->
-    <span style="font-size: 22px; line-height: 1; flex-shrink: 0">{{
-      emoji
-    }}</span>
+    <span class="head__emoji">{{ emoji }}</span>
 
     <!-- name + date -->
-    <div style="min-width: 0; flex: 1">
+    <div class="head__title">
       <input
         :value="party.name"
         placeholder="Party name"
-        style="
-          font-family: var(--font-disp);
-          font-weight: 700;
-          font-size: 17px;
-          letter-spacing: -0.01em;
-          background: transparent;
-          border: none;
-          color: var(--text);
-          padding: 0;
-          width: 100%;
-          outline: none;
-        "
-        @input="onNameInput"
+        aria-label="Party name"
+        class="head__name"
+        @input="renameParty(($event.target as HTMLInputElement).value)"
       />
-      <div style="font-size: 11px; color: var(--faint); margin-top: 1px">
+      <div class="head__date">
         {{ party.date }}
       </div>
     </div>
 
     <!-- right actions -->
-    <div
-      style="
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
-      "
-    >
+    <div class="head__actions">
       <!-- balance badge -->
-      <span
-        v-if="errCount > 0"
-        style="
-          font-size: 11px;
-          font-weight: 600;
-          padding: 5px 11px;
-          border-radius: 999px;
-          background: var(--bad-soft);
-          color: var(--bad);
-        "
-      >
+      <span v-if="errCount > 0" class="badge badge--bad">
         {{ errCount }} to balance
       </span>
 
@@ -147,72 +93,135 @@ function onNameInput(e: Event): void {
       <span
         v-if="party.publication && (syncPending || syncFailed)"
         :title="syncLabel.title"
-        style="
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 11px;
-          font-weight: 600;
-          padding: 5px 11px;
-          border-radius: 999px;
-        "
-        :style="{
-          background: syncFailed ? 'var(--bad-soft)' : 'var(--surface2)',
-          color: syncFailed ? 'var(--bad)' : 'var(--dim)',
-        }"
+        class="badge badge--sync"
+        :class="syncFailed ? 'badge--bad' : 'badge--pending'"
       >
         <Icon :name="syncFailed ? 'info' : 'hourglass'" :size="12" />
-        <span v-if="store.state.device === 'desktop'">{{
-          syncLabel.short
-        }}</span>
+        <span v-if="isDesktop">{{ syncLabel.short }}</span>
       </span>
 
       <!-- co-organisers -->
       <button
         :title="membersTitle"
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 8px 13px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--dim);
-          min-height: 36px;
-        "
+        :aria-label="isDesktop && coOrganisers === 0 ? undefined : membersTitle"
+        class="head__pill"
         @click="store.openMembers()"
       >
         <Icon name="users" :size="15" />
         <span v-if="coOrganisers > 0">{{ coOrganisers + 1 }}</span>
-        <span v-else-if="store.state.device === 'desktop'">Co-organisers</span>
+        <span v-else-if="isDesktop">Co-organisers</span>
       </button>
 
       <!-- manage ingredients button — nothing to manage when the venue runs the bar -->
       <button
         v-if="planningDrinks"
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 8px 13px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--dim);
-          min-height: 36px;
-        "
+        aria-label="Manage ingredients"
+        class="head__pill"
         @click="store.openIngMgr()"
       >
         <Icon name="tune" :size="15" />
-        <span v-if="store.state.device === 'desktop'">Manage ingredients</span>
+        <span v-if="isDesktop">Manage ingredients</span>
       </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.head__back {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.head__emoji {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.head__title {
+  min-width: 0;
+  flex: 1;
+}
+
+.head__name {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 0;
+  width: 100%;
+  outline: none;
+}
+
+.head__date {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 1px;
+}
+
+.head__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+
+.badge--sync {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge--bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.badge--pending {
+  background: var(--surface2);
+  color: var(--dim);
+}
+
+.head__pill {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dim);
+  min-height: 36px;
+}
+</style>
