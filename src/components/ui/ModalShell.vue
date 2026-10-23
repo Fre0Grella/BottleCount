@@ -23,7 +23,7 @@ import {
   useSlots,
   watch,
 } from 'vue';
-import Icon from './Icon.vue';
+import CloseButton from './CloseButton.vue';
 import IconTile from './IconTile.vue';
 import type { IconName } from '../../lib/icons';
 
@@ -179,14 +179,11 @@ onBeforeUnmount(deactivate);
               <h2 :id="titleId" class="bc-modal__title">
                 <slot name="title">{{ title }}</slot>
               </h2>
-              <button
-                type="button"
+              <CloseButton
                 class="bc-modal__close"
-                :aria-label="closeLabel"
+                :label="closeLabel"
                 @click="emit('close')"
-              >
-                <Icon name="x" :size="18" />
-              </button>
+              />
             </div>
             <slot :title-id="titleId" />
           </div>
@@ -290,16 +287,6 @@ onBeforeUnmount(deactivate);
 .bc-modal__close {
   margin-left: auto;
   flex-shrink: 0;
-  cursor: pointer;
-  display: flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--dim);
 }
 
 .bc-modal-enter-active,
