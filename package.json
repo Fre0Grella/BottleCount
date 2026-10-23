@@ -12,7 +12,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "prepare": "husky",
-    "lint": "eslint . --max-warnings 585",
+    "lint": "eslint . --max-warnings 479",
     "lint:fix": "eslint . --fix",
     "check:dupes": "jscpd",
     "check:deps": "depcruise src shared functions backend/src --ignore-known",
