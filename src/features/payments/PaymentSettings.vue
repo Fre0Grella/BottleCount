@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import {
   formatIban,
   normaliseHolder,
@@ -22,6 +22,7 @@ import Icon from '../../components/ui/Icon.vue';
  */
 
 const store = useStore();
+const uid = useId();
 const party = computed(() => store.activeParty());
 
 type Field = keyof PaymentDetails;
@@ -128,10 +129,15 @@ const offered = computed(() => {
     </header>
 
     <div class="pay-fields">
-      <label class="pay-field">
-        <span class="pay-label">PayPal.me username</span>
+      <label class="pay-field" :for="`${uid}-paypal`">
+        <span :id="`${uid}-paypal-label`" class="pay-label"
+          >PayPal.me username</span
+        >
         <input
+          :id="`${uid}-paypal`"
           v-model="drafts.paypal"
+          :aria-labelledby="`${uid}-paypal-label`"
+          :aria-describedby="`${uid}-paypal-note`"
           class="pay-input"
           :class="{ 'pay-input--bad': errors.paypal }"
           placeholder="paypal.me/yourname"
@@ -140,16 +146,26 @@ const offered = computed(() => {
           @blur="commit('paypal')"
           @keyup.enter="commit('paypal')"
         />
-        <span v-if="errors.paypal" class="pay-error">{{ errors.paypal }}</span>
-        <span v-else class="pay-hint">
+        <span
+          v-if="errors.paypal"
+          :id="`${uid}-paypal-note`"
+          class="pay-error"
+          >{{ errors.paypal }}</span
+        >
+        <span v-else :id="`${uid}-paypal-note`" class="pay-hint">
           Guests get a PayPal button with €{{ price }} already filled in.
         </span>
       </label>
 
-      <label class="pay-field">
-        <span class="pay-label">Satispay link</span>
+      <label class="pay-field" :for="`${uid}-satispay`">
+        <span :id="`${uid}-satispay-label`" class="pay-label"
+          >Satispay link</span
+        >
         <input
+          :id="`${uid}-satispay`"
           v-model="drafts.satispay"
+          :aria-labelledby="`${uid}-satispay-label`"
+          :aria-describedby="`${uid}-satispay-note`"
           class="pay-input"
           :class="{ 'pay-input--bad': errors.satispay }"
           placeholder="https://…satispay.com/…"
@@ -159,19 +175,25 @@ const offered = computed(() => {
           @blur="commit('satispay')"
           @keyup.enter="commit('satispay')"
         />
-        <span v-if="errors.satispay" class="pay-error">{{
-          errors.satispay
-        }}</span>
-        <span v-else class="pay-hint">
+        <span
+          v-if="errors.satispay"
+          :id="`${uid}-satispay-note`"
+          class="pay-error"
+          >{{ errors.satispay }}</span
+        >
+        <span v-else :id="`${uid}-satispay-note`" class="pay-hint">
           In Satispay, tap your photo, then your name, then “Condividi importo
           personalizzato”. Enter €{{ price }} and paste the link here.
         </span>
       </label>
 
-      <label class="pay-field">
-        <span class="pay-label">Revolut</span>
+      <label class="pay-field" :for="`${uid}-revolut`">
+        <span :id="`${uid}-revolut-label`" class="pay-label">Revolut</span>
         <input
+          :id="`${uid}-revolut`"
           v-model="drafts.revolut"
+          :aria-labelledby="`${uid}-revolut-label`"
+          :aria-describedby="`${uid}-revolut-note`"
           class="pay-input"
           :class="{ 'pay-input--bad': errors.revolut }"
           placeholder="@yourname or revolut.me/yourname"
@@ -180,19 +202,23 @@ const offered = computed(() => {
           @blur="commit('revolut')"
           @keyup.enter="commit('revolut')"
         />
-        <span v-if="errors.revolut" class="pay-error">{{
-          errors.revolut
-        }}</span>
-        <span v-else class="pay-hint">
+        <span
+          v-if="errors.revolut"
+          :id="`${uid}-revolut-note`"
+          class="pay-error"
+          >{{ errors.revolut }}</span
+        >
+        <span v-else :id="`${uid}-revolut-note`" class="pay-hint">
           Your Revtag is enough. Guests type the €{{ price }} themselves; those
           without Revolut can pay by card if your Revtag is discoverable.
         </span>
       </label>
 
       <div class="pay-pair">
-        <label class="pay-field">
+        <label class="pay-field" :for="`${uid}-bank_holder`">
           <span class="pay-label">Account holder</span>
           <input
+            :id="`${uid}-bank_holder`"
             v-model="drafts.bank_holder"
             class="pay-input"
             placeholder="Name on the account"
@@ -202,9 +228,10 @@ const offered = computed(() => {
             @keyup.enter="commit('bank_holder')"
           />
         </label>
-        <label class="pay-field">
+        <label class="pay-field" :for="`${uid}-bank_iban`">
           <span class="pay-label">IBAN</span>
           <input
+            :id="`${uid}-bank_iban`"
             v-model="drafts.bank_iban"
             class="pay-input pay-input--mono"
             :class="{ 'pay-input--bad': errors.bank_iban }"

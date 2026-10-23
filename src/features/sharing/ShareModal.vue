@@ -28,7 +28,8 @@ const publication = computed(() => party.value?.publication ?? null);
 
 const inviteLink = computed(() => {
   const pub = publication.value;
-  if (!pub) return '';
+  // Shared with a co-organiser but never opened to guests: no link yet.
+  if (!pub?.slug) return '';
   // `window` is always there: the whole app mounts under `client:only`, so this
   // never renders on the server. Reading the live origin is also what makes a
   // preview deployment and a self-hosted domain each hand out links that point

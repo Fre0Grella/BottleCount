@@ -216,6 +216,8 @@ function toggleSpirit(cat: string, spirit: string): void {
       <!-- Category slider -->
       <Slider
         :model-value="catData.macro_pct"
+        :label="`${cat} share`"
+        :value-text="`${Math.round(catData.macro_pct * 100)}%`"
         :color="color"
         @update:model-value="(v) => store.rebalanceCategory(cat, v)"
       />
@@ -288,6 +290,8 @@ function toggleSpirit(cat: string, spirit: string): void {
           <!-- Spirit slider -->
           <Slider
             :model-value="spiritData.pct"
+            :label="`${spirit} share`"
+            :value-text="`${Math.round(spiritData.pct * 100)}%`"
             :color="color"
             class="menu-slider"
             @update:model-value="
@@ -349,6 +353,8 @@ function toggleSpirit(cat: string, spirit: string): void {
               <!-- slider alone, full width under the name -->
               <Slider
                 :model-value="drinkPct as number"
+                :label="`${drink} share`"
+                :value-text="`${Math.round((drinkPct as number) * 100)}%`"
                 :color="color"
                 class="menu-slider"
                 @update:model-value="
@@ -435,13 +441,14 @@ function toggleSpirit(cat: string, spirit: string): void {
   gap: 10px;
   margin-bottom: 14px;
 }
-/* Keeps today's phone layout, where the tile gives way to the long hint.
-   Drop it to keep the tile square at 390px (a visible change). */
-.menu .menu-mix__tile {
-  flex-shrink: 1;
+/* On a phone the hint wraps; the tile and the title keep their shape. */
+.menu-mix__head .menu-title {
+  white-space: nowrap;
 }
 .menu-mix__hint {
+  min-width: 0;
   margin-left: auto;
+  text-align: right;
   font-size: 11px;
   color: var(--faint);
 }

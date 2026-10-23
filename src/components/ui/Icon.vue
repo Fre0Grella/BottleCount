@@ -9,6 +9,8 @@ defineProps<{ name: IconName; size?: number | string }>();
 </script>
 
 <template>
+  <!-- ICONS is our own source-controlled markup, never user input. -->
+  <!-- eslint-disable vue/no-v-html -->
   <svg
     :width="size ?? 18"
     :height="size ?? 18"
@@ -22,4 +24,5 @@ defineProps<{ name: IconName; size?: number | string }>();
     aria-hidden="true"
     v-html="ICONS[name]"
   />
+  <!-- eslint-enable vue/no-v-html -->
 </template>

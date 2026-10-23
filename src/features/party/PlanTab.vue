@@ -276,6 +276,7 @@ const pnl = computed(() =>
       <div class="gap-below">
         <Slider
           :model-value="p.settings.guests"
+          label="Expected guests"
           :min="1"
           :max="MAX_GUESTS"
           :step="1"
@@ -318,6 +319,7 @@ const pnl = computed(() =>
           </div>
           <Slider
             :model-value="p.settings.max_capacity ?? p.settings.guests"
+            label="Max capacity"
             :min="1"
             :max="MAX_GUESTS"
             :step="1"

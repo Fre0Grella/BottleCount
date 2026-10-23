@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
+/**
+ * A value on a track: drag it, tap the track, or use the keys (arrows step,
+ * Page Up/Down take ten steps, Home and End go to the ends). `label` names it
+ * for a screen reader; `valueText` says the value the way the screen does
+ * ("35%") when the bare number would not.
+ */
 const props = withDefaults(
   defineProps<{
     modelValue: number;
+    label: string;
+    valueText?: string;
     min?: number;
     max?: number;
     step?: number;
@@ -11,6 +19,7 @@ const props = withDefaults(
     trackColor?: string;
   }>(),
   {
+    valueText: undefined,
     min: 0,
     max: 1,
     step: 0,
@@ -50,6 +59,7 @@ function onPointerDown(e: PointerEvent): void {
   if (!el) return;
   e.preventDefault();
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  el.focus({ preventScroll: true });
 
   function move(ev: PointerEvent): void {
     const rect = el!.getBoundingClientRect();
@@ -66,52 +76,85 @@ function onPointerDown(e: PointerEvent): void {
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
 }
+
+/** One key press: the step, or a hundredth of the range when there is none. */
+const keyStep = computed(() =>
+  props.step && props.step > 0 ? props.step : (props.max - props.min) / 100,
+);
+
+function onKeydown(e: KeyboardEvent): void {
+  const s = keyStep.value;
+  const next: Record<string, number> = {
+    ArrowRight: props.modelValue + s,
+    ArrowUp: props.modelValue + s,
+    ArrowLeft: props.modelValue - s,
+    ArrowDown: props.modelValue - s,
+    PageUp: props.modelValue + s * 10,
+    PageDown: props.modelValue - s * 10,
+    Home: props.min,
+    End: props.max,
+  };
+  if (!(e.key in next)) return;
+  e.preventDefault();
+  const v = clamp(next[e.key]);
+  if (v !== props.modelValue) emit('update:modelValue', v);
+}
 </script>
 
 <template>
   <div
     ref="trackRef"
     role="slider"
+    tabindex="0"
+    class="bc-slider"
+    :aria-label="label"
     :aria-valuenow="modelValue"
     :aria-valuemin="min"
     :aria-valuemax="max"
-    style="
-      position: relative;
-      height: 30px;
-      border-radius: 999px;
-      cursor: ew-resize;
-      touch-action: none;
-      display: flex;
-      align-items: center;
-    "
+    :aria-valuetext="valueText"
     :style="{ background: trackColor }"
     @pointerdown="onPointerDown"
+    @keydown="onKeydown"
   >
-    <!-- filled track -->
     <div
-      style="
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        border-radius: 999px;
-        pointer-events: none;
-      "
+      class="bc-slider__fill"
       :style="{ width: fillPct, background: color }"
     />
-    <!-- knob -->
     <div
-      style="
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        border: 2px solid #fff;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-        transform: translateX(-50%);
-        pointer-events: none;
-      "
+      class="bc-slider__knob"
       :style="{ left: fillPct, background: color }"
     />
   </div>
 </template>
+
+<style scoped>
+.bc-slider {
+  position: relative;
+  height: 30px;
+  border-radius: 999px;
+  cursor: ew-resize;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+}
+
+.bc-slider__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.bc-slider__knob {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--knob);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+</style>
