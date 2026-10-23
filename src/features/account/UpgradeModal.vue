@@ -6,7 +6,9 @@ import { errorCode } from '../../lib/api/request';
 import type { Feature } from '../../../shared/tiers';
 import { APP_URL } from '../../lib/links';
 import ModalShell from '../../components/ui/ModalShell.vue';
+import CloseButton from '../../components/ui/CloseButton.vue';
 import Icon from '../../components/ui/Icon.vue';
+import IconTile from '../../components/ui/IconTile.vue';
 
 const store = useStore();
 
@@ -80,61 +82,24 @@ watch(feature, (f) => {
     size="md"
     @close="store.closeUpgrade()"
   >
-    <div v-if="copy" style="padding: 22px">
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 14px;
-        "
-      >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            background: var(--accent-soft);
-            color: var(--accent);
-          "
-        >
-          <Icon name="lock" :size="17" />
-        </span>
-        <div
-          :id="titleId"
-          style="
-            font-family: var(--font-disp);
-            font-weight: 600;
-            font-size: 16px;
-          "
-        >
+    <div v-if="copy" class="upgrade">
+      <div class="upgrade-head">
+        <IconTile icon="lock" />
+        <h2 :id="titleId" class="upgrade-title">
           {{ copy.title }}
-        </div>
+        </h2>
+        <CloseButton
+          label="Close"
+          class="upgrade-close"
+          @click="store.closeUpgrade()"
+        />
       </div>
 
-      <p
-        style="
-          font-size: 13px;
-          line-height: 1.6;
-          color: var(--dim);
-          margin: 0 0 18px 0;
-        "
-      >
+      <p class="upgrade-body">
         {{ copy.body }}
       </p>
 
-      <p
-        v-if="!session.backendAvailable"
-        style="
-          font-size: 12.5px;
-          line-height: 1.6;
-          color: var(--dim);
-          margin: -8px 0 16px 0;
-        "
-      >
+      <p v-if="!session.backendAvailable" class="upgrade-offline">
         We can't reach the server from here, so there's nothing to sign in to
         right now. Everything on the planning side keeps working offline.
       </p>
@@ -146,25 +111,7 @@ watch(feature, (f) => {
         code to redeem, so say so plainly instead of offering a sign-in link
         that cannot work.
       -->
-      <a
-        v-if="!session.backendAvailable"
-        :href="APP_URL"
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-size: 13px;
-          font-weight: 700;
-          padding: 12px 16px;
-          border-radius: 999px;
-          border: none;
-          background: var(--accent);
-          color: var(--on-accent);
-          text-decoration: none;
-          margin-bottom: 12px;
-        "
-      >
+      <a v-if="!session.backendAvailable" :href="APP_URL" class="upgrade-cta">
         <Icon name="share" :size="15" />
         Reload the app
       </a>
@@ -173,21 +120,7 @@ watch(feature, (f) => {
       <a
         v-else-if="!session.authenticated"
         href="/auth/google"
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-size: 13px;
-          font-weight: 700;
-          padding: 12px 16px;
-          border-radius: 999px;
-          border: none;
-          background: var(--accent);
-          color: var(--on-accent);
-          text-decoration: none;
-          margin-bottom: 12px;
-        "
+        class="upgrade-cta"
       >
         <Icon name="user" :size="15" />
         Sign in with Google
@@ -195,87 +128,155 @@ watch(feature, (f) => {
 
       <!-- Signed in and still free: they need a code. -->
       <template v-else-if="session.authenticated">
-        <label
-          style="
-            display: block;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--faint);
-            margin-bottom: 7px;
-          "
-        >
-          Have a licence code?
-        </label>
-        <div style="display: flex; gap: 8px; margin-bottom: 12px">
-          <input
-            v-model="code"
-            placeholder="BC-XXXX-XXXX-XXXX"
-            autocapitalize="characters"
-            spellcheck="false"
-            style="
-              flex: 1;
-              min-width: 0;
-              font-family: var(--font-body);
-              font-size: 13px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-            "
-            @keyup.enter="handleRedeem"
-          />
+        <div class="upgrade-code">
+          <!-- The label wraps its input but lays out as the grid's first row. -->
+          <label class="upgrade-code__field" for="upgrade-code">
+            <span class="upgrade-code__label">Have a licence code?</span>
+            <input
+              id="upgrade-code"
+              v-model="code"
+              class="upgrade-code__input"
+              placeholder="BC-XXXX-XXXX-XXXX"
+              autocapitalize="characters"
+              spellcheck="false"
+              @keyup.enter="handleRedeem"
+            />
+          </label>
           <button
             :disabled="redeeming || !code.trim()"
-            style="
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              font-size: 13px;
-              font-weight: 700;
-              padding: 11px 16px;
-              border-radius: 999px;
-              border: none;
-              background: var(--accent);
-              color: var(--on-accent);
-            "
-            :style="{ opacity: redeeming || !code.trim() ? 0.55 : 1 }"
+            class="upgrade-code__redeem"
             @click="handleRedeem"
           >
             <Icon name="key" :size="14" />
             {{ redeeming ? 'Checking…' : 'Redeem' }}
           </button>
         </div>
-        <div
-          v-if="error"
-          style="font-size: 12px; color: var(--bad); margin-bottom: 12px"
-        >
+        <div v-if="error" class="upgrade-error">
           {{ error }}
         </div>
       </template>
 
-      <a
-        :href="`${base}pricing`"
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          font-size: 12.5px;
-          font-weight: 600;
-          padding: 11px 16px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--dim);
-          text-decoration: none;
-        "
-      >
+      <a :href="`${base}pricing`" class="upgrade-plans">
         <Icon name="info" :size="14" />
         Compare plans — including self-hosting for free
       </a>
     </div>
   </ModalShell>
 </template>
+
+<style scoped>
+.upgrade {
+  padding: 22px;
+}
+
+.upgrade-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.upgrade-title {
+  margin: 0;
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 16px;
+}
+/* Where ModalShell's own header puts it: flush right. */
+.upgrade-close {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.upgrade-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--dim);
+  margin: 0 0 18px 0;
+}
+.upgrade-offline {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--dim);
+  margin: -8px 0 16px 0;
+}
+
+.upgrade-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
+  margin-bottom: 12px;
+}
+
+.upgrade-code {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 8px;
+  margin-bottom: 12px;
+}
+.upgrade-code__field {
+  display: contents;
+}
+.upgrade-code__label {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  margin-bottom: 7px;
+}
+.upgrade-code__input {
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 11px 13px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+}
+.upgrade-code__redeem {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.upgrade-code__redeem:disabled {
+  opacity: 0.55;
+}
+.upgrade-error {
+  font-size: 12px;
+  color: var(--bad);
+  margin-bottom: 12px;
+}
+
+.upgrade-plans {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+  text-decoration: none;
+}
+</style>
