@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import TicketScreen from '../../components/TicketScreen.vue';
+import TicketScreen from '../../screens/TicketScreen.vue';
 
 // A ticket is one guest's, carried in the link; nothing here to index.
 ---
@@ -9,7 +9,7 @@ import TicketScreen from '../../components/TicketScreen.vue';
   <!--
     Every ticket is this one page. The ticket itself is in the URL fragment
     (`/t/#t=…`), which never reaches a server, so unlike `/i/<slug>` this
-    needs no Pages Function to route it — see src/lib/ticketLink.ts.
+    needs no Pages Function to route it — see src/features/tickets/ticketLink.ts.
   -->
   <TicketScreen client:only="vue" />
 </BaseLayout>

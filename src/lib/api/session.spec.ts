@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { featuresFor } from '../../../shared/tiers';
-import { ANONYMOUS_SESSION, fetchSession } from '../session';
+import {
+  ANONYMOUS_SESSION,
+  fetchSession,
+} from '../../features/account/session';
 import { errorCode } from './request';
 import { devSignIn, logout, redeemLicence } from './session';
 import { fakeWorker, sent } from './testing';

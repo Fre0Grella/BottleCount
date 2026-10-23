@@ -21,22 +21,26 @@ module.exports = {
     {
       name: 'ticket-domain-no-drawing',
       comment:
-        'Ticket rules (codes, payloads, links, messages) must not depend on QR ' +
-        'or canvas drawing: drawing depends on the domain, not the other way.',
+        'Ticket rules (codes, payloads, signing, links, messages) must not ' +
+        'depend on QR or canvas drawing: drawing depends on the domain, not ' +
+        "the other way. Only .ts modules: the folder's .vue screens may draw.",
       severity: 'error',
       from: {
-        path: '^(shared/tickets?|shared/ticketLinks|src/lib/ticket[^/]*)\\.ts$',
+        path: '^(shared/tickets?|shared/ticketLinks|src/features/tickets/[^/]+)\\.ts$',
         pathNot: '\\.spec\\.ts$',
       },
-      to: { path: '(^src/lib/qr\\.ts$|node_modules/(qrcode|qr-scanner)/)' },
+      to: {
+        path: '(^src/lib/(qr|drawing)\\.ts$|node_modules/(qrcode|qr-scanner)/)',
+      },
     },
     {
       name: 'lib-no-components',
       comment:
-        'src/lib holds the domain and must not import .vue components; ' +
-        'components call into lib, never the reverse.',
+        'Modules hold the domain and must not import .vue components: not ' +
+        "src/lib, not the store, not a feature folder's .ts files. " +
+        'Components call into them, never the reverse.',
       severity: 'error',
-      from: { path: '^src/lib/' },
+      from: { path: '^src/(lib|store|features)/.*\\.ts$' },
       to: { path: '\\.vue$' },
     },
   ],

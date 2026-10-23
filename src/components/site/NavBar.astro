@@ -1,0 +1,174 @@
+---
+import Icon from '../ui/Icon.vue';
+import Logo from '../ui/Logo.vue';
+import { APP_URL } from '../../lib/links';
+
+/**
+ * The site navigation on every page outside the app: the landing page, docs,
+ * pricing and the legal pages. It carries the Theme Switch (CONTEXT.md).
+ */
+interface Props {
+  active?: 'docs' | 'pricing';
+}
+
+const { active } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const links = [
+  { key: 'pricing', href: `${base}pricing`, label: 'Pricing' },
+  { key: 'docs', href: `${base}docs`, label: 'Docs' },
+] as const;
+---
+
+<nav class="site-nav" aria-label="Primary">
+  <div class="shell site-nav__inner">
+    <a class="site-nav__brand" href={base} aria-label="BottleCount home">
+      <Logo wordmark size={30} />
+    </a>
+    <div class="site-nav__right">
+      {
+        links.map((l) => (
+          <a
+            class:list={[
+              'site-nav__link',
+              `site-nav__link--${l.key}`,
+              { 'is-active': active === l.key },
+            ]}
+            href={l.href}
+            aria-current={active === l.key ? 'page' : undefined}
+          >
+            {l.label}
+          </a>
+        ))
+      }
+      <a class="btn-accent site-nav__app" href={APP_URL}>
+        Open app
+        <Icon name="arrowR" size={15} />
+      </a>
+      <button
+        class="site-nav__theme"
+        type="button"
+        aria-label="Switch theme"
+        data-theme-switch
+      >
+        <span class="site-nav__sun"><Icon name="sun" size={16} /></span>
+        <span class="site-nav__moon"><Icon name="moon" size={16} /></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<script>
+  import { toggleTheme } from '../../lib/theme';
+
+  for (const button of document.querySelectorAll('[data-theme-switch]')) {
+    button.addEventListener('click', () => toggleTheme());
+  }
+</script>
+
+<style>
+  .site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .site-nav__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .site-nav__brand {
+    display: flex;
+    text-decoration: none;
+  }
+
+  .site-nav__right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .site-nav__link {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 12px;
+    border-radius: 999px;
+    color: var(--dim);
+    text-decoration: none;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+
+  .site-nav__link:hover,
+  .site-nav__link.is-active {
+    color: var(--text);
+    background: var(--surface);
+  }
+
+  .site-nav__theme {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+
+  .site-nav__theme:hover {
+    color: var(--text);
+    border-color: var(--dim);
+  }
+
+  /* The switch shows the Theme it will switch to. */
+  .site-nav__sun,
+  :global([data-theme='light']) .site-nav__moon {
+    display: flex;
+  }
+
+  .site-nav__moon,
+  :global([data-theme='light']) .site-nav__sun {
+    display: none;
+  }
+
+  @media (max-width: 700px) {
+    .site-nav__inner {
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+
+    .site-nav__right {
+      gap: 4px;
+    }
+
+    .site-nav__link {
+      padding: 8px;
+    }
+
+    /* Pricing is in the footer too; the row has to fit a phone. */
+    .site-nav__link--pricing {
+      display: none;
+    }
+  }
+
+  /* Small phones keep the mark and lose the wordmark beside it. */
+  @media (max-width: 400px) {
+    .site-nav__brand :global(.bc-wordmark) {
+      display: none;
+    }
+  }
+</style>

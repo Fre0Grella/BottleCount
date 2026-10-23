@@ -42,8 +42,8 @@ jobs:
         run: npm run check:dupes
 
       # Ratchet: layer rules in .dependency-cruiser.cjs (shared/ imports no
-      # app code, ticket rules import no QR/canvas drawing, src/lib imports no
-      # .vue). Today's breaches sit in .dependency-cruiser-known-violations.json
+      # app code, ticket rules import no QR/canvas drawing, no .ts module in
+      # src/lib, src/store or src/features imports .vue). Today's breaches sit in .dependency-cruiser-known-violations.json
       # and pass; a new one fails. When you fix one, run
       # `npm run check:deps:baseline` and commit the shorter file.
       - name: Dependency rules
