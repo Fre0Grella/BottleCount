@@ -22,7 +22,7 @@
     "backend:dev": "npm run -w backend dev",
     "backend:test": "npm run -w backend test",
     "test": "vitest run && npm run -w backend test",
-    "typecheck": "astro check && npm run -w backend typecheck",
+    "typecheck": "astro check && vue-tsc --noEmit && npm run -w backend typecheck",
     "test:frontend": "vitest run",
     "build:docs": "BUILD_TARGET=docs BASE_PATH=/BottleCount/ SITE=https://fre0grella.github.io PUBLIC_APP_ORIGIN=https://bottlecount-epj.pages.dev astro build",
     "brand": "node scripts/brand.mjs"
@@ -63,6 +63,7 @@
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.59.1",
     "vitest": "^5.0.1",
-    "vue-eslint-parser": "^10.4.0"
+    "vue-eslint-parser": "^10.4.0",
+    "vue-tsc": "^3.3.12"
   }
 }
