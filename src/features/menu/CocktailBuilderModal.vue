@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useStore } from '../../store/store';
 import { savePersonalCocktail, deleteCocktail } from './catalog';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 import Slider from '../../components/ui/Slider.vue';
 
@@ -265,594 +265,547 @@ watch(isOpen, (open) => {
 </script>
 
 <template>
-  <Modal :open="isOpen" variant="sheet" max-width="460px" @close="handleClose">
-    <div style="padding: 22px">
-      <!-- Header -->
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 16px;
-        "
-      >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            background: var(--accent-soft);
-            color: var(--accent);
-            flex-shrink: 0;
-          "
-        >
-          <Icon name="glass" :size="18" />
-        </span>
+  <ModalShell
+    :open="isOpen"
+    variant="sheet"
+    size="md"
+    icon="glass"
+    @close="handleClose"
+  >
+    <template #title>{{
+      builder
+        ? builder.editKey
+          ? 'Edit cocktail'
+          : 'Custom cocktail'
+        : 'Add a ' + spiritShort + ' drink'
+    }}</template>
+
+    <!-- PICK MODE -->
+    <div v-if="!builder">
+      <!-- Cocktails for this spirit — classics + your own, all editable -->
+      <template v-if="spiritCocktails.length > 0">
         <div
           style="
-            font-family: var(--font-disp);
-            font-weight: 700;
-            font-size: 17px;
-          "
-        >
-          {{
-            builder
-              ? builder.editKey
-                ? 'Edit cocktail'
-                : 'Custom cocktail'
-              : 'Add a ' + spiritShort + ' drink'
-          }}
-        </div>
-        <button
-          style="
-            margin-left: auto;
-            cursor: pointer;
-            display: flex;
-            width: 32px;
-            height: 32px;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            background: transparent;
+            font-size: 12px;
             color: var(--dim);
-            flex-shrink: 0;
+            font-weight: 600;
+            margin-bottom: 9px;
           "
-          @click="handleClose"
         >
-          <Icon name="x" :size="18" />
-        </button>
-      </div>
-
-      <!-- PICK MODE -->
-      <div v-if="!builder">
-        <!-- Cocktails for this spirit — classics + your own, all editable -->
-        <template v-if="spiritCocktails.length > 0">
-          <div
-            style="
-              font-size: 12px;
-              color: var(--dim);
-              font-weight: 600;
-              margin-bottom: 9px;
-            "
-          >
-            Cocktails with {{ spiritShort }}
-          </div>
-          <div
-            style="
-              display: flex;
-              flex-direction: column;
-              gap: 8px;
-              margin-bottom: 16px;
-            "
-          >
-            <div
-              v-for="cc in spiritCocktails"
-              :key="cc.key"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 9px;
-                padding: 10px 12px;
-                border-radius: var(--rs);
-                border: 1px solid var(--border);
-                background: var(--surface2);
-              "
-            >
-              <span style="display: flex; color: var(--accent); flex-shrink: 0">
-                <Icon :name="cc.custom ? 'sparkle' : 'glass'" :size="16" />
-              </span>
-              <div style="flex: 1; min-width: 0">
-                <div
-                  style="
-                    font-size: 14px;
-                    font-weight: 600;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                  "
-                >
-                  {{ cc.name }}
-                  <span
-                    v-if="cc.inMenu"
-                    style="
-                      font-size: 9px;
-                      font-weight: 700;
-                      text-transform: uppercase;
-                      letter-spacing: 0.05em;
-                      padding: 1px 6px;
-                      border-radius: 999px;
-                      background: var(--accent-soft);
-                      color: var(--accent);
-                    "
-                    >on menu</span
-                  >
-                </div>
-                <div style="font-size: 11px; color: var(--faint)">
-                  {{ cc.recipe }}
-                </div>
-              </div>
-              <!-- Add to menu (only if not already there) -->
-              <button
-                v-if="!cc.inMenu"
-                title="Add to menu"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  width: 30px;
-                  height: 30px;
-                  flex-shrink: 0;
-                  align-items: center;
-                  justify-content: center;
-                  border-radius: 8px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--accent);
-                "
-                @click="pickCocktail(cc.key)"
-              >
-                <Icon name="plus" :size="15" />
-              </button>
-              <!-- Edit -->
-              <button
-                title="Edit recipe"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  width: 30px;
-                  height: 30px;
-                  flex-shrink: 0;
-                  align-items: center;
-                  justify-content: center;
-                  border-radius: 8px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--dim);
-                "
-                @click="openEditBuilder(cc.key)"
-              >
-                <Icon name="pencil" :size="15" />
-              </button>
-              <!-- Delete -->
-              <button
-                title="Delete"
-                class="cb-delete-btn"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  width: 30px;
-                  height: 30px;
-                  flex-shrink: 0;
-                  align-items: center;
-                  justify-content: center;
-                  border-radius: 8px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--faint);
-                "
-                @click="deleteCocktailEntry(cc.key)"
-              >
-                <Icon name="trash" :size="15" />
-              </button>
-            </div>
-          </div>
-        </template>
-
-        <!-- Build custom -->
-        <button
-          style="
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            padding: 14px;
-            border-radius: var(--rs);
-            border: 1.5px dashed var(--accent);
-            background: var(--accent-soft);
-            color: var(--accent);
-            font-size: 14px;
-            font-weight: 700;
-            min-height: 48px;
-          "
-          @click="openBuilder"
-        >
-          <span style="display: flex"><Icon name="sparkle" :size="16" /></span>
-          Build a custom cocktail
-        </button>
-      </div>
-
-      <!-- BUILD MODE -->
-      <div v-else style="display: flex; flex-direction: column; gap: 14px">
-        <!-- Cocktail name -->
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600"
-            >Cocktail name</label
-          >
-          <input
-            v-model="builder.name"
-            placeholder="e.g. Spicy Paloma"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              width: 100%;
-              box-sizing: border-box;
-            "
-          />
+          Cocktails with {{ spiritShort }}
         </div>
-
-        <!-- Base spirit slider -->
         <div
           style="
-            background: var(--surface2);
-            border-radius: var(--rs);
-            padding: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
           "
         >
           <div
+            v-for="cc in spiritCocktails"
+            :key="cc.key"
             style="
               display: flex;
               align-items: center;
-              gap: 8px;
-              margin-bottom: 10px;
+              gap: 9px;
+              padding: 10px 12px;
+              border-radius: var(--rs);
+              border: 1px solid var(--border);
+              background: var(--surface2);
             "
           >
-            <span style="display: flex; color: var(--accent)">
-              <Icon name="bottle" :size="16" />
+            <span style="display: flex; color: var(--accent); flex-shrink: 0">
+              <Icon :name="cc.custom ? 'sparkle' : 'glass'" :size="16" />
             </span>
-            <span
+            <div style="flex: 1; min-width: 0">
+              <div
+                style="
+                  font-size: 14px;
+                  font-weight: 600;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                "
+              >
+                {{ cc.name }}
+                <span
+                  v-if="cc.inMenu"
+                  style="
+                    font-size: 9px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    padding: 1px 6px;
+                    border-radius: 999px;
+                    background: var(--accent-soft);
+                    color: var(--accent);
+                  "
+                  >on menu</span
+                >
+              </div>
+              <div style="font-size: 11px; color: var(--faint)">
+                {{ cc.recipe }}
+              </div>
+            </div>
+            <!-- Add to menu (only if not already there) -->
+            <button
+              v-if="!cc.inMenu"
+              title="Add to menu"
               style="
-                font-size: 10px;
+                cursor: pointer;
+                display: flex;
+                width: 30px;
+                height: 30px;
+                flex-shrink: 0;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: transparent;
+                color: var(--accent);
+              "
+              @click="pickCocktail(cc.key)"
+            >
+              <Icon name="plus" :size="15" />
+            </button>
+            <!-- Edit -->
+            <button
+              title="Edit recipe"
+              style="
+                cursor: pointer;
+                display: flex;
+                width: 30px;
+                height: 30px;
+                flex-shrink: 0;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: transparent;
+                color: var(--dim);
+              "
+              @click="openEditBuilder(cc.key)"
+            >
+              <Icon name="pencil" :size="15" />
+            </button>
+            <!-- Delete -->
+            <button
+              title="Delete"
+              class="cb-delete-btn"
+              style="
+                cursor: pointer;
+                display: flex;
+                width: 30px;
+                height: 30px;
+                flex-shrink: 0;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: transparent;
                 color: var(--faint);
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
-                font-weight: 700;
               "
-              >Base</span
+              @click="deleteCocktailEntry(cc.key)"
             >
-            <span style="font-size: 13px; font-weight: 600">{{
-              spiritShort
-            }}</span>
-            <span style="margin-left: auto; font-size: 13px; font-weight: 600"
-              >{{ builder.mainQty }} ml</span
-            >
-          </div>
-          <Slider
-            :model-value="builder.mainQty"
-            :min="20"
-            :max="80"
-            :step="5"
-            @update:model-value="
-              (v) => {
-                if (builder) builder.mainQty = v;
-              }
-            "
-          />
-        </div>
-
-        <!-- More spirits -->
-        <div>
-          <div
-            style="
-              font-size: 12px;
-              color: var(--dim);
-              font-weight: 600;
-              margin-bottom: 9px;
-            "
-          >
-            More spirits
-            <span style="color: var(--faint); font-weight: 500"
-              >· for Long Island, Spritz &amp; co.</span
-            >
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <div
-              v-for="s in otherSpirits"
-              :key="s.key"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 11px;
-                padding: 10px 12px;
-                border-radius: var(--rs);
-                transition:
-                  background 0.15s,
-                  border-color 0.15s;
-              "
-              :style="{
-                border: s.on
-                  ? '1px solid var(--accent)'
-                  : '1px solid var(--border)',
-                background: s.on ? 'var(--accent-soft)' : 'var(--surface2)',
-              }"
-            >
-              <button
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  flex-shrink: 0;
-                  width: 22px;
-                  height: 22px;
-                  border-radius: 7px;
-                  align-items: center;
-                  justify-content: center;
-                "
-                :style="{
-                  border: s.on
-                    ? '2px solid var(--accent)'
-                    : '2px solid var(--border)',
-                  background: s.on ? 'var(--accent)' : 'transparent',
-                  color: 'var(--on-accent)',
-                }"
-                @click="toggleOtherSpirit(s.key)"
-              >
-                <Icon v-if="s.on" name="check" :size="13" />
-              </button>
-              <span style="display: flex; color: var(--dim)">
-                <Icon name="glass" :size="15" />
-              </span>
-              <span style="flex: 1; font-size: 13.5px; font-weight: 500">{{
-                s.name
-              }}</span>
-              <div
-                v-if="s.on"
-                style="display: flex; align-items: center; gap: 6px"
-              >
-                <button
-                  style="
-                    cursor: pointer;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 7px;
-                    border: 1px solid var(--border);
-                    background: var(--surface);
-                    color: var(--text);
-                    font-size: 15px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                  "
-                  @click="adjustSpirit(s.key, -10)"
-                >
-                  −
-                </button>
-                <span
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    width: 48px;
-                    text-align: center;
-                  "
-                  >{{ s.qty }} ml</span
-                >
-                <button
-                  style="
-                    cursor: pointer;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 7px;
-                    border: 1px solid var(--border);
-                    background: var(--surface);
-                    color: var(--text);
-                    font-size: 15px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                  "
-                  @click="adjustSpirit(s.key, 10)"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+              <Icon name="trash" :size="15" />
+            </button>
           </div>
         </div>
+      </template>
 
-        <!-- Mixers & extras -->
-        <div>
-          <div
-            style="
-              font-size: 12px;
-              color: var(--dim);
-              font-weight: 600;
-              margin-bottom: 9px;
-            "
-          >
-            Mixers &amp; extras
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <div
-              v-for="m in mixerExtras"
-              :key="m.key"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 11px;
-                padding: 10px 12px;
-                border-radius: var(--rs);
-                transition:
-                  background 0.15s,
-                  border-color 0.15s;
-              "
-              :style="{
-                border: m.on
-                  ? '1px solid var(--accent)'
-                  : '1px solid var(--border)',
-                background: m.on ? 'var(--accent-soft)' : 'var(--surface2)',
-              }"
-            >
-              <button
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  flex-shrink: 0;
-                  width: 22px;
-                  height: 22px;
-                  border-radius: 7px;
-                  align-items: center;
-                  justify-content: center;
-                "
-                :style="{
-                  border: m.on
-                    ? '2px solid var(--accent)'
-                    : '2px solid var(--border)',
-                  background: m.on ? 'var(--accent)' : 'transparent',
-                  color: 'var(--on-accent)',
-                }"
-                @click="toggleMixer(m.key, m.isKg)"
-              >
-                <Icon v-if="m.on" name="check" :size="13" />
-              </button>
-              <span style="display: flex; color: var(--dim)">
-                <Icon name="droplet" :size="15" />
-              </span>
-              <span style="flex: 1; font-size: 13.5px; font-weight: 500">{{
-                m.name
-              }}</span>
-              <div
-                v-if="m.on"
-                style="display: flex; align-items: center; gap: 6px"
-              >
-                <button
-                  style="
-                    cursor: pointer;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 7px;
-                    border: 1px solid var(--border);
-                    background: var(--surface);
-                    color: var(--text);
-                    font-size: 15px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                  "
-                  @click="adjustMixer(m.key, m.step, -1)"
-                >
-                  −
-                </button>
-                <span
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    width: 48px;
-                    text-align: center;
-                  "
-                  >{{ m.qtyLabel }}</span
-                >
-                <button
-                  style="
-                    cursor: pointer;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 7px;
-                    border: 1px solid var(--border);
-                    background: var(--surface);
-                    color: var(--text);
-                    font-size: 15px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                  "
-                  @click="adjustMixer(m.key, m.step, 1)"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- Build custom -->
+      <button
+        style="
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 14px;
+          border-radius: var(--rs);
+          border: 1.5px dashed var(--accent);
+          background: var(--accent-soft);
+          color: var(--accent);
+          font-size: 14px;
+          font-weight: 700;
+          min-height: 48px;
+        "
+        @click="openBuilder"
+      >
+        <span style="display: flex"><Icon name="sparkle" :size="16" /></span>
+        Build a custom cocktail
+      </button>
+    </div>
 
-        <!-- Per-serving summary -->
+    <!-- BUILD MODE -->
+    <div v-else style="display: flex; flex-direction: column; gap: 14px">
+      <!-- Cocktail name -->
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label style="font-size: 12px; color: var(--dim); font-weight: 600"
+          >Cocktail name</label
+        >
+        <input
+          v-model="builder.name"
+          placeholder="e.g. Spicy Paloma"
+          style="
+            font-size: 15px;
+            padding: 11px 13px;
+            border-radius: var(--rs);
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            width: 100%;
+            box-sizing: border-box;
+          "
+        />
+      </div>
+
+      <!-- Base spirit slider -->
+      <div
+        style="
+          background: var(--surface2);
+          border-radius: var(--rs);
+          padding: 13px;
+        "
+      >
         <div
           style="
             display: flex;
-            align-items: baseline;
+            align-items: center;
             gap: 8px;
-            padding: 11px 13px;
-            border-radius: var(--rs);
-            background: var(--surface2);
+            margin-bottom: 10px;
           "
         >
-          <span style="font-size: 12px; color: var(--dim)">Per serving</span>
-          <span style="font-size: 14px; font-weight: 600"
-            >{{ serving.ml }} ml</span
+          <span style="display: flex; color: var(--accent)">
+            <Icon name="bottle" :size="16" />
+          </span>
+          <span
+            style="
+              font-size: 10px;
+              color: var(--faint);
+              text-transform: uppercase;
+              letter-spacing: 0.06em;
+              font-weight: 700;
+            "
+            >Base</span
           >
-          <span style="margin-left: auto; font-size: 11px; color: var(--faint)"
-            >≈ {{ serving.abvPct }}% ABV</span
+          <span style="font-size: 13px; font-weight: 600">{{
+            spiritShort
+          }}</span>
+          <span style="margin-left: auto; font-size: 13px; font-weight: 600"
+            >{{ builder.mainQty }} ml</span
           >
         </div>
+        <Slider
+          :model-value="builder.mainQty"
+          :min="20"
+          :max="80"
+          :step="5"
+          @update:model-value="
+            (v) => {
+              if (builder) builder.mainQty = v;
+            }
+          "
+        />
+      </div>
 
-        <!-- Actions -->
-        <div style="display: flex; gap: 9px">
-          <button
-            style="
-              cursor: pointer;
-              flex-shrink: 0;
-              padding: 13px 18px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: transparent;
-              color: var(--dim);
-              font-size: 14px;
-              font-weight: 600;
-            "
-            @click="backToPick"
+      <!-- More spirits -->
+      <div>
+        <div
+          style="
+            font-size: 12px;
+            color: var(--dim);
+            font-weight: 600;
+            margin-bottom: 9px;
+          "
+        >
+          More spirits
+          <span style="color: var(--faint); font-weight: 500"
+            >· for Long Island, Spritz &amp; co.</span
           >
-            Back
-          </button>
-          <button
-            :disabled="!canSave"
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div
+            v-for="s in otherSpirits"
+            :key="s.key"
             style="
-              cursor: pointer;
-              flex: 1;
-              padding: 13px;
+              display: flex;
+              align-items: center;
+              gap: 11px;
+              padding: 10px 12px;
               border-radius: var(--rs);
-              border: none;
-              font-size: 14px;
-              font-weight: 700;
-              transition: opacity 0.15s;
+              transition:
+                background 0.15s,
+                border-color 0.15s;
             "
             :style="{
-              background: canSave ? 'var(--accent)' : 'var(--track)',
-              color: 'var(--on-accent)',
-              opacity: canSave ? '1' : '0.5',
+              border: s.on
+                ? '1px solid var(--accent)'
+                : '1px solid var(--border)',
+              background: s.on ? 'var(--accent-soft)' : 'var(--surface2)',
             }"
-            @click="saveCocktail"
           >
-            {{ builder.editKey ? 'Save changes' : 'Add to menu' }}
-          </button>
+            <button
+              style="
+                cursor: pointer;
+                display: flex;
+                flex-shrink: 0;
+                width: 22px;
+                height: 22px;
+                border-radius: 7px;
+                align-items: center;
+                justify-content: center;
+              "
+              :style="{
+                border: s.on
+                  ? '2px solid var(--accent)'
+                  : '2px solid var(--border)',
+                background: s.on ? 'var(--accent)' : 'transparent',
+                color: 'var(--on-accent)',
+              }"
+              @click="toggleOtherSpirit(s.key)"
+            >
+              <Icon v-if="s.on" name="check" :size="13" />
+            </button>
+            <span style="display: flex; color: var(--dim)">
+              <Icon name="glass" :size="15" />
+            </span>
+            <span style="flex: 1; font-size: 13.5px; font-weight: 500">{{
+              s.name
+            }}</span>
+            <div
+              v-if="s.on"
+              style="display: flex; align-items: center; gap: 6px"
+            >
+              <button
+                style="
+                  cursor: pointer;
+                  width: 26px;
+                  height: 26px;
+                  border-radius: 7px;
+                  border: 1px solid var(--border);
+                  background: var(--surface);
+                  color: var(--text);
+                  font-size: 15px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+                @click="adjustSpirit(s.key, -10)"
+              >
+                −
+              </button>
+              <span
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  width: 48px;
+                  text-align: center;
+                "
+                >{{ s.qty }} ml</span
+              >
+              <button
+                style="
+                  cursor: pointer;
+                  width: 26px;
+                  height: 26px;
+                  border-radius: 7px;
+                  border: 1px solid var(--border);
+                  background: var(--surface);
+                  color: var(--text);
+                  font-size: 15px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+                @click="adjustSpirit(s.key, 10)"
+              >
+                +
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Mixers & extras -->
+      <div>
+        <div
+          style="
+            font-size: 12px;
+            color: var(--dim);
+            font-weight: 600;
+            margin-bottom: 9px;
+          "
+        >
+          Mixers &amp; extras
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div
+            v-for="m in mixerExtras"
+            :key="m.key"
+            style="
+              display: flex;
+              align-items: center;
+              gap: 11px;
+              padding: 10px 12px;
+              border-radius: var(--rs);
+              transition:
+                background 0.15s,
+                border-color 0.15s;
+            "
+            :style="{
+              border: m.on
+                ? '1px solid var(--accent)'
+                : '1px solid var(--border)',
+              background: m.on ? 'var(--accent-soft)' : 'var(--surface2)',
+            }"
+          >
+            <button
+              style="
+                cursor: pointer;
+                display: flex;
+                flex-shrink: 0;
+                width: 22px;
+                height: 22px;
+                border-radius: 7px;
+                align-items: center;
+                justify-content: center;
+              "
+              :style="{
+                border: m.on
+                  ? '2px solid var(--accent)'
+                  : '2px solid var(--border)',
+                background: m.on ? 'var(--accent)' : 'transparent',
+                color: 'var(--on-accent)',
+              }"
+              @click="toggleMixer(m.key, m.isKg)"
+            >
+              <Icon v-if="m.on" name="check" :size="13" />
+            </button>
+            <span style="display: flex; color: var(--dim)">
+              <Icon name="droplet" :size="15" />
+            </span>
+            <span style="flex: 1; font-size: 13.5px; font-weight: 500">{{
+              m.name
+            }}</span>
+            <div
+              v-if="m.on"
+              style="display: flex; align-items: center; gap: 6px"
+            >
+              <button
+                style="
+                  cursor: pointer;
+                  width: 26px;
+                  height: 26px;
+                  border-radius: 7px;
+                  border: 1px solid var(--border);
+                  background: var(--surface);
+                  color: var(--text);
+                  font-size: 15px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+                @click="adjustMixer(m.key, m.step, -1)"
+              >
+                −
+              </button>
+              <span
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  width: 48px;
+                  text-align: center;
+                "
+                >{{ m.qtyLabel }}</span
+              >
+              <button
+                style="
+                  cursor: pointer;
+                  width: 26px;
+                  height: 26px;
+                  border-radius: 7px;
+                  border: 1px solid var(--border);
+                  background: var(--surface);
+                  color: var(--text);
+                  font-size: 15px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+                @click="adjustMixer(m.key, m.step, 1)"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-serving summary -->
+      <div
+        style="
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          padding: 11px 13px;
+          border-radius: var(--rs);
+          background: var(--surface2);
+        "
+      >
+        <span style="font-size: 12px; color: var(--dim)">Per serving</span>
+        <span style="font-size: 14px; font-weight: 600"
+          >{{ serving.ml }} ml</span
+        >
+        <span style="margin-left: auto; font-size: 11px; color: var(--faint)"
+          >≈ {{ serving.abvPct }}% ABV</span
+        >
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; gap: 9px">
+        <button
+          style="
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 13px 18px;
+            border-radius: var(--rs);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--dim);
+            font-size: 14px;
+            font-weight: 600;
+          "
+          @click="backToPick"
+        >
+          Back
+        </button>
+        <button
+          :disabled="!canSave"
+          style="
+            cursor: pointer;
+            flex: 1;
+            padding: 13px;
+            border-radius: var(--rs);
+            border: none;
+            font-size: 14px;
+            font-weight: 700;
+            transition: opacity 0.15s;
+          "
+          :style="{
+            background: canSave ? 'var(--accent)' : 'var(--track)',
+            color: 'var(--on-accent)',
+            opacity: canSave ? '1' : '0.5',
+          }"
+          @click="saveCocktail"
+        >
+          {{ builder.editKey ? 'Save changes' : 'Add to menu' }}
+        </button>
+      </div>
     </div>
-  </Modal>
+  </ModalShell>
 </template>
 
 <style scoped>

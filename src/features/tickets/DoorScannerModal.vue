@@ -7,6 +7,7 @@ import { checkTicket } from './ticket';
 import { formatClockTime } from '../../lib/dates';
 import type { DoorEntry, DoorVerdict } from './ticket';
 import Icon from '../../components/ui/Icon.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 
 const store = useStore();
 
@@ -211,7 +212,7 @@ watch(
   () => store.state.doorOpen,
   (open) => {
     if (open) {
-      // Wait one tick for <video> to mount inside Teleport
+      // Wait one tick for <video> to mount inside the dialog
       setTimeout(startScanner, 80);
     } else {
       stopScanner();
@@ -220,6 +221,11 @@ watch(
 );
 
 onUnmounted(stopScanner);
+
+function closeDoor(): void {
+  store.closeDoor();
+  stopScanner();
+}
 
 // ── Derived stats ──────────────────────────────────────────────────────────
 function accepted() {
@@ -247,18 +253,19 @@ function recentHistory() {
 </script>
 
 <template>
-  <Teleport to="body">
+  <ModalShell
+    v-slot="{ titleId }"
+    :open="store.state.doorOpen"
+    variant="full"
+    @close="closeDoor"
+  >
     <div
-      v-if="store.state.doorOpen"
       style="
-        position: fixed;
-        inset: 0;
-        z-index: 60;
+        flex: 1;
         background: #07090e;
         color: #f2f5fa;
         display: flex;
         flex-direction: column;
-        animation: bcPop 0.2s ease both;
       "
     >
       <!-- Header -->
@@ -272,6 +279,7 @@ function recentHistory() {
       >
         <div>
           <div
+            :id="titleId"
             style="
               font-family: var(--font-disp);
               font-weight: 700;
@@ -297,12 +305,8 @@ function recentHistory() {
             background: transparent;
             color: #f2f5fa;
           "
-          @click="
-            () => {
-              store.closeDoor();
-              stopScanner();
-            }
-          "
+          aria-label="Close door scanner"
+          @click="closeDoor"
         >
           <Icon name="x" :size="18" />
         </button>
@@ -649,5 +653,5 @@ function recentHistory() {
         </button>
       </div>
     </div>
-  </Teleport>
+  </ModalShell>
 </template>

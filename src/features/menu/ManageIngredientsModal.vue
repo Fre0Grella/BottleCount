@@ -7,7 +7,7 @@ import {
   setPriceOverride,
 } from './catalog';
 import type { IngredientType } from '../../lib/types';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 import { TYPE_META } from './ingredientTypes';
 import { formatEuroRange } from '../../lib/display';
@@ -207,285 +207,257 @@ function handleClose() {
 </script>
 
 <template>
-  <Modal
+  <ModalShell
     :open="store.state.ingMgrOpen"
     variant="sheet"
-    :max-width="'520px'"
+    size="lg"
+    icon="tune"
+    title="Manage ingredients"
     @close="handleClose"
   >
-    <div style="padding: 22px">
-      <!-- Header -->
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 16px;
-        "
-      >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            background: var(--accent-soft);
-            color: var(--accent);
-          "
-        >
-          <Icon name="tune" :size="18" />
-        </span>
-        <div
-          style="
-            font-family: var(--font-disp);
-            font-weight: 700;
-            font-size: 17px;
-          "
-        >
-          Manage ingredients
-        </div>
-        <button
-          style="
-            margin-left: auto;
-            cursor: pointer;
-            display: flex;
-            width: 32px;
-            height: 32px;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            background: transparent;
-            color: var(--dim);
-            flex-shrink: 0;
-          "
-          @click="handleClose"
-        >
-          <Icon name="x" :size="18" />
-        </button>
+    <!-- LIST mode -->
+    <div
+      v-if="form === null"
+      style="display: flex; flex-direction: column; gap: 14px"
+    >
+      <div style="font-size: 11.5px; color: var(--dim); line-height: 1.55">
+        Edit prices, strength and sizes, or add and remove bottles, mixers and
+        extras. Changes feed straight into the shopping math.
       </div>
 
-      <!-- LIST mode -->
-      <div
-        v-if="form === null"
-        style="display: flex; flex-direction: column; gap: 14px"
-      >
-        <div style="font-size: 11.5px; color: var(--dim); line-height: 1.55">
-          Edit prices, strength and sizes, or add and remove bottles, mixers and
-          extras. Changes feed straight into the shopping math.
+      <!-- Per-type groups -->
+      <div v-for="group in TYPE_GROUPS" :key="group.type">
+        <!-- Group header -->
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+          "
+        >
+          <span style="display: flex; color: var(--accent)">
+            <Icon :name="group.icon" :size="16" />
+          </span>
+          <span
+            style="
+              font-size: 12px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: var(--dim);
+            "
+          >
+            {{ group.label }}
+          </span>
+          <button
+            style="
+              margin-left: auto;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 11px;
+              font-weight: 600;
+              padding: 5px 10px;
+              border-radius: 999px;
+              border: 1px solid var(--border);
+              background: transparent;
+              color: var(--dim);
+              min-height: 32px;
+            "
+            @click="openNewForm(group.type)"
+          >
+            <Icon name="plus" :size="12" />
+            Add
+          </button>
         </div>
 
-        <!-- Per-type groups -->
-        <div v-for="group in TYPE_GROUPS" :key="group.type">
-          <!-- Group header -->
+        <!-- Items list -->
+        <div style="display: flex; flex-direction: column">
           <div
+            v-for="[name, ing] in ingsByType(group.type)"
+            :key="name"
             style="
               display: flex;
               align-items: center;
-              gap: 8px;
-              margin-bottom: 4px;
+              gap: 11px;
+              padding: 10px 2px;
+              border-top: 1px solid var(--border);
+              min-height: 48px;
             "
           >
-            <span style="display: flex; color: var(--accent)">
-              <Icon :name="group.icon" :size="16" />
-            </span>
-            <span
-              style="
-                font-size: 12px;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                color: var(--dim);
-              "
-            >
-              {{ group.label }}
-            </span>
+            <div style="min-width: 0; flex: 1">
+              <div
+                style="
+                  font-size: 13.5px;
+                  font-weight: 600;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                "
+              >
+                {{ name }}
+              </div>
+              <div style="font-size: 11px; color: var(--faint)">
+                {{ metaLine(ing) }}
+              </div>
+            </div>
             <button
+              title="Edit"
               style="
-                margin-left: auto;
                 cursor: pointer;
                 display: flex;
+                width: 32px;
+                height: 32px;
+                flex-shrink: 0;
                 align-items: center;
-                gap: 4px;
-                font-size: 11px;
-                font-weight: 600;
-                padding: 5px 10px;
-                border-radius: 999px;
+                justify-content: center;
+                border-radius: 8px;
                 border: 1px solid var(--border);
                 background: transparent;
                 color: var(--dim);
-                min-height: 32px;
               "
-              @click="openNewForm(group.type)"
+              @click="openEditForm(name)"
             >
-              <Icon name="plus" :size="12" />
-              Add
+              <Icon name="pencil" :size="15" />
             </button>
-          </div>
-
-          <!-- Items list -->
-          <div style="display: flex; flex-direction: column">
-            <div
-              v-for="[name, ing] in ingsByType(group.type)"
-              :key="name"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 11px;
-                padding: 10px 2px;
-                border-top: 1px solid var(--border);
-                min-height: 48px;
-              "
-            >
-              <div style="min-width: 0; flex: 1">
-                <div
-                  style="
-                    font-size: 13.5px;
-                    font-weight: 600;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                  "
-                >
-                  {{ name }}
-                </div>
-                <div style="font-size: 11px; color: var(--faint)">
-                  {{ metaLine(ing) }}
-                </div>
-              </div>
-              <button
-                title="Edit"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  width: 32px;
-                  height: 32px;
-                  flex-shrink: 0;
-                  align-items: center;
-                  justify-content: center;
-                  border-radius: 8px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--dim);
-                "
-                @click="openEditForm(name)"
-              >
-                <Icon name="pencil" :size="15" />
-              </button>
-              <button
-                title="Remove"
-                class="ing-delete-btn"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  width: 32px;
-                  height: 32px;
-                  flex-shrink: 0;
-                  align-items: center;
-                  justify-content: center;
-                  border-radius: 8px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--faint);
-                "
-                @click="handleDelete(name)"
-              >
-                <Icon name="trash" :size="15" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Bottom "Add an ingredient" CTA -->
-        <button
-          style="
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 14px;
-            border-radius: var(--rs);
-            border: 1.5px dashed var(--accent);
-            background: var(--accent-soft);
-            color: var(--accent);
-            font-size: 14px;
-            font-weight: 700;
-            min-height: 48px;
-          "
-          @click="openNewForm('spirit')"
-        >
-          <Icon name="plus" :size="16" />
-          Add an ingredient
-        </button>
-      </div>
-
-      <!-- FORM mode -->
-      <div v-else style="display: flex; flex-direction: column; gap: 13px">
-        <!-- Form title -->
-        <div
-          style="
-            font-family: var(--font-disp);
-            font-weight: 600;
-            font-size: 15px;
-          "
-        >
-          {{ form.mode === 'new' ? 'New ingredient' : `Edit ${form.key}` }}
-        </div>
-
-        <!-- Type selector (new only) -->
-        <div v-if="form.mode === 'new'">
-          <div
-            style="
-              font-size: 12px;
-              color: var(--dim);
-              font-weight: 600;
-              margin-bottom: 7px;
-            "
-          >
-            Type
-          </div>
-          <div style="display: flex; flex-wrap: wrap; gap: 6px">
             <button
-              v-for="group in TYPE_GROUPS"
-              :key="group.type"
+              title="Remove"
+              class="ing-delete-btn"
               style="
                 cursor: pointer;
-                font-size: 12px;
-                font-weight: 600;
-                padding: 7px 13px;
-                border-radius: 999px;
-                min-height: 34px;
+                display: flex;
+                width: 32px;
+                height: 32px;
+                flex-shrink: 0;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: transparent;
+                color: var(--faint);
               "
-              :style="{
-                border:
-                  form.type === group.type
-                    ? '1.5px solid var(--accent)'
-                    : '1.5px solid var(--border)',
-                background:
-                  form.type === group.type
-                    ? 'var(--accent-soft)'
-                    : 'transparent',
-                color:
-                  form.type === group.type ? 'var(--accent)' : 'var(--dim)',
-              }"
-              @click="form.type = group.type"
+              @click="handleDelete(name)"
             >
-              {{ group.label }}
+              <Icon name="trash" :size="15" />
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- Name -->
-        <div style="display: flex; flex-direction: column; gap: 6px">
+      <!-- Bottom "Add an ingredient" CTA -->
+      <button
+        style="
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 14px;
+          border-radius: var(--rs);
+          border: 1.5px dashed var(--accent);
+          background: var(--accent-soft);
+          color: var(--accent);
+          font-size: 14px;
+          font-weight: 700;
+          min-height: 48px;
+        "
+        @click="openNewForm('spirit')"
+      >
+        <Icon name="plus" :size="16" />
+        Add an ingredient
+      </button>
+    </div>
+
+    <!-- FORM mode -->
+    <div v-else style="display: flex; flex-direction: column; gap: 13px">
+      <!-- Form title -->
+      <div
+        style="font-family: var(--font-disp); font-weight: 600; font-size: 15px"
+      >
+        {{ form.mode === 'new' ? 'New ingredient' : `Edit ${form.key}` }}
+      </div>
+
+      <!-- Type selector (new only) -->
+      <div v-if="form.mode === 'new'">
+        <div
+          style="
+            font-size: 12px;
+            color: var(--dim);
+            font-weight: 600;
+            margin-bottom: 7px;
+          "
+        >
+          Type
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <button
+            v-for="group in TYPE_GROUPS"
+            :key="group.type"
+            style="
+              cursor: pointer;
+              font-size: 12px;
+              font-weight: 600;
+              padding: 7px 13px;
+              border-radius: 999px;
+              min-height: 34px;
+            "
+            :style="{
+              border:
+                form.type === group.type
+                  ? '1.5px solid var(--accent)'
+                  : '1.5px solid var(--border)',
+              background:
+                form.type === group.type ? 'var(--accent-soft)' : 'transparent',
+              color: form.type === group.type ? 'var(--accent)' : 'var(--dim)',
+            }"
+            @click="form.type = group.type"
+          >
+            {{ group.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Name -->
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label style="font-size: 12px; color: var(--dim); font-weight: 600">
+          Name
+        </label>
+        <input
+          v-model="form.name"
+          placeholder="e.g. Premium Gin 70cl"
+          style="
+            font-size: 15px;
+            padding: 11px 13px;
+            border-radius: var(--rs);
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-family: var(--font-body);
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+          "
+        />
+      </div>
+
+      <!-- ABV + Volume / Unit (conditional) -->
+      <div
+        v-if="hasAbv || hasVol || !hasVol"
+        style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
+      >
+        <div
+          v-if="hasAbv"
+          style="display: flex; flex-direction: column; gap: 6px"
+        >
           <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-            Name
+            Strength (ABV %)
           </label>
           <input
-            v-model="form.name"
-            placeholder="e.g. Premium Gin 70cl"
+            v-model="form.abv"
+            inputmode="decimal"
+            placeholder="0"
             style="
               font-size: 15px;
               padding: 11px 13px;
@@ -500,181 +472,149 @@ function handleClose() {
             "
           />
         </div>
-
-        <!-- ABV + Volume / Unit (conditional) -->
         <div
-          v-if="hasAbv || hasVol || !hasVol"
-          style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
+          v-if="hasVol"
+          style="display: flex; flex-direction: column; gap: 6px"
         >
-          <div
-            v-if="hasAbv"
-            style="display: flex; flex-direction: column; gap: 6px"
-          >
-            <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-              Strength (ABV %)
-            </label>
-            <input
-              v-model="form.abv"
-              inputmode="decimal"
-              placeholder="0"
-              style="
-                font-size: 15px;
-                padding: 11px 13px;
-                border-radius: var(--rs);
-                border: 1px solid var(--border);
-                background: var(--surface2);
-                color: var(--text);
-                font-family: var(--font-body);
-                outline: none;
-                width: 100%;
-                box-sizing: border-box;
-              "
-            />
-          </div>
-          <div
-            v-if="hasVol"
-            style="display: flex; flex-direction: column; gap: 6px"
-          >
-            <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-              Bottle size (ml)
-            </label>
-            <input
-              v-model="form.vol"
-              inputmode="numeric"
-              placeholder="0"
-              style="
-                font-size: 15px;
-                padding: 11px 13px;
-                border-radius: var(--rs);
-                border: 1px solid var(--border);
-                background: var(--surface2);
-                color: var(--text);
-                font-family: var(--font-body);
-                outline: none;
-                width: 100%;
-                box-sizing: border-box;
-              "
-            />
-          </div>
-          <div
-            v-if="!hasVol"
-            style="display: flex; flex-direction: column; gap: 6px"
-          >
-            <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-              Unit
-            </label>
-            <input
-              v-model="form.unit"
-              placeholder="e.g. kg / pcs"
-              style="
-                font-size: 15px;
-                padding: 11px 13px;
-                border-radius: var(--rs);
-                border: 1px solid var(--border);
-                background: var(--surface2);
-                color: var(--text);
-                font-family: var(--font-body);
-                outline: none;
-                width: 100%;
-                box-sizing: border-box;
-              "
-            />
-          </div>
-        </div>
-
-        <!-- Price from / Price to -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-              Price from (€)
-            </label>
-            <input
-              v-model="form.priceMin"
-              inputmode="decimal"
-              placeholder="0.00"
-              style="
-                font-size: 15px;
-                padding: 11px 13px;
-                border-radius: var(--rs);
-                border: 1px solid var(--border);
-                background: var(--surface2);
-                color: var(--text);
-                font-family: var(--font-body);
-                outline: none;
-                width: 100%;
-                box-sizing: border-box;
-              "
-            />
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-              Price to (€)
-            </label>
-            <input
-              v-model="form.priceMax"
-              inputmode="decimal"
-              placeholder="0.00"
-              style="
-                font-size: 15px;
-                padding: 11px 13px;
-                border-radius: var(--rs);
-                border: 1px solid var(--border);
-                background: var(--surface2);
-                color: var(--text);
-                font-family: var(--font-body);
-                outline: none;
-                width: 100%;
-                box-sizing: border-box;
-              "
-            />
-          </div>
-        </div>
-
-        <!-- Back / Save -->
-        <div style="display: flex; gap: 9px">
-          <button
+          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
+            Bottle size (ml)
+          </label>
+          <input
+            v-model="form.vol"
+            inputmode="numeric"
+            placeholder="0"
             style="
-              cursor: pointer;
-              flex-shrink: 0;
-              padding: 13px 18px;
+              font-size: 15px;
+              padding: 11px 13px;
               border-radius: var(--rs);
               border: 1px solid var(--border);
-              background: transparent;
-              color: var(--dim);
-              font-size: 14px;
-              font-weight: 600;
+              background: var(--surface2);
+              color: var(--text);
               font-family: var(--font-body);
+              outline: none;
+              width: 100%;
+              box-sizing: border-box;
             "
-            @click="form = null"
-          >
-            Back
-          </button>
-          <button
+          />
+        </div>
+        <div
+          v-if="!hasVol"
+          style="display: flex; flex-direction: column; gap: 6px"
+        >
+          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
+            Unit
+          </label>
+          <input
+            v-model="form.unit"
+            placeholder="e.g. kg / pcs"
             style="
-              cursor: pointer;
-              flex: 1;
-              padding: 13px;
+              font-size: 15px;
+              padding: 11px 13px;
               border-radius: var(--rs);
-              border: none;
-              font-size: 14px;
-              font-weight: 700;
+              border: 1px solid var(--border);
+              background: var(--surface2);
+              color: var(--text);
               font-family: var(--font-body);
-              color: var(--on-accent);
+              outline: none;
+              width: 100%;
+              box-sizing: border-box;
             "
-            :style="{
-              background: canSave ? 'var(--accent)' : 'var(--faint)',
-              opacity: canSave ? 1 : 0.5,
-              cursor: canSave ? 'pointer' : 'not-allowed',
-            }"
-            :disabled="!canSave"
-            @click="handleSave"
-          >
-            Save
-          </button>
+          />
         </div>
       </div>
+
+      <!-- Price from / Price to -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
+            Price from (€)
+          </label>
+          <input
+            v-model="form.priceMin"
+            inputmode="decimal"
+            placeholder="0.00"
+            style="
+              font-size: 15px;
+              padding: 11px 13px;
+              border-radius: var(--rs);
+              border: 1px solid var(--border);
+              background: var(--surface2);
+              color: var(--text);
+              font-family: var(--font-body);
+              outline: none;
+              width: 100%;
+              box-sizing: border-box;
+            "
+          />
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
+            Price to (€)
+          </label>
+          <input
+            v-model="form.priceMax"
+            inputmode="decimal"
+            placeholder="0.00"
+            style="
+              font-size: 15px;
+              padding: 11px 13px;
+              border-radius: var(--rs);
+              border: 1px solid var(--border);
+              background: var(--surface2);
+              color: var(--text);
+              font-family: var(--font-body);
+              outline: none;
+              width: 100%;
+              box-sizing: border-box;
+            "
+          />
+        </div>
+      </div>
+
+      <!-- Back / Save -->
+      <div style="display: flex; gap: 9px">
+        <button
+          style="
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 13px 18px;
+            border-radius: var(--rs);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--dim);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-body);
+          "
+          @click="form = null"
+        >
+          Back
+        </button>
+        <button
+          style="
+            cursor: pointer;
+            flex: 1;
+            padding: 13px;
+            border-radius: var(--rs);
+            border: none;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: var(--font-body);
+            color: var(--on-accent);
+          "
+          :style="{
+            background: canSave ? 'var(--accent)' : 'var(--faint)',
+            opacity: canSave ? 1 : 0.5,
+            cursor: canSave ? 'pointer' : 'not-allowed',
+          }"
+          :disabled="!canSave"
+          @click="handleSave"
+        >
+          Save
+        </button>
+      </div>
     </div>
-  </Modal>
+  </ModalShell>
 </template>
 
 <style scoped>

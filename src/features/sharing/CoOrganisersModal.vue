@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { collaboratorUrl, linkLabel } from '../../../shared/urls';
 import { useStore } from '../../store/store';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
@@ -74,10 +74,11 @@ watch(
 </script>
 
 <template>
-  <Modal
+  <ModalShell
+    v-slot="{ titleId }"
     :open="store.state.membersOpen"
     variant="sheet"
-    max-width="460px"
+    size="md"
     @close="store.closeMembers()"
   >
     <div style="padding: 22px">
@@ -104,6 +105,7 @@ watch(
           <Icon name="users" :size="17" />
         </span>
         <div
+          :id="titleId"
           style="
             font-family: var(--font-disp);
             font-weight: 600;
@@ -334,5 +336,5 @@ watch(
         </div>
       </template>
     </div>
-  </Modal>
+  </ModalShell>
 </template>

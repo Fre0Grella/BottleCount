@@ -2,8 +2,9 @@
 import { computed } from 'vue';
 import { useStore } from '../../store/store';
 import { coverOf } from '../party/covers';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
+import Toggle from '../../components/ui/Toggle.vue';
 import ShareChannels from './ShareChannels.vue';
 import { inviteUrl, linkLabel } from '../../../shared/urls';
 import { shortDate } from '../../lib/dates';
@@ -86,218 +87,118 @@ function handleClose() {
 </script>
 
 <template>
-  <Modal
+  <ModalShell
     :open="store.state.shareOpen"
     variant="sheet"
-    max-width="460px"
+    size="md"
+    icon="share"
     @close="handleClose"
   >
-    <div style="padding: 22px">
-      <!-- Header -->
+    <template #title>Invite to {{ party?.name ?? '' }}</template>
+
+    <!-- Preview card -->
+    <div
+      style="
+        border-radius: var(--rs);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        margin-bottom: 16px;
+      "
+    >
       <div
         style="
+          height: 74px;
           display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 16px;
+          align-items: flex-end;
+          padding: 10px;
         "
+        :style="{ background: cover.grad }"
       >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            background: var(--accent-soft);
-            color: var(--accent);
-          "
-        >
-          <Icon name="share" :size="18" />
-        </span>
+        <span style="font-size: 24px">{{ cover.emoji }}</span>
+      </div>
+      <div style="padding: 12px 14px; background: var(--surface2)">
         <div
           style="
             font-family: var(--font-disp);
             font-weight: 700;
-            font-size: 17px;
+            font-size: 15px;
           "
         >
-          Invite to {{ party?.name ?? '' }}
+          {{ party?.name ?? '' }}
         </div>
-        <button
-          style="
-            margin-left: auto;
-            cursor: pointer;
-            display: flex;
-            width: 32px;
-            height: 32px;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            background: transparent;
-            color: var(--dim);
-          "
-          @click="handleClose"
-        >
-          <Icon name="x" :size="18" />
-        </button>
-      </div>
-
-      <!-- Preview card -->
-      <div
-        style="
-          border-radius: var(--rs);
-          overflow: hidden;
-          border: 1px solid var(--border);
-          margin-bottom: 16px;
-        "
-      >
+        <div style="font-size: 12px; color: var(--dim); margin-top: 2px">
+          {{ venueWhere }} · {{ partyDateShort }}
+        </div>
         <div
           style="
-            height: 74px;
-            display: flex;
-            align-items: flex-end;
-            padding: 10px;
-          "
-          :style="{ background: cover.grad }"
-        >
-          <span style="font-size: 24px">{{ cover.emoji }}</span>
-        </div>
-        <div style="padding: 12px 14px; background: var(--surface2)">
-          <div
-            style="
-              font-family: var(--font-disp);
-              font-weight: 700;
-              font-size: 15px;
-            "
-          >
-            {{ party?.name ?? '' }}
-          </div>
-          <div style="font-size: 12px; color: var(--dim); margin-top: 2px">
-            {{ venueWhere }} · {{ partyDateShort }}
-          </div>
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              font-size: 11px;
-              color: var(--faint);
-              margin-top: 8px;
-            "
-          >
-            <Icon name="link" :size="12" />
-            <span v-if="publishing">Creating your link…</span>
-            <span v-else-if="publishFailed" style="color: var(--bad)">
-              Couldn't reach the server — try again in a moment.
-            </span>
-            <span
-              v-else
-              style="user-select: all; overflow-wrap: anywhere"
-              data-testid="invite-link"
-              >{{ inviteLinkLabel }}</span
-            >
-          </div>
-        </div>
-      </div>
-
-      <!--
-        The sheet closes by unmounting, so the channels' notice and QR start
-        fresh on every open without a reset of their own.
-      -->
-      <ShareChannels
-        :link="inviteLink"
-        :message="message"
-        :email-subject="`You're invited: ${party?.name ?? 'a party'}`"
-        :share-title="party?.name ?? ''"
-        :qr-file-name="qrFileName"
-        sent-note=" — watch the RSVPs roll in."
-      />
-
-      <!-- Allow forward toggle -->
-      <div
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 13px 14px;
-          border-radius: var(--rs);
-          background: var(--surface2);
-        "
-        :style="{
-          border: `1px solid ${allowForward ? 'var(--accent)' : 'var(--border)'}`,
-        }"
-        @click="store.update((p) => (p.allowForward = !p.allowForward))"
-      >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 9px;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-          "
-          :style="{
-            background: allowForward ? 'var(--accent-soft)' : 'var(--track)',
-            color: allowForward ? 'var(--accent)' : 'var(--faint)',
-          }"
-        >
-          <Icon name="share" :size="16" />
-        </span>
-        <div style="flex: 1">
-          <div style="font-size: 13px; font-weight: 600">
-            Let guests invite friends
-          </div>
-          <div style="font-size: 11px; color: var(--faint)">
-            Your invite gets a "+ bring a friend" button
-          </div>
-        </div>
-        <!-- Toggle switch -->
-        <span
-          style="
             display: flex;
             align-items: center;
-            width: 42px;
-            height: 24px;
-            border-radius: 999px;
-            padding: 3px;
-            transition: background 0.2s;
-            flex-shrink: 0;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--faint);
+            margin-top: 8px;
           "
-          :style="{
-            background: allowForward ? 'var(--accent)' : 'var(--track)',
-          }"
         >
+          <Icon name="link" :size="12" />
+          <span v-if="publishing">Creating your link…</span>
+          <span v-else-if="publishFailed" style="color: var(--bad)">
+            Couldn't reach the server — try again in a moment.
+          </span>
           <span
-            style="
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              background: #fff;
-              transition: transform 0.2s;
-            "
-            :style="{
-              transform: allowForward ? 'translateX(18px)' : 'translateX(0)',
-            }"
-          />
-        </span>
-      </div>
-
-      <!-- Footer hint -->
-      <div
-        style="
-          font-size: 11px;
-          color: var(--faint);
-          text-align: center;
-          margin-top: 12px;
-        "
-      >
-        {{ shareHint }}
+            v-else
+            style="user-select: all; overflow-wrap: anywhere"
+            data-testid="invite-link"
+            >{{ inviteLinkLabel }}</span
+          >
+        </div>
       </div>
     </div>
-  </Modal>
+
+    <!--
+      The sheet closes by unmounting, so the channels' notice and QR start
+      fresh on every open without a reset of their own.
+    -->
+    <ShareChannels
+      :link="inviteLink"
+      :message="message"
+      :email-subject="`You're invited: ${party?.name ?? 'a party'}`"
+      :share-title="party?.name ?? ''"
+      :qr-file-name="qrFileName"
+      sent-note=" — watch the RSVPs roll in."
+    />
+
+    <!-- Allow forward toggle -->
+    <Toggle
+      :model-value="allowForward"
+      icon="share"
+      :tile-size="34"
+      :icon-size="16"
+      style="
+        padding: 13px 14px;
+        border-radius: var(--rs);
+        background: var(--surface2);
+      "
+      :style="{
+        border: `1px solid ${allowForward ? 'var(--accent)' : 'var(--border)'}`,
+      }"
+      @update:model-value="(on) => store.update((p) => (p.allowForward = on))"
+    >
+      Let guests invite friends
+      <template #description>
+        Your invite gets a "+ bring a friend" button
+      </template>
+    </Toggle>
+
+    <!-- Footer hint -->
+    <div
+      style="
+        font-size: 11px;
+        color: var(--faint);
+        text-align: center;
+        margin-top: 12px;
+      "
+    >
+      {{ shareHint }}
+    </div>
+  </ModalShell>
 </template>

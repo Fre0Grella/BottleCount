@@ -2,7 +2,7 @@
 import { computed, ref, watch, nextTick } from 'vue';
 import { optionalContact } from '../../../shared/contact';
 import { useStore } from '../../store/store';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 
 /**
@@ -88,156 +88,104 @@ const canSubmit = computed(
 </script>
 
 <template>
-  <Modal
+  <ModalShell
     :open="store.state.addGuestOpen"
     variant="sheet"
-    max-width="420px"
+    size="sm"
+    :icon="editing ? 'mail' : 'users'"
     @close="handleClose"
   >
-    <div style="padding: 22px">
-      <!-- Header -->
-      <div
+    <template #title>{{
+      editing ? `Contact for ${editing.name}` : 'Add a guest'
+    }}</template>
+
+    <!-- Name field -->
+    <template v-if="!editing">
+      <label class="guest-label">Guest name</label>
+      <input
+        ref="inputRef"
+        v-model="name"
+        class="guest-input"
+        placeholder="e.g. Sofia Marlowe"
+        @keydown.enter="submit"
+      />
+    </template>
+
+    <label class="guest-label">Email <span>(optional)</span></label>
+    <input
+      :ref="editing ? 'inputRef' : undefined"
+      v-model="email"
+      class="guest-input"
+      type="email"
+      inputmode="email"
+      autocomplete="off"
+      spellcheck="false"
+      placeholder="sofia@example.com"
+      @keydown.enter="submit"
+    />
+
+    <label class="guest-label"
+      >Phone <span>(optional, for WhatsApp)</span></label
+    >
+    <input
+      v-model="phone"
+      class="guest-input"
+      type="tel"
+      inputmode="tel"
+      autocomplete="off"
+      placeholder="+39 333 123 4567"
+      @keydown.enter="submit"
+    />
+
+    <p class="guest-hint">
+      Used only to send their ticket for this party. Without a country code, a
+      number is taken to be Italian.
+    </p>
+    <p v-if="error" class="guest-error">{{ error }}</p>
+
+    <!-- Actions -->
+    <div style="display: flex; gap: 9px">
+      <button
         style="
+          flex: 1;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          padding: 12px;
+          border-radius: var(--rs);
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--dim);
+        "
+        @click="handleClose"
+      >
+        Cancel
+      </button>
+      <button
+        :disabled="!canSubmit"
+        style="
+          flex: 2;
+          cursor: pointer;
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-bottom: 16px;
+          justify-content: center;
+          gap: 7px;
+          font-size: 14px;
+          font-weight: 700;
+          padding: 12px;
+          border-radius: var(--rs);
+          border: none;
+          background: var(--accent);
+          color: var(--on-accent);
         "
+        :style="{ opacity: canSubmit ? '1' : '0.5' }"
+        @click="submit"
       >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            background: var(--accent-soft);
-            color: var(--accent);
-          "
-        >
-          <Icon :name="editing ? 'mail' : 'users'" :size="18" />
-        </span>
-        <div
-          style="
-            font-family: var(--font-disp);
-            font-weight: 700;
-            font-size: 17px;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          "
-        >
-          {{ editing ? `Contact for ${editing.name}` : 'Add a guest' }}
-        </div>
-        <button
-          style="
-            margin-left: auto;
-            cursor: pointer;
-            display: flex;
-            width: 32px;
-            height: 32px;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            background: transparent;
-            color: var(--dim);
-          "
-          @click="handleClose"
-        >
-          <Icon name="x" :size="18" />
-        </button>
-      </div>
-
-      <!-- Name field -->
-      <template v-if="!editing">
-        <label class="guest-label">Guest name</label>
-        <input
-          ref="inputRef"
-          v-model="name"
-          class="guest-input"
-          placeholder="e.g. Sofia Marlowe"
-          @keydown.enter="submit"
-        />
-      </template>
-
-      <label class="guest-label">Email <span>(optional)</span></label>
-      <input
-        :ref="editing ? 'inputRef' : undefined"
-        v-model="email"
-        class="guest-input"
-        type="email"
-        inputmode="email"
-        autocomplete="off"
-        spellcheck="false"
-        placeholder="sofia@example.com"
-        @keydown.enter="submit"
-      />
-
-      <label class="guest-label"
-        >Phone <span>(optional, for WhatsApp)</span></label
-      >
-      <input
-        v-model="phone"
-        class="guest-input"
-        type="tel"
-        inputmode="tel"
-        autocomplete="off"
-        placeholder="+39 333 123 4567"
-        @keydown.enter="submit"
-      />
-
-      <p class="guest-hint">
-        Used only to send their ticket for this party. Without a country code, a
-        number is taken to be Italian.
-      </p>
-      <p v-if="error" class="guest-error">{{ error }}</p>
-
-      <!-- Actions -->
-      <div style="display: flex; gap: 9px">
-        <button
-          style="
-            flex: 1;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            padding: 12px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--dim);
-          "
-          @click="handleClose"
-        >
-          Cancel
-        </button>
-        <button
-          :disabled="!canSubmit"
-          style="
-            flex: 2;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            font-size: 14px;
-            font-weight: 700;
-            padding: 12px;
-            border-radius: var(--rs);
-            border: none;
-            background: var(--accent);
-            color: var(--on-accent);
-          "
-          :style="{ opacity: canSubmit ? '1' : '0.5' }"
-          @click="submit"
-        >
-          <Icon :name="editing ? 'check' : 'plus'" :size="15" />
-          {{ editing ? (saving ? 'Saving…' : 'Save') : 'Add to list' }}
-        </button>
-      </div>
+        <Icon :name="editing ? 'check' : 'plus'" :size="15" />
+        {{ editing ? (saving ? 'Saving…' : 'Save') : 'Add to list' }}
+      </button>
     </div>
-  </Modal>
+  </ModalShell>
 </template>
 
 <style scoped>

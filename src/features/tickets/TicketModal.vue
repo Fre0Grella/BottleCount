@@ -9,7 +9,7 @@ import {
   ticketPayload,
   ticketExpiryLabel,
 } from './ticket';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
@@ -73,10 +73,11 @@ watch(
 </script>
 
 <template>
-  <Modal
+  <ModalShell
+    v-slot="{ titleId }"
     :open="store.state.ticketFor !== null"
     variant="center"
-    max-width="320px"
+    size="xs"
     @close="store.closeTicket()"
   >
     <div
@@ -103,6 +104,7 @@ watch(
 
       <!-- Guest name -->
       <div
+        :id="titleId"
         style="
           font-family: var(--font-disp);
           font-weight: 700;
@@ -186,5 +188,5 @@ watch(
         Done
       </button>
     </div>
-  </Modal>
+  </ModalShell>
 </template>
