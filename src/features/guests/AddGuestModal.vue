@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue';
+import { computed, ref, watch, nextTick, useId } from 'vue';
 import { optionalContact } from '../../../shared/contact';
 import { useStore } from '../../store/store';
 import ModalShell from '../../components/ui/ModalShell.vue';
+import Field from '../../components/ui/Field.vue';
 import Icon from '../../components/ui/Icon.vue';
 
 /**
@@ -19,6 +20,7 @@ const phone = ref('');
 const error = ref<string | null>(null);
 const saving = ref(false);
 const inputRef = ref<HTMLInputElement | null>(null);
+const hintId = useId();
 
 /** The guest being edited, or null when adding a new one. */
 const editing = computed(() => {
@@ -100,85 +102,74 @@ const canSubmit = computed(
     }}</template>
 
     <!-- Name field -->
-    <template v-if="!editing">
-      <label class="guest-label">Guest name</label>
+    <Field
+      v-if="!editing"
+      v-slot="{ id }"
+      label="Guest name"
+      class="guest-field"
+    >
       <input
+        :id="id"
         ref="inputRef"
         v-model="name"
-        class="guest-input"
         placeholder="e.g. Sofia Marlowe"
         @keydown.enter="submit"
       />
-    </template>
+    </Field>
 
-    <label class="guest-label">Email <span>(optional)</span></label>
-    <input
-      :ref="editing ? 'inputRef' : undefined"
-      v-model="email"
-      class="guest-input"
-      type="email"
-      inputmode="email"
-      autocomplete="off"
-      spellcheck="false"
-      placeholder="sofia@example.com"
-      @keydown.enter="submit"
-    />
-
-    <label class="guest-label"
-      >Phone <span>(optional, for WhatsApp)</span></label
+    <Field
+      v-slot="{ id }"
+      label="Email"
+      optional="(optional)"
+      class="guest-field"
     >
-    <input
-      v-model="phone"
-      class="guest-input"
-      type="tel"
-      inputmode="tel"
-      autocomplete="off"
-      placeholder="+39 333 123 4567"
-      @keydown.enter="submit"
-    />
+      <input
+        :id="id"
+        :ref="editing ? 'inputRef' : undefined"
+        v-model="email"
+        type="email"
+        inputmode="email"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="sofia@example.com"
+        :aria-describedby="hintId"
+        @keydown.enter="submit"
+      />
+    </Field>
 
-    <p class="guest-hint">
+    <Field
+      v-slot="{ id }"
+      label="Phone"
+      optional="(optional, for WhatsApp)"
+      class="guest-field"
+    >
+      <input
+        :id="id"
+        v-model="phone"
+        type="tel"
+        inputmode="tel"
+        autocomplete="off"
+        placeholder="+39 333 123 4567"
+        :aria-describedby="hintId"
+        @keydown.enter="submit"
+      />
+    </Field>
+
+    <p :id="hintId" class="guest-hint">
       Used only to send their ticket for this party. Without a country code, a
       number is taken to be Italian.
     </p>
-    <p v-if="error" class="guest-error">{{ error }}</p>
+    <p v-if="error" class="guest-error" role="alert">{{ error }}</p>
 
     <!-- Actions -->
-    <div style="display: flex; gap: 9px">
-      <button
-        style="
-          flex: 1;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 600;
-          padding: 12px;
-          border-radius: var(--rs);
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--dim);
-        "
-        @click="handleClose"
-      >
+    <div class="guest-actions">
+      <button type="button" class="guest-cancel" @click="handleClose">
         Cancel
       </button>
       <button
+        type="button"
+        class="guest-submit"
         :disabled="!canSubmit"
-        style="
-          flex: 2;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          font-size: 14px;
-          font-weight: 700;
-          padding: 12px;
-          border-radius: var(--rs);
-          border: none;
-          background: var(--accent);
-          color: var(--on-accent);
-        "
-        :style="{ opacity: canSubmit ? '1' : '0.5' }"
         @click="submit"
       >
         <Icon :name="editing ? 'check' : 'plus'" :size="15" />
@@ -189,28 +180,7 @@ const canSubmit = computed(
 </template>
 
 <style scoped>
-.guest-label {
-  display: block;
-  font-size: 12px;
-  color: var(--dim);
-  font-weight: 600;
-  margin-bottom: 7px;
-}
-.guest-label span {
-  font-weight: 500;
-  color: var(--faint);
-}
-.guest-input {
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 15px;
-  padding: 12px 13px;
-  border-radius: var(--rs);
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  color: var(--text);
-  font-family: inherit;
-  outline: none;
+.guest-field {
   margin-bottom: 14px;
 }
 .guest-hint {
@@ -223,5 +193,37 @@ const canSubmit = computed(
   margin: -6px 0 14px;
   font-size: 12px;
   color: var(--bad);
+}
+.guest-actions {
+  display: flex;
+  gap: 9px;
+}
+.guest-cancel,
+.guest-submit {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 12px;
+  border-radius: var(--rs);
+}
+.guest-cancel {
+  flex: 1;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+}
+.guest-submit {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 700;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.guest-submit:disabled {
+  opacity: 0.5;
 }
 </style>

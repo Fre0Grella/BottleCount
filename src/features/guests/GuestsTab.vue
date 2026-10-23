@@ -2,21 +2,29 @@
 import { computed, onMounted, ref } from 'vue';
 import { isPaidParty } from '../../../shared/payments';
 import { ticketState } from '../../../shared/tickets';
-import { venueFeeFor, venueFeePerPerson } from '../party/core';
-import { mailtoUrl, whatsappUrl } from '../sharing/sendLinks';
 import {
-  sendRoute,
-  signedTicketLink,
-  ticketEmailSubject,
-  ticketMessage,
-} from '../tickets/ticketMessage';
+  funnelBar,
+  funnelGroups,
+  initial,
+  isNameless,
+  referrerFirst,
+  rowAvatarOpacity,
+  spreadAvatarOpacity,
+  spreadFactor,
+  venueFeeLine,
+} from './funnel';
+import { togglePaid } from './markPaid';
 import type { Invite } from '../../lib/types';
+import type { IconName } from '../../lib/icons';
 import { useStore } from '../../store/store';
 import { formatClockTime } from '../../lib/dates';
 import { segColor } from '../../lib/display';
 import Icon from '../../components/ui/Icon.vue';
+import Card from '../../components/ui/Card.vue';
+import IconTile from '../../components/ui/IconTile.vue';
+import PillButton from '../../components/ui/PillButton.vue';
+import ProgressBar from '../../components/ui/ProgressBar.vue';
 import ProLock from '../account/ProLock.vue';
-import type { InviteStatus } from '../../lib/types';
 
 const store = useStore();
 
@@ -30,10 +38,8 @@ const filteredInvites = computed(() => {
   return invites.value.filter((i) => i.name.toLowerCase().includes(q));
 });
 
-const confirmed = computed(() =>
-  invites.value.filter((i) => i.status === 'confirmed'),
-);
-const checkedIn = computed(() => confirmed.value.filter((i) => i.used).length);
+const groups = computed(() => funnelGroups(invites.value));
+const confirmed = computed(() => groups.value.confirmed);
 
 /**
  * Whether guests pay for this party — a price and a way to pay the host. The
@@ -46,96 +52,20 @@ function unpaid(inv: Invite): boolean {
   return ticketState(inv, party.value) === 'unpaid';
 }
 
-/**
- * Marks a guest as paid and, since the ticket is what they paid for, starts
- * sending it: straight into WhatsApp or the mail app when they left only one
- * way to reach them, the Send sheet otherwise. Un-marking only un-marks.
- *
- * Paid is set on this device first (see `setInvitePaid`), which is what lets
- * the ticket be made at all. The WhatsApp tab is opened here, inside the tap,
- * and pointed at the chat once the ticket is signed — opened after the await,
- * a popup blocker would swallow it.
- */
-async function togglePaid(inv: Invite): Promise<void> {
-  if (inv.paidAt) {
-    void store.setInvitePaid(inv.id, false);
-    return;
-  }
-
-  const route = sendRoute(inv);
-  const tab = route === 'whatsapp' ? window.open('', '_blank') : null;
-  const marked = store.setInvitePaid(inv.id, true);
-
-  if (route === 'sheet') {
-    store.openSendTicket(inv.id);
-    await marked;
-    return;
-  }
-
-  const p = party.value;
-  try {
-    if (!p) throw new Error('no party');
-    const link = await signedTicketLink(p, inv.id);
-    const message = ticketMessage(p, inv.name, link);
-    if (route === 'whatsapp') {
-      const url = whatsappUrl(message, inv.phone);
-      if (tab) tab.location.href = url;
-      else window.location.href = url;
-    } else {
-      window.location.href = mailtoUrl(
-        ticketEmailSubject(p),
-        message,
-        inv.email,
-      );
-    }
-  } catch {
-    // No ticket to send: close the blank tab rather than leave it behind. The
-    // guest stays marked paid, and the Send button is there to try again.
-    tab?.close();
-  }
-  await marked;
+function markPaid(inv: Invite): void {
+  void togglePaid(store, party.value, inv);
 }
 
-const paidCount = computed(
-  () => confirmed.value.filter((i) => i.paidAt).length,
-);
-/**
- * What the venue's per-person fee comes to for the guests the host is bringing.
- *
- * The Plan tab's figure is for the expected count. This one is what the host
- * commits to: on a party guests pay for, everyone marked as paid — a paid guest
- * who then stays home still counts, because the host told the venue a number
- * and pays for it. A free party has no paid marks, so it counts who is coming.
- */
 const venueFee = computed(() => {
   const p = party.value;
   if (!p) return null;
-  const fee = venueFeePerPerson(p.settings);
-  if (fee === 0) return null;
-  const guests = paidParty.value ? paidCount.value : confirmed.value.length;
-  return {
-    guests,
-    who: paidParty.value ? 'paid' : 'coming',
-    fee,
-    total: venueFeeFor(p.settings, guests),
-  };
+  return venueFeeLine(
+    p.settings,
+    paidParty.value,
+    confirmed.value.length,
+    groups.value.paid,
+  );
 });
-
-const paidW = computed(() =>
-  confirmed.value.length
-    ? `${Math.min(100, (paidCount.value / confirmed.value.length) * 100)}%`
-    : '0%',
-);
-// Opened the link and stopped there. The funnel's "maybe" column — not people
-// the host invited and is waiting on, but people who looked and did not answer.
-const opened = computed(() =>
-  invites.value.filter((i) => i.status === 'opened'),
-);
-const declined = computed(() =>
-  invites.value.filter((i) => i.status === 'declined'),
-);
-const direct = computed(() => invites.value.filter((i) => i.depth === 0));
-const viral = computed(() => invites.value.filter((i) => i.depth > 0));
 
 const capacity = computed(() => party.value?.settings.guests ?? 1);
 
@@ -145,69 +75,73 @@ const hasMax = computed(() => party.value?.settings.max_capacity != null);
 const maxCap = computed(
   () => party.value?.settings.max_capacity ?? capacity.value,
 );
-const barScale = computed(() => (hasMax.value ? maxCap.value : capacity.value));
-
-// Confirmed guests up to the expected headcount (healthy / green).
-const confirmedWithinW = computed(() => {
-  const within = Math.min(confirmed.value.length, capacity.value);
-  return `${Math.min(100, (within / barScale.value) * 100)}%`;
-});
-// Confirmed guests beyond expected but under the cap (accent / filling up).
-const confirmedOverW = computed(() => {
-  if (!hasMax.value) return '0%';
-  const over = Math.max(
-    0,
-    Math.min(confirmed.value.length, maxCap.value) - capacity.value,
-  );
-  return `${Math.min(100, (over / barScale.value) * 100)}%`;
-});
-const openedW = computed(() => {
-  const usedPct =
-    (Math.min(confirmed.value.length, barScale.value) / barScale.value) * 100;
-  const pct = (opened.value.length / barScale.value) * 100;
-  return `${Math.max(0, Math.min(pct, 100 - usedPct))}%`;
-});
-// Position of the "expected headcount" marker along the capped bar.
-const expectedMarkerLeft = computed(
-  () => `${Math.min(100, (capacity.value / barScale.value) * 100)}%`,
+const bar = computed(() =>
+  funnelBar(
+    confirmed.value.length,
+    groups.value.opened.length,
+    capacity.value,
+    hasMax.value ? maxCap.value : null,
+  ),
 );
+const pct = (n: number) => `${n}%`;
 
-const checkInW = computed(() =>
-  confirmed.value.length
-    ? `${Math.min(100, (checkedIn.value / confirmed.value.length) * 100)}%`
-    : '0%',
+const stats = computed<
+  {
+    label: string;
+    icon: IconName;
+    iconTone: string;
+    value: number;
+    tone: string;
+  }[]
+>(() => [
+  {
+    label: 'Reached',
+    icon: 'users',
+    iconTone: 'dim',
+    value: invites.value.length,
+    tone: 'text',
+  },
+  {
+    label: 'Confirmed',
+    icon: 'check',
+    iconTone: 'good',
+    value: confirmed.value.length,
+    tone: 'good',
+  },
+  {
+    label: 'Maybe',
+    icon: 'hourglass',
+    iconTone: 'dim',
+    value: groups.value.opened.length,
+    tone: 'text',
+  },
+  {
+    label: 'Declined',
+    icon: 'x',
+    iconTone: 'faint',
+    value: groups.value.declined.length,
+    tone: 'faint',
+  },
+]);
+
+const tiers = computed(() => [
+  {
+    key: 'direct',
+    invites: groups.value.direct,
+    name: 'Direct invites',
+    sub: 'invited by you',
+  },
+  {
+    key: 'viral',
+    invites: groups.value.viral,
+    name: 'Friends-of-friends',
+    sub: 'forwarded by guests',
+  },
+]);
+
+const spread = computed(() =>
+  spreadFactor(invites.value.length, groups.value.direct.length),
 );
-
-const spreadFactor = computed(() => {
-  const total = invites.value.length;
-  const d = Math.max(1, direct.value.length);
-  return (total / d).toFixed(1) + '×';
-});
-
-function avatarOpacity(status: InviteStatus) {
-  if (status === 'confirmed') return 1;
-  if (status === 'opened') return 0.55;
-  return 0.35;
-}
-
-function initial(name: string) {
-  return name.trim().charAt(0).toUpperCase() || '?';
-}
-
-/**
- * Someone who opened the link and has not answered has not told anyone who
- * they are — the name only arrives with the answer. They are still a row,
- * because that is what "Reached" and "Maybe" count, so give them a label
- * rather than an empty line.
- */
-function isNameless(inv: { name: string }) {
-  return inv.name.trim() === '';
-}
-
-function referrerFirst(referrer: string | null) {
-  if (!referrer) return '';
-  return referrer.trim().split(' ')[0];
-}
 
 function addGuest() {
   store.openAddGuest();
@@ -235,15 +169,7 @@ const lastSyncedLabel = computed(() => {
 </script>
 
 <template>
-  <div
-    style="
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding-bottom: 32px;
-      animation: bcFadeUp 0.3s ease both;
-    "
-  >
+  <div class="guests">
     <!--
       The funnel and the spread view both count people who arrived through an
       invite link. On the free tier no such link exists, so there is nothing
@@ -256,277 +182,67 @@ const lastSyncedLabel = computed(() => {
       blurb="See who replied, who is still a maybe, and how far the invite travelled."
     >
       <!-- ── RSVP Funnel card ── -->
-      <div
-        style="
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--r);
-          padding: 20px;
-        "
-      >
-        <!-- header -->
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-          "
-        >
-          <span
-            style="
-              display: flex;
-              width: 34px;
-              height: 34px;
-              border-radius: 10px;
-              align-items: center;
-              justify-content: center;
-              background: var(--accent-soft);
-              color: var(--accent);
-            "
-          >
-            <Icon name="users" :size="17" />
-          </span>
-          <div
-            style="
-              font-family: var(--font-disp);
-              font-weight: 600;
-              font-size: 16px;
-            "
-          >
-            RSVP funnel
-          </div>
+      <Card pad="lg">
+        <div class="head head--funnel">
+          <IconTile icon="users" />
+          <div class="title">RSVP funnel</div>
 
           <!--
             Only shown once the link is live. Before that the numbers are all
             zero and a "last updated" stamp would suggest the page is waiting
             for something that is never coming.
           -->
-          <span
-            v-if="published && lastSyncedLabel"
-            style="
-              margin-left: auto;
-              display: flex;
-              align-items: center;
-              gap: 5px;
-              font-size: 10.5px;
-              color: var(--faint);
-            "
-          >
+          <span v-if="published && lastSyncedLabel" class="live">
             <span
-              style="
-                width: 6px;
-                height: 6px;
-                border-radius: 50%;
-                background: var(--good);
-              "
-              :style="{ opacity: store.state.funnelSyncing ? 0.4 : 1 }"
+              class="live-dot"
+              :class="{ 'live-dot--syncing': store.state.funnelSyncing }"
             ></span>
             Live · {{ lastSyncedLabel }}
           </span>
 
-          <button
-            style="
-              margin-left: auto;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              gap: 7px;
-              font-size: 13px;
-              font-weight: 700;
-              padding: 9px 16px;
-              border-radius: 999px;
-              border: none;
-              background: var(--accent);
-              color: var(--on-accent);
-              min-height: 40px;
-            "
-            :style="{ marginLeft: published && lastSyncedLabel ? '0' : 'auto' }"
+          <PillButton
+            label="Send invite"
+            icon="share"
+            variant="accent"
+            size="lg"
+            class="send-invite"
+            :class="{ 'send-invite--after-live': published && lastSyncedLabel }"
             @click="store.openShare()"
-          >
-            <span style="display: flex"><Icon name="share" :size="14" /></span>
-            Send invite
-          </button>
+          />
         </div>
 
-        <!-- explanation -->
-        <div
-          style="
-            font-size: 11.5px;
-            color: var(--dim);
-            line-height: 1.55;
-            margin-bottom: 13px;
-          "
-        >
+        <div class="intro">
           <template v-if="published">
             Your link is live. Anyone who opens it RSVPs
-            <strong style="color: var(--text); font-weight: 600"
-              >with their own name</strong
-            >
+            <strong>with their own name</strong>
             and lands in the guest list below — including the ones who look and
             never answer, which is what <em>Reached</em> counts.
           </template>
           <template v-else>
             Hit
-            <strong style="color: var(--text); font-weight: 600"
-              >Send invite</strong
-            >
+            <strong>Send invite</strong>
             to create your link. Anyone who opens it RSVPs with their own name
             and lands in the guest list below. You never type them in.
           </template>
         </div>
 
         <!-- stat boxes: 2×2 on phone, 1×4 on desktop -->
-        <div
-          style="gap: 10px; margin-bottom: 16px"
-          :style="{
-            display: 'grid',
-            gridTemplateColumns: isPhone ? '1fr 1fr' : '1fr 1fr 1fr 1fr',
-          }"
-        >
-          <!-- Reached -->
-          <div
-            style="
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px 13px;
-            "
-          >
-            <div style="display: flex; align-items: center; gap: 6px">
-              <span style="display: flex; color: var(--dim)"
-                ><Icon name="users" :size="13"
+        <div class="stats" :class="{ 'stats--phone': isPhone }">
+          <div v-for="s in stats" :key="s.label" class="stat">
+            <div class="stat-head">
+              <span class="ico" :class="`tone-${s.iconTone}`"
+                ><Icon :name="s.icon" :size="13"
               /></span>
-              <span
-                style="
-                  font-size: 10px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.06em;
-                  color: var(--faint);
-                "
-                >Reached</span
-              >
+              <span class="stat-label">{{ s.label }}</span>
             </div>
-            <div
-              style="
-                margin-top: 5px;
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 22px;
-                color: var(--text);
-              "
-            >
-              {{ invites.length }}
-            </div>
-          </div>
-
-          <!-- Confirmed -->
-          <div
-            style="
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px 13px;
-            "
-          >
-            <div style="display: flex; align-items: center; gap: 6px">
-              <span style="display: flex; color: var(--good)"
-                ><Icon name="check" :size="13"
-              /></span>
-              <span
-                style="
-                  font-size: 10px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.06em;
-                  color: var(--faint);
-                "
-                >Confirmed</span
-              >
-            </div>
-            <div
-              style="
-                margin-top: 5px;
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 22px;
-                color: var(--good);
-              "
-            >
-              {{ confirmed.length }}
-            </div>
-          </div>
-
-          <!-- Maybe -->
-          <div
-            style="
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px 13px;
-            "
-          >
-            <div style="display: flex; align-items: center; gap: 6px">
-              <span style="display: flex; color: var(--dim)"
-                ><Icon name="hourglass" :size="13"
-              /></span>
-              <span
-                style="
-                  font-size: 10px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.06em;
-                  color: var(--faint);
-                "
-                >Maybe</span
-              >
-            </div>
-            <div
-              style="
-                margin-top: 5px;
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 22px;
-                color: var(--text);
-              "
-            >
-              {{ opened.length }}
-            </div>
-          </div>
-
-          <!-- Declined -->
-          <div
-            style="
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px 13px;
-            "
-          >
-            <div style="display: flex; align-items: center; gap: 6px">
-              <span style="display: flex; color: var(--faint)"
-                ><Icon name="x" :size="13"
-              /></span>
-              <span
-                style="
-                  font-size: 10px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.06em;
-                  color: var(--faint);
-                "
-                >Declined</span
-              >
-            </div>
-            <div
-              style="
-                margin-top: 5px;
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 22px;
-                color: var(--faint);
-              "
-            >
-              {{ declined.length }}
+            <div class="stat-value" :class="`tone-${s.tone}`">
+              {{ s.value }}
             </div>
           </div>
         </div>
 
         <!-- funnel bar -->
-        <div style="font-size: 11px; color: var(--faint); margin-bottom: 7px">
+        <div class="bar-caption">
           <template v-if="hasMax">
             Filling {{ capacity }} expected toward a {{ maxCap }} cap — green is
             on target, amber is past expected
@@ -536,623 +252,197 @@ const lastSyncedLabel = computed(() => {
             maybe
           </template>
         </div>
-        <div
-          style="
-            position: relative;
-            display: flex;
-            height: 14px;
-            border-radius: 999px;
-            overflow: hidden;
-            background: var(--track);
-          "
-        >
+        <div class="funnel-bar">
           <!-- confirmed, within expected -->
-          <div
-            :style="{ width: confirmedWithinW, background: 'var(--good)' }"
-          ></div>
+          <div class="seg seg--good" :style="{ width: pct(bar.within) }"></div>
           <!-- confirmed, past expected but under cap -->
           <div
             v-if="hasMax"
-            :style="{ width: confirmedOverW, background: 'var(--accent)' }"
+            class="seg seg--accent"
+            :style="{ width: pct(bar.over) }"
           ></div>
           <!-- still maybe -->
           <div
-            :style="{
-              width: openedW,
-              background: hasMax ? 'var(--accent)' : 'var(--good)',
-              opacity: '0.32',
-            }"
+            class="seg seg--maybe"
+            :class="hasMax ? 'seg--accent' : 'seg--good'"
+            :style="{ width: pct(bar.maybe) }"
           ></div>
           <!-- expected-headcount marker (only when a cap is set) -->
           <div
             v-if="hasMax"
-            :style="{ left: expectedMarkerLeft }"
-            style="
-              position: absolute;
-              top: -2px;
-              bottom: -2px;
-              width: 2px;
-              background: var(--text);
-              opacity: 0.55;
-              transform: translateX(-1px);
-            "
+            class="marker"
+            :style="{ left: pct(bar.marker) }"
           ></div>
         </div>
-        <div
-          style="
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            margin-top: 6px;
-          "
-        >
-          <span style="font-size: 11px; color: var(--dim); font-weight: 600">
+        <div class="bar-foot">
+          <span class="bar-count">
             {{ confirmed.length }}/{{ hasMax ? maxCap : capacity }}
             {{ hasMax ? 'to cap' : '' }}
           </span>
-          <span v-if="hasMax" style="font-size: 11px; color: var(--faint)">
+          <span v-if="hasMax" class="bar-expected">
             {{ capacity }} expected
           </span>
         </div>
-      </div>
+      </Card>
 
       <!-- ── Spread card ── -->
-      <div
-        style="
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--r);
-          padding: 20px;
-        "
-      >
-        <!-- header -->
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 4px;
-          "
-        >
-          <span
-            style="
-              display: flex;
-              width: 34px;
-              height: 34px;
-              border-radius: 10px;
-              align-items: center;
-              justify-content: center;
-              background: var(--accent-soft);
-              color: var(--accent);
-            "
-          >
-            <Icon name="share" :size="17" />
-          </span>
+      <Card pad="lg">
+        <div class="head head--spread">
+          <IconTile icon="share" />
           <div>
-            <div
-              style="
-                font-family: var(--font-disp);
-                font-weight: 600;
-                font-size: 16px;
-              "
-            >
-              How far the word spread
-            </div>
-            <div style="font-size: 11px; color: var(--faint)">
-              guests inviting their own friends
-            </div>
+            <div class="title">How far the word spread</div>
+            <div class="subtitle">guests inviting their own friends</div>
           </div>
-          <!-- spread factor top-right -->
-          <div style="margin-left: auto; text-align: right">
-            <div
-              style="
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 20px;
-                color: var(--accent);
-              "
-            >
-              {{ spreadFactor }}
-            </div>
-            <div
-              style="
-                font-size: 10px;
-                color: var(--faint);
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-              "
-            >
-              spread factor
-            </div>
+          <div class="factor">
+            <div class="factor-value">{{ spread }}</div>
+            <div class="factor-label">spread factor</div>
           </div>
         </div>
 
-        <!-- tier boxes -->
-        <div
-          style="
-            display: flex;
-            align-items: stretch;
-            gap: 8px;
-            margin-top: 14px;
-          "
-        >
-          <!-- You -->
-          <div
-            style="
-              flex: 1;
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px;
-              text-align: center;
-            "
-          >
-            <div
-              style="display: flex; justify-content: center; margin-bottom: 8px"
-            >
+        <div class="tiers">
+          <div class="tier">
+            <div class="tier-avatars">
+              <span class="star">★</span>
+            </div>
+            <div class="tier-value tier-value--you">1</div>
+            <div class="tier-name">You</div>
+            <div class="tier-sub">the host</div>
+          </div>
+
+          <div v-for="t in tiers" :key="t.key" class="tier">
+            <div class="tier-avatars">
               <span
-                style="
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 26px;
-                  height: 26px;
-                  border-radius: 50%;
-                  background: var(--accent);
-                  color: #fff;
-                  font-size: 12px;
-                "
-                >★</span
+                v-for="inv in t.invites.slice(0, 4)"
+                :key="inv.id"
+                class="tier-avatar"
+                :style="{
+                  background: segColor(inv.id),
+                  opacity: String(spreadAvatarOpacity(inv.status)),
+                }"
+                >{{ initial(inv.name) }}</span
               >
             </div>
-            <div
-              style="
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 20px;
-                color: var(--accent);
-              "
-            >
-              1
-            </div>
-            <div style="font-size: 10.5px; color: var(--dim); font-weight: 600">
-              You
-            </div>
-            <div style="font-size: 9.5px; color: var(--faint); margin-top: 1px">
-              the host
-            </div>
-          </div>
-
-          <!-- Direct invites -->
-          <div
-            style="
-              flex: 1;
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px;
-              text-align: center;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                justify-content: center;
-                margin-bottom: 8px;
-                min-height: 26px;
-              "
-            >
-              <template v-for="(inv, idx) in direct.slice(0, 4)" :key="inv.id">
-                <span
-                  style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 50%;
-                    color: #fff;
-                    font-size: 10px;
-                    font-weight: 700;
-                    border: 2px solid var(--surface2);
-                  "
-                  :style="{
-                    background: segColor(inv.id),
-                    marginLeft: idx === 0 ? '0' : '-8px',
-                    opacity: String(avatarOpacity(inv.status)),
-                  }"
-                  >{{ initial(inv.name) }}</span
-                >
-              </template>
-            </div>
-            <div
-              style="
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 20px;
-                color: var(--text);
-              "
-            >
-              {{ direct.length }}
-            </div>
-            <div style="font-size: 10.5px; color: var(--dim); font-weight: 600">
-              Direct invites
-            </div>
-            <div style="font-size: 9.5px; color: var(--faint); margin-top: 1px">
-              invited by you
-            </div>
-          </div>
-
-          <!-- Friends of friends -->
-          <div
-            style="
-              flex: 1;
-              background: var(--surface2);
-              border-radius: var(--rs);
-              padding: 12px;
-              text-align: center;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                justify-content: center;
-                margin-bottom: 8px;
-                min-height: 26px;
-              "
-            >
-              <template v-for="(inv, idx) in viral.slice(0, 4)" :key="inv.id">
-                <span
-                  style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 50%;
-                    color: #fff;
-                    font-size: 10px;
-                    font-weight: 700;
-                    border: 2px solid var(--surface2);
-                  "
-                  :style="{
-                    background: segColor(inv.id),
-                    marginLeft: idx === 0 ? '0' : '-8px',
-                    opacity: String(avatarOpacity(inv.status)),
-                  }"
-                  >{{ initial(inv.name) }}</span
-                >
-              </template>
-            </div>
-            <div
-              style="
-                font-family: var(--font-disp);
-                font-weight: 700;
-                font-size: 20px;
-                color: var(--text);
-              "
-            >
-              {{ viral.length }}
-            </div>
-            <div style="font-size: 10.5px; color: var(--dim); font-weight: 600">
-              Friends-of-friends
-            </div>
-            <div style="font-size: 9.5px; color: var(--faint); margin-top: 1px">
-              forwarded by guests
-            </div>
+            <div class="tier-value">{{ t.invites.length }}</div>
+            <div class="tier-name">{{ t.name }}</div>
+            <div class="tier-sub">{{ t.sub }}</div>
           </div>
         </div>
 
-        <!-- explanation text -->
-        <div
-          style="
-            font-size: 11px;
-            color: var(--faint);
-            line-height: 1.55;
-            margin-top: 13px;
-          "
-        >
+        <div class="spread-note">
           With
-          <strong style="color: var(--dim); font-weight: 600"
-            >"let guests invite friends"</strong
-          >
+          <strong>"let guests invite friends"</strong>
           on, your guests can forward the invite to their own friends — anyone
           they bring lands in this tier.
         </div>
-      </div>
+      </Card>
     </ProLock>
 
     <!-- ── Guest list card ── -->
-    <div
-      style="
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r);
-        padding: 20px;
-      "
-    >
-      <!-- header -->
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
-        "
-      >
-        <div
-          style="
-            font-family: var(--font-disp);
-            font-weight: 600;
-            font-size: 15px;
-          "
-        >
-          Guest list
-        </div>
-        <button
-          style="
-            margin-left: auto;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            font-weight: 700;
-            padding: 8px 14px;
-            border-radius: 999px;
-            border: 1px solid var(--accent);
-            background: transparent;
-            color: var(--accent);
-            min-height: 36px;
-          "
+    <Card pad="lg">
+      <div class="head head--list">
+        <div class="title title--list">Guest list</div>
+        <PillButton
+          label="Door mode"
+          icon="scan"
+          variant="outline"
+          size="md"
+          class="push-right"
           @click="store.openDoor()"
-        >
-          <span style="display: flex"><Icon name="scan" :size="14" /></span>
-          Door mode
-        </button>
+        />
       </div>
 
-      <!-- checked-in progress bar -->
-      <div style="margin-bottom: 14px">
-        <div
-          style="
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            margin-bottom: 6px;
-          "
-        >
-          <span
-            style="
-              display: flex;
-              align-items: center;
-              gap: 5px;
-              font-size: 11px;
-              font-weight: 600;
-              color: var(--dim);
-            "
-          >
-            <span style="display: flex; color: var(--good)"
-              ><Icon name="check" :size="12"
-            /></span>
+      <div class="meter">
+        <div class="meter-head">
+          <span class="meter-label">
+            <span class="ico tone-good"><Icon name="check" :size="12" /></span>
             Checked in
           </span>
-          <span style="font-size: 11px; font-weight: 700; color: var(--good)">
-            {{ checkedIn }}/{{ confirmed.length }}
+          <span class="meter-count tone-good">
+            {{ groups.checkedIn }}/{{ confirmed.length }}
           </span>
         </div>
-        <div
-          style="
-            height: 8px;
-            border-radius: 999px;
-            background: var(--track);
-            overflow: hidden;
-          "
-        >
-          <div
-            :style="{ width: checkInW }"
-            style="
-              height: 100%;
-              border-radius: 999px;
-              background: var(--good);
-              transition: width 0.25s ease;
-            "
-          ></div>
-        </div>
+        <ProgressBar
+          :value="groups.checkedIn"
+          :max="confirmed.length"
+          label="Checked in"
+          :value-text="`${groups.checkedIn} of ${confirmed.length}`"
+        />
       </div>
 
       <!-- paid progress bar, for a party guests pay for -->
-      <div v-if="paidParty" style="margin: -4px 0 14px">
-        <div
-          style="
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            margin-bottom: 6px;
-          "
-        >
-          <span
-            style="
-              display: flex;
-              align-items: center;
-              gap: 5px;
-              font-size: 11px;
-              font-weight: 600;
-              color: var(--dim);
-            "
-          >
-            <span style="display: flex; color: var(--accent)"
-              ><Icon name="euro" :size="12"
-            /></span>
+      <div v-if="paidParty" class="meter meter--tucked">
+        <div class="meter-head">
+          <span class="meter-label">
+            <span class="ico tone-accent"><Icon name="euro" :size="12" /></span>
             Paid
           </span>
-          <span
-            style="font-size: 11px; font-weight: 700; color: var(--accent)"
-            data-test="paid-count"
-          >
-            {{ paidCount }}/{{ confirmed.length }}
-            <span
-              v-if="confirmed.length > paidCount"
-              style="font-weight: 500; color: var(--faint)"
-            >
-              · {{ confirmed.length - paidCount }} to pay
+          <span class="meter-count tone-accent" data-test="paid-count">
+            {{ groups.paid }}/{{ confirmed.length }}
+            <span v-if="confirmed.length > groups.paid" class="to-pay">
+              · {{ confirmed.length - groups.paid }} to pay
             </span>
           </span>
         </div>
-        <div
-          style="
-            height: 8px;
-            border-radius: 999px;
-            background: var(--track);
-            overflow: hidden;
-          "
-        >
-          <div
-            :style="{ width: paidW }"
-            style="
-              height: 100%;
-              border-radius: 999px;
-              background: var(--accent);
-              transition: width 0.25s ease;
-            "
-          ></div>
-        </div>
+        <ProgressBar
+          :value="groups.paid"
+          :max="confirmed.length"
+          label="Paid"
+          :value-text="`${groups.paid} of ${confirmed.length}`"
+          tone="accent"
+        />
       </div>
 
       <!-- What the venue's per-head fee comes to for the guests counted. -->
-      <div
-        v-if="venueFee"
-        data-test="venue-fee"
-        style="margin: -4px 0 14px; font-size: 11px; color: var(--faint)"
-      >
+      <div v-if="venueFee" data-test="venue-fee" class="venue-fee">
         Venue fee: {{ venueFee.guests }} {{ venueFee.who }} × €{{
           venueFee.fee
         }}
         =
-        <strong style="color: var(--dim)">€{{ venueFee.total }}</strong>
+        <strong>€{{ venueFee.total }}</strong>
       </div>
 
       <!-- add row -->
-      <div style="display: flex; gap: 8px; margin-bottom: 6px">
+      <div class="add-row">
         <input
           v-model="guestSearch"
+          class="search"
           placeholder="Search guests…"
-          style="
-            flex: 1;
-            font-size: 14px;
-            padding: 11px 13px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: var(--surface2);
-            color: var(--text);
-            min-width: 0;
-            font-family: inherit;
-          "
+          aria-label="Search guests"
           @keydown.escape="guestSearch = ''"
         />
-        <button
-          style="
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: 700;
-            padding: 0 16px;
-            border-radius: var(--rs);
-            border: 1.5px solid var(--accent);
-            background: transparent;
-            color: var(--accent);
-            min-height: 44px;
-          "
-          @click="addGuest"
-        >
-          <span style="display: flex"><Icon name="plus" :size="14" /></span>
+        <button type="button" class="add" @click="addGuest">
+          <span class="ico"><Icon name="plus" :size="14" /></span>
           Add
         </button>
       </div>
 
       <!-- invite rows -->
-      <div style="display: flex; flex-direction: column">
+      <div class="rows">
         <div
           v-for="inv in filteredInvites"
           :key="inv.id"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 2px;
-            border-top: 1px solid var(--border);
-            min-height: 56px;
-          "
-          :style="{ opacity: inv.status === 'declined' ? '0.6' : '1' }"
+          class="row"
+          :class="{ 'row--declined': inv.status === 'declined' }"
         >
-          <!-- avatar -->
           <span
-            style="
-              display: flex;
-              flex-shrink: 0;
-              width: 34px;
-              height: 34px;
-              border-radius: 50%;
-              color: #fff;
-              align-items: center;
-              justify-content: center;
-              font-size: 13px;
-              font-weight: 700;
-            "
+            class="avatar"
             :style="{
               background: segColor(inv.id),
-              opacity:
-                inv.status === 'confirmed'
-                  ? '1'
-                  : inv.status === 'opened'
-                    ? '0.7'
-                    : '0.45',
+              opacity: String(rowAvatarOpacity(inv.status)),
             }"
           >
             {{ initial(inv.name) }}
           </span>
 
           <!-- name + status -->
-          <div style="min-width: 0; flex: 1">
-            <div style="display: flex; align-items: center; gap: 7px">
-              <span
-                style="
-                  font-size: 14px;
-                  font-weight: 600;
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                "
-                :style="
-                  isNameless(inv)
-                    ? {
-                        fontStyle: 'italic',
-                        fontWeight: 500,
-                        color: 'var(--dim)',
-                      }
-                    : {}
-                "
-                >{{ isNameless(inv) ? 'Opened the link' : inv.name }}</span
-              >
+          <div class="row-main">
+            <div class="name-line">
+              <span class="name" :class="{ 'name--none': isNameless(inv) }">{{
+                isNameless(inv) ? 'Opened the link' : inv.name
+              }}</span>
               <!-- viral badge -->
-              <span
-                v-if="inv.depth > 0 && inv.referrer"
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 3px;
-                  font-size: 9px;
-                  font-weight: 600;
-                  padding: 2px 6px;
-                  border-radius: 999px;
-                  background: var(--accent-soft);
-                  color: var(--accent);
-                  flex-shrink: 0;
-                "
-              >
-                <span style="display: flex"
-                  ><Icon name="share" :size="9"
-                /></span>
+              <span v-if="inv.depth > 0 && inv.referrer" class="via">
+                <span class="ico"><Icon name="share" :size="9" /></span>
                 via {{ referrerFirst(inv.referrer) }}
               </span>
             </div>
@@ -1160,71 +450,30 @@ const lastSyncedLabel = computed(() => {
             <!-- status line -->
             <div
               v-if="inv.used && inv.status === 'confirmed'"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                font-size: 11px;
-                color: var(--good);
-                font-weight: 600;
-                margin-top: 1px;
-              "
+              class="status tone-good"
             >
-              <span style="display: flex"
-                ><Icon name="check" :size="11"
-              /></span>
+              <span class="ico"><Icon name="check" :size="11" /></span>
               Checked in · {{ formatClockTime(inv.usedAt) }}
             </div>
             <div
               v-else-if="inv.status === 'confirmed'"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                font-size: 11px;
-                color: var(--good);
-                font-weight: 600;
-                margin-top: 1px;
-              "
+              class="status tone-good"
             >
-              <span style="display: flex"
-                ><Icon name="check" :size="11"
-              /></span>
+              <span class="ico"><Icon name="check" :size="11" /></span>
               Coming
-              <span v-if="paidParty && inv.paidAt" style="color: var(--accent)">
+              <span v-if="paidParty && inv.paidAt" class="tone-accent">
                 · Paid
               </span>
             </div>
-            <div
-              v-else-if="inv.status === 'opened'"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                font-size: 11px;
-                color: var(--dim);
-                font-weight: 600;
-                margin-top: 1px;
-              "
-            >
-              <span style="display: flex"
-                ><Icon name="hourglass" :size="11"
-              /></span>
+            <div v-else-if="inv.status === 'opened'" class="status tone-dim">
+              <span class="ico"><Icon name="hourglass" :size="11" /></span>
               Maybe
             </div>
             <div
               v-else-if="inv.status === 'declined'"
-              style="
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                font-size: 11px;
-                color: var(--faint);
-                font-weight: 600;
-                margin-top: 1px;
-              "
+              class="status tone-faint"
             >
-              <span style="display: flex"><Icon name="x" :size="11" /></span>
+              <span class="ico"><Icon name="x" :size="11" /></span>
               Can't make it
             </div>
 
@@ -1232,37 +481,19 @@ const lastSyncedLabel = computed(() => {
               Where to send their ticket. Organisers only: the invite page
               never shows it, not even to the guest it belongs to.
             -->
-            <div
-              v-if="inv.email || inv.phone"
-              style="
-                font-size: 11px;
-                color: var(--faint);
-                margin-top: 2px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-              "
-            >
+            <div v-if="inv.email || inv.phone" class="contact">
               {{ [inv.email, inv.phone].filter(Boolean).join(' · ') }}
             </div>
             <div
               v-else-if="paidParty && inv.status === 'confirmed'"
-              style="font-size: 11px; color: var(--faint); margin-top: 2px"
+              class="contact contact--none"
             >
               No email or phone yet
             </div>
             <button
               v-if="inv.source === 'manual'"
-              style="
-                cursor: pointer;
-                padding: 0;
-                margin-top: 2px;
-                border: none;
-                background: none;
-                font-size: 11px;
-                font-weight: 600;
-                color: var(--accent);
-              "
+              type="button"
+              class="contact-edit"
               @click="store.openGuestContact(inv.id)"
             >
               {{
@@ -1271,180 +502,523 @@ const lastSyncedLabel = computed(() => {
             </button>
           </div>
 
-          <!-- action buttons -->
-          <div style="display: flex; gap: 6px; flex-shrink: 0">
+          <!-- action buttons; on a phone only their icons show -->
+          <div class="actions">
             <!--
               opened, no answer: the host can answer on their behalf — but only
               for someone with a name, since a confirmed guest gets a ticket
               made out to them.
             -->
             <template v-if="inv.status === 'opened'">
-              <button
+              <PillButton
                 v-if="!isNameless(inv)"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  padding: 8px 11px;
-                  border-radius: 999px;
-                  border: 1px solid var(--good);
-                  background: var(--good-soft);
-                  color: var(--good);
-                  min-height: 36px;
-                "
+                label="Accept"
+                icon="check"
+                variant="good"
+                :icon-only="isPhone"
                 @click="store.setInviteStatus(inv.id, 'confirmed')"
-              >
-                <span style="display: flex"
-                  ><Icon name="check" :size="13"
-                /></span>
-                <span v-if="!isPhone">Accept</span>
-              </button>
-              <button
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  padding: 8px 11px;
-                  border-radius: 999px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--faint);
-                  min-height: 36px;
-                "
+              />
+              <PillButton
+                label="Decline"
+                icon="x"
+                variant="quiet"
+                :icon-only="isPhone"
                 @click="store.setInviteStatus(inv.id, 'declined')"
-              >
-                <span style="display: flex"><Icon name="x" :size="13" /></span>
-                <span v-if="!isPhone">Decline</span>
-              </button>
+              />
             </template>
 
             <!-- confirmed: Paid (when guests pay) + Ticket + Send -->
             <template v-else-if="inv.status === 'confirmed'">
-              <button
+              <PillButton
                 v-if="paidParty"
-                :aria-pressed="!!inv.paidAt"
+                :label="inv.paidAt ? 'Paid' : 'Mark paid'"
+                :icon="inv.paidAt ? 'check' : 'euro'"
+                :variant="inv.paidAt ? 'accent' : 'outline'"
+                :pressed="!!inv.paidAt"
+                :icon-only="isPhone"
                 :title="inv.paidAt ? 'Paid — tap to undo' : 'Mark as paid'"
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  padding: 8px 11px;
-                  border-radius: 999px;
-                  border: 1px solid var(--accent);
-                  min-height: 36px;
-                "
-                :style="
-                  inv.paidAt
-                    ? { background: 'var(--accent)', color: 'var(--on-accent)' }
-                    : { background: 'transparent', color: 'var(--accent)' }
-                "
-                @click="togglePaid(inv)"
-              >
-                <span style="display: flex"
-                  ><Icon :name="inv.paidAt ? 'check' : 'euro'" :size="13"
-                /></span>
-                <span v-if="!isPhone">{{
-                  inv.paidAt ? 'Paid' : 'Mark paid'
-                }}</span>
-              </button>
+                @click="markPaid(inv)"
+              />
               <!-- The ticket is what the payment buys: none until it's in. -->
-              <span
-                v-if="unpaid(inv)"
-                style="
-                  display: flex;
-                  align-items: center;
-                  font-size: 11px;
-                  color: var(--faint);
-                  padding: 0 4px;
-                "
-              >
+              <span v-if="unpaid(inv)" class="after-pay">
                 <span v-if="!isPhone">Ticket after payment</span>
               </span>
               <template v-else>
-                <button
-                  style="
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    padding: 8px 11px;
-                    border-radius: 999px;
-                    border: 1px solid var(--accent);
-                    background: transparent;
-                    color: var(--accent);
-                    min-height: 36px;
-                  "
+                <PillButton
+                  label="Ticket"
+                  icon="ticket"
+                  variant="outline"
+                  :icon-only="isPhone"
                   @click="store.openTicket(inv.id)"
-                >
-                  <span style="display: flex"
-                    ><Icon name="ticket" :size="13"
-                  /></span>
-                  <span v-if="!isPhone">Ticket</span>
-                </button>
-                <button
-                  style="
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    padding: 8px 11px;
-                    border-radius: 999px;
-                    border: 1px solid var(--border);
-                    background: transparent;
-                    color: var(--dim);
-                    min-height: 36px;
-                  "
+                />
+                <PillButton
+                  label="Send"
+                  icon="mail"
+                  :icon-only="isPhone"
                   @click="store.openSendTicket(inv.id)"
-                >
-                  <span style="display: flex"
-                    ><Icon name="mail" :size="13"
-                  /></span>
-                  <span v-if="!isPhone">Send</span>
-                </button>
+                />
               </template>
             </template>
 
             <!-- declined: Reset -->
             <template v-else-if="inv.status === 'declined'">
-              <button
-                style="
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  padding: 8px 11px;
-                  border-radius: 999px;
-                  border: 1px solid var(--border);
-                  background: transparent;
-                  color: var(--dim);
-                  min-height: 36px;
-                "
+              <PillButton
+                label="Reset"
+                icon="arrowL"
+                :icon-only="isPhone"
                 @click="store.setInviteStatus(inv.id, 'opened')"
-              >
-                <span style="display: flex"
-                  ><Icon name="arrowL" :size="13"
-                /></span>
-                <span v-if="!isPhone">Reset</span>
-              </button>
+              />
             </template>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   </div>
 </template>
+
+<style scoped>
+.guests {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 32px;
+  animation: bcFadeUp 0.3s ease both;
+}
+
+.ico {
+  display: flex;
+}
+
+.tone-text {
+  color: var(--text);
+}
+.tone-dim {
+  color: var(--dim);
+}
+.tone-faint {
+  color: var(--faint);
+}
+.tone-good {
+  color: var(--good);
+}
+.tone-accent {
+  color: var(--accent);
+}
+
+/* ── card headers ── */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.head--funnel {
+  margin-bottom: 16px;
+}
+.head--spread {
+  margin-bottom: 4px;
+}
+.head--list {
+  margin-bottom: 12px;
+}
+
+.title {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 16px;
+}
+.title--list {
+  font-size: 15px;
+}
+.subtitle {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.push-right {
+  margin-left: auto;
+}
+
+/* ── funnel ── */
+.live {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+}
+.live-dot--syncing {
+  opacity: 0.4;
+}
+
+/* Wraps to two lines beside a long title on a phone, like the title does. */
+.head .send-invite {
+  margin-left: auto;
+  white-space: normal;
+}
+.head .send-invite :deep(.bc-icon) {
+  flex-shrink: 0;
+}
+.head .send-invite--after-live {
+  margin-left: 0;
+}
+
+.intro {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.55;
+  margin-bottom: 13px;
+}
+.intro strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stats--phone {
+  grid-template-columns: 1fr 1fr;
+}
+.stat {
+  background: var(--surface2);
+  border-radius: var(--rs);
+  padding: 12px 13px;
+}
+.stat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.stat-value {
+  margin-top: 5px;
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.bar-caption {
+  font-size: 11px;
+  color: var(--faint);
+  margin-bottom: 7px;
+}
+.funnel-bar {
+  position: relative;
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--track);
+}
+.seg--good {
+  background: var(--good);
+}
+.seg--accent {
+  background: var(--accent);
+}
+.seg--maybe {
+  opacity: 0.32;
+}
+.marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.55;
+  transform: translateX(-1px);
+}
+.bar-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+.bar-count {
+  font-size: 11px;
+  color: var(--dim);
+  font-weight: 600;
+}
+.bar-expected {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* ── spread ── */
+.factor {
+  margin-left: auto;
+  text-align: right;
+}
+.factor-value {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--accent);
+}
+.factor-label {
+  font-size: 10px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tiers {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 14px;
+}
+.tier {
+  flex: 1;
+  background: var(--surface2);
+  border-radius: var(--rs);
+  padding: 12px;
+  text-align: center;
+}
+.tier-avatars {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+  min-height: 26px;
+}
+.star,
+.tier-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.star {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+}
+.tier-avatar {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border: 2px solid var(--surface2);
+}
+.tier-avatar + .tier-avatar {
+  margin-left: -8px;
+}
+.tier-value {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text);
+}
+.tier-value--you {
+  color: var(--accent);
+}
+.tier-name {
+  font-size: 10.5px;
+  color: var(--dim);
+  font-weight: 600;
+}
+.tier-sub {
+  font-size: 9.5px;
+  color: var(--faint);
+  margin-top: 1px;
+}
+
+.spread-note {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.55;
+  margin-top: 13px;
+}
+.spread-note strong {
+  color: var(--dim);
+  font-weight: 600;
+}
+
+/* ── guest list ── */
+.meter {
+  margin-bottom: 14px;
+}
+.meter--tucked {
+  margin: -4px 0 14px;
+}
+.meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.meter-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.meter-count {
+  font-size: 11px;
+  font-weight: 700;
+}
+.to-pay {
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.venue-fee {
+  margin: -4px 0 14px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.venue-fee strong {
+  color: var(--dim);
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.search {
+  flex: 1;
+  font-size: 14px;
+  padding: 11px 13px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  min-width: 0;
+  font-family: inherit;
+}
+.add {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 16px;
+  border-radius: var(--rs);
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  min-height: 44px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-top: 1px solid var(--border);
+  min-height: 56px;
+}
+.row--declined {
+  opacity: 0.6;
+}
+.avatar {
+  display: flex;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.row-main {
+  min-width: 0;
+  flex: 1;
+}
+.name-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.name--none {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--dim);
+}
+.via {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+.contact {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.contact--none {
+  white-space: normal;
+}
+.contact-edit {
+  cursor: pointer;
+  padding: 0;
+  margin-top: 2px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.after-pay {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--faint);
+  padding: 0 4px;
+}
+</style>
