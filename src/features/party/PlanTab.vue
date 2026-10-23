@@ -45,7 +45,7 @@ const p = computed(() => store.activeParty());
 /** False when the venue runs the bar: the drink settings below go away. */
 const planningDrinks = computed(() => (p.value ? runsBar(p.value) : true));
 
-const isPhone = computed(() => store.state.device === 'phone');
+const isPhone = computed(store.isPhone);
 
 /** What an input event's field now holds. */
 function typed(e: Event): string {

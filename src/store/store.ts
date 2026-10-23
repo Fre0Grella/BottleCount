@@ -14,6 +14,7 @@ import * as door from '../features/tickets/door';
 import {
   activeParty,
   can,
+  isPhone,
   requestUpgrade,
   session,
   state,
@@ -282,6 +283,8 @@ export const store = {
   state,
   // theme
   toggleTheme,
+  // layout
+  isPhone,
   // party lifecycle
   activeParty,
   createParty,

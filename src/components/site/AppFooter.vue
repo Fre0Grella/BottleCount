@@ -13,6 +13,8 @@ const base = import.meta.env.BASE_URL as string;
       <div class="app-footer__group">
         <span class="app-footer__muted">© {{ year }} BottleCount</span>
         <span class="app-footer__sep">·</span>
+        <a class="app-footer__link" :href="`${base}docs`">Docs</a>
+        <span class="app-footer__sep">·</span>
         <a class="app-footer__link" :href="`${base}pricing`">Pricing</a>
         <span class="app-footer__sep">·</span>
         <a class="app-footer__link" :href="`${base}privacy`">Privacy</a>

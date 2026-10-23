@@ -105,6 +105,11 @@ export function activeParty(): Party | undefined {
   return state.parties.find((p) => p.id === state.activeId);
 }
 
+/** Whether the phone layout is on (lib/device.ts says when). */
+export function isPhone(): boolean {
+  return state.device === 'phone';
+}
+
 /** Writes a party to IndexedDB. */
 async function persist(p: Party): Promise<void> {
   // `p` is a Vue reactive Proxy; IndexedDB's structured-clone step throws
