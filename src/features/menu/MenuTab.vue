@@ -5,8 +5,11 @@ import { isSimpleCategory } from './menu';
 import { cocktailRecipe } from './catalog';
 import Icon from '../../components/ui/Icon.vue';
 import Toggle from '../../components/ui/Toggle.vue';
-import type { IconName } from '../../lib/icons';
-import { TYPE_META } from './ingredientTypes';
+import Card from '../../components/ui/Card.vue';
+import IconTile from '../../components/ui/IconTile.vue';
+import { categoryIcon } from './ingredientTypes';
+import { namesOfType } from './ingredients';
+import { quantityByName } from './shopping';
 import Slider from '../../components/ui/Slider.vue';
 import { segColor } from '../../lib/display';
 
@@ -29,15 +32,6 @@ function toggleRecipe(key: string): void {
   openRecipe.value = openRecipe.value === key ? null : key;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function catIcon(name: string): IconName {
-  const n = name.toLowerCase();
-  if (n.includes('beer')) return TYPE_META.beer.icon;
-  if (n.includes('wine')) return TYPE_META.wine.icon;
-  return TYPE_META.spirit.icon;
-}
-
 // ── Derived data ─────────────────────────────────────────────────────────────
 
 const party = computed(() => store.activeParty());
@@ -54,23 +48,22 @@ const menuEntries = computed(() =>
 );
 
 // shopping_list for qty lookup (best-effort)
-const shoppingMap = computed<Record<string, number>>(() => {
-  const list = store.calc().shopping_list;
-  const map: Record<string, number> = {};
-  for (const item of list) {
-    map[item.name] = (map[item.name] ?? 0) + item.quantity;
-  }
-  return map;
-});
+const shoppingMap = computed(() => quantityByName(store.calc().shopping_list));
 
 // ── Snacks ────────────────────────────────────────────────────────────────────
 
 const includeSnacks = computed(() => party.value?.includeSnacks ?? true);
 
-const snackNames = computed(() => {
-  const ings = store.state.catalog?.ingredients ?? {};
-  return Object.keys(ings).filter((k) => ings[k]?.type === 'snack');
-});
+const snackNames = computed(() => namesOfType(store.state.catalog, 'snack'));
+
+// ── Locks ─────────────────────────────────────────────────────────────────────
+
+const catLock = (cat: string) => 'm:' + cat;
+const spiritLock = (cat: string, spirit: string) => `s:${cat}:${spirit}`;
+
+function isLocked(key: string): boolean {
+  return !!party.value?.locks[key];
+}
 
 // ── Expanded state helpers ────────────────────────────────────────────────────
 
@@ -82,6 +75,10 @@ function toggleCat(cat: string): void {
   }
 }
 
+function isSpiritOpen(cat: string, spirit: string): boolean {
+  return store.state.expandedSpirit === `${cat}:${spirit}`;
+}
+
 function toggleSpirit(cat: string, spirit: string): void {
   const key = `${cat}:${spirit}`;
   store.state.expandedSpirit = store.state.expandedSpirit === key ? null : key;
@@ -89,122 +86,52 @@ function toggleSpirit(cat: string, spirit: string): void {
 </script>
 
 <template>
-  <div
-    v-if="party"
-    style="
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding-bottom: 32px;
-      animation: bcFadeUp 0.3s ease both;
-    "
-  >
+  <div v-if="party" class="menu">
     <!-- ── Macro mix card ─────────────────────────────────────────────────── -->
-    <div
-      style="
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r);
-        padding: var(--card-pad, 16px);
-      "
-    >
+    <Card pad="sm">
       <!-- Header -->
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 14px;
-        "
-      >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            background: var(--accent-soft);
-            color: var(--accent);
-          "
-        >
-          <Icon name="glass" />
-        </span>
-        <div
-          style="
-            font-family: var(--font-disp);
-            font-weight: 600;
-            font-size: 16px;
-          "
-        >
-          The pour mix
-        </div>
-        <span style="margin-left: auto; font-size: 11px; color: var(--faint)"
+      <div class="menu-mix__head">
+        <IconTile
+          icon="glass"
+          :size="34"
+          :icon-size="18"
+          class="menu-mix__tile"
+        />
+        <div class="menu-title">The pour mix</div>
+        <span class="menu-mix__hint"
           >drag bars · pin to lock · rest auto-balances</span
         >
       </div>
 
       <!-- Stacked bar -->
-      <div
-        style="
-          display: flex;
-          height: 16px;
-          border-radius: 999px;
-          overflow: hidden;
-          background: var(--track);
-          margin-bottom: 12px;
-        "
-      >
+      <div class="menu-mix__bar">
         <div
-          v-for="({ cat, catData, color }, i) in menuEntries"
+          v-for="{ cat, catData, color } in menuEntries"
           :key="cat"
-          :style="{
-            width: `${catData.macro_pct * 100}%`,
-            background: color,
-            transition: 'width 0.15s ease',
-            borderRadius:
-              i === 0
-                ? '999px 0 0 999px'
-                : i === menuEntries.length - 1
-                  ? '0 999px 999px 0'
-                  : '0',
-          }"
+          class="menu-mix__seg"
+          :style="{ width: `${catData.macro_pct * 100}%`, background: color }"
         />
       </div>
 
       <!-- Legend -->
-      <div style="display: flex; gap: 16px; flex-wrap: wrap">
+      <div class="menu-mix__legend">
         <div
           v-for="{ cat, catData, color } in menuEntries"
           :key="cat"
-          style="display: flex; align-items: center; gap: 7px"
+          class="menu-mix__item"
+          :style="{ '--seg': color }"
         >
-          <span :style="{ display: 'flex', color }">
-            <Icon :name="catIcon(cat)" :size="14" />
-          </span>
-          <span style="font-size: 12px; color: var(--dim); font-weight: 600">{{
-            cat
-          }}</span>
-          <span style="font-size: 12px; color: var(--text); font-weight: 600"
+          <Icon :name="categoryIcon(cat)" :size="14" class="menu-seg-text" />
+          <span class="menu-mix__name">{{ cat }}</span>
+          <span class="menu-mix__pct"
             >{{ Math.round(catData.macro_pct * 100) }}%</span
           >
         </div>
       </div>
-    </div>
+    </Card>
 
     <!-- ── Snacks toggle card ─────────────────────────────────────────────── -->
-    <div
-      style="
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r);
-        padding: var(--card-pad, 16px);
-      "
-      :style="{
-        borderColor: includeSnacks ? 'var(--accent)' : 'var(--border)',
-      }"
-    >
+    <Card pad="sm" :highlight="includeSnacks">
       <!-- toggle row -->
       <Toggle
         :model-value="includeSnacks"
@@ -221,137 +148,62 @@ function toggleSpirit(cat: string, spirit: string): void {
       </Toggle>
 
       <!-- snack chips -->
-      <div
-        v-if="includeSnacks && snackNames.length"
-        style="
-          display: flex;
-          flex-wrap: wrap;
-          gap: 7px;
-          margin-top: 14px;
-          animation: bcFadeUp 0.2s ease both;
-        "
-      >
-        <span
-          v-for="name in snackNames"
-          :key="name"
-          style="
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11.5px;
-            font-weight: 600;
-            color: var(--dim);
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: var(--surface2);
-            border: 1px solid var(--border);
-          "
-        >
+      <div v-if="includeSnacks && snackNames.length" class="menu-snacks">
+        <span v-for="name in snackNames" :key="name" class="menu-snack">
           {{ name }}
-          <span v-if="shoppingMap[name] != null" style="color: var(--faint)"
+          <span v-if="shoppingMap[name] != null" class="menu-faint"
             >· {{ shoppingMap[name] }}</span
           >
         </span>
       </div>
-    </div>
+    </Card>
 
     <!-- ── Per-category cards ─────────────────────────────────────────────── -->
-    <div
+    <Card
       v-for="{ cat, catData, color } in menuEntries"
       :key="cat"
-      style="
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r);
-        padding: var(--card-pad, 16px);
-      "
+      pad="sm"
+      :style="{ '--seg': color }"
     >
       <!-- Card header -->
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
-        "
-      >
-        <span
-          :style="{
-            display: 'flex',
-            width: '32px',
-            height: '32px',
-            borderRadius: '9px',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: `color-mix(in srgb, ${color} 15%, transparent)`,
-            color,
-          }"
-        >
-          <Icon :name="catIcon(cat)" />
-        </span>
+      <div class="menu-cat__head">
+        <IconTile
+          :icon="categoryIcon(cat)"
+          :size="32"
+          :icon-size="18"
+          class="menu-cat__tile"
+        />
         <div>
-          <div
-            style="
-              font-family: var(--font-disp);
-              font-weight: 600;
-              font-size: 16px;
-            "
-          >
-            {{ cat }}
-          </div>
-          <div style="font-size: 11px; color: var(--faint)">
+          <div class="menu-title">{{ cat }}</div>
+          <div class="menu-cat__count">
             {{ Object.keys(catData.spirits).length }} option{{
               Object.keys(catData.spirits).length === 1 ? '' : 's'
             }}
           </div>
         </div>
-        <span style="margin-left: auto; font-weight: 600; font-size: 20px"
+        <span class="menu-cat__pct"
           >{{ Math.round(catData.macro_pct * 100) }}%</span
         >
 
         <!-- Pin button -->
         <button
-          :title="party.locks['m:' + cat] ? 'Unlock share' : 'Lock share'"
-          style="
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
-            border: 1.5px solid;
-            transition:
-              background 0.15s,
-              color 0.15s;
-          "
-          :style="{
-            borderColor: party.locks['m:' + cat] ? color : 'var(--border)',
-            background: party.locks['m:' + cat]
-              ? `color-mix(in srgb, ${color} 18%, transparent)`
-              : 'transparent',
-            color: party.locks['m:' + cat] ? color : 'var(--dim)',
-          }"
-          @click="store.toggleLock('m:' + cat)"
+          type="button"
+          :title="isLocked(catLock(cat)) ? 'Unlock share' : 'Lock share'"
+          :aria-label="`Lock the ${cat} share`"
+          :aria-pressed="isLocked(catLock(cat))"
+          class="menu-icon-btn menu-icon-btn--lg menu-pin"
+          :class="{ 'is-locked': isLocked(catLock(cat)) }"
+          @click="store.toggleLock(catLock(cat))"
         >
           <Icon name="pin" :size="15" />
         </button>
 
         <!-- Chevron -->
         <button
-          style="
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--dim);
-            transition: color 0.15s;
-          "
+          type="button"
+          :aria-label="`${cat} options`"
+          :aria-expanded="store.state.expandedCat === cat"
+          class="menu-icon-btn menu-icon-btn--lg menu-chev"
           @click="toggleCat(cat)"
         >
           <Icon
@@ -369,71 +221,39 @@ function toggleSpirit(cat: string, spirit: string): void {
       />
 
       <!-- Expanded: spirits list -->
-      <div
-        v-if="store.state.expandedCat === cat"
-        style="
-          margin-top: 8px;
-          display: flex;
-          flex-direction: column;
-          animation: bcFadeUp 0.25s ease both;
-        "
-      >
+      <div v-if="store.state.expandedCat === cat" class="menu-spirits">
         <!-- Spirit rows -->
         <div
           v-for="(spiritData, spirit) in catData.spirits"
           :key="spirit"
-          style="padding: 12px 0; border-top: 1px solid var(--border)"
+          class="menu-spirit"
         >
           <!-- Spirit row header -->
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              margin-bottom: 8px;
-            "
-          >
-            <span style="font-size: 14px; font-weight: 600">{{ spirit }}</span>
+          <div class="menu-spirit__head">
+            <span class="menu-spirit__name">{{ spirit }}</span>
             <!-- optional bottle qty -->
-            <span
-              v-if="shoppingMap[spirit] != null"
-              style="font-size: 11px; color: var(--faint)"
+            <span v-if="shoppingMap[spirit] != null" class="menu-spirit__qty"
               >≈ {{ shoppingMap[spirit] }} btl</span
             >
-            <span style="margin-left: auto; font-weight: 600; font-size: 14px"
+            <span class="menu-spirit__pct"
               >{{ Math.round(spiritData.pct * 100) }}%</span
             >
 
             <!-- Spirit pin -->
             <button
+              type="button"
               :title="
-                party.locks['s:' + cat + ':' + spirit] ? 'Unlock' : 'Lock share'
+                isLocked(spiritLock(cat, spirit as string))
+                  ? 'Unlock'
+                  : 'Lock share'
               "
-              style="
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 28px;
-                height: 28px;
-                border-radius: 8px;
-                border: 1.5px solid;
-                transition:
-                  background 0.15s,
-                  color 0.15s;
-              "
-              :style="{
-                borderColor: party.locks['s:' + cat + ':' + spirit]
-                  ? color
-                  : 'var(--border)',
-                background: party.locks['s:' + cat + ':' + spirit]
-                  ? `color-mix(in srgb, ${color} 18%, transparent)`
-                  : 'transparent',
-                color: party.locks['s:' + cat + ':' + spirit]
-                  ? color
-                  : 'var(--dim)',
+              :aria-label="`Lock the ${spirit} share`"
+              :aria-pressed="isLocked(spiritLock(cat, spirit as string))"
+              class="menu-icon-btn menu-pin"
+              :class="{
+                'is-locked': isLocked(spiritLock(cat, spirit as string)),
               }"
-              @click="store.toggleLock('s:' + cat + ':' + spirit)"
+              @click="store.toggleLock(spiritLock(cat, spirit as string))"
             >
               <Icon name="pin" :size="13" />
             </button>
@@ -441,47 +261,24 @@ function toggleSpirit(cat: string, spirit: string): void {
             <!-- Chevron for drinks (only if NOT simple category) -->
             <button
               v-if="!isSimpleCategory(cat)"
-              style="
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 28px;
-                height: 28px;
-                border-radius: 8px;
-                border: 1px solid var(--border);
-                background: transparent;
-                color: var(--dim);
-                transition: color 0.15s;
-              "
+              type="button"
+              :aria-label="`${spirit} drinks`"
+              :aria-expanded="isSpiritOpen(cat, spirit as string)"
+              class="menu-icon-btn menu-chev"
               @click="toggleSpirit(cat, spirit as string)"
             >
               <Icon
-                :name="
-                  store.state.expandedSpirit === `${cat}:${spirit}`
-                    ? 'chevU'
-                    : 'chevD'
-                "
+                :name="isSpiritOpen(cat, spirit as string) ? 'chevU' : 'chevD'"
                 :size="14"
               />
             </button>
 
             <!-- Remove spirit -->
             <button
+              type="button"
               title="Remove"
-              style="
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 28px;
-                height: 28px;
-                border-radius: 8px;
-                border: none;
-                background: transparent;
-                color: var(--faint);
-                transition: color 0.15s;
-              "
+              :aria-label="`Remove ${spirit}`"
+              class="menu-icon-btn menu-remove"
               @click="store.removeBottle(cat, spirit as string)"
             >
               <Icon name="x" :size="14" />
@@ -492,7 +289,7 @@ function toggleSpirit(cat: string, spirit: string): void {
           <Slider
             :model-value="spiritData.pct"
             :color="color"
-            style="height: 22px"
+            class="menu-slider"
             @update:model-value="
               (v) => store.rebalanceSpirit(cat, spirit as string, v)
             "
@@ -500,101 +297,47 @@ function toggleSpirit(cat: string, spirit: string): void {
 
           <!-- Expanded: drinks / cocktails -->
           <div
-            v-if="
-              !isSimpleCategory(cat) &&
-              store.state.expandedSpirit === `${cat}:${spirit}`
-            "
-            style="
-              margin-top: 10px;
-              padding: 12px;
-              border-radius: var(--rs, 10px);
-              background: var(--surface2);
-              display: flex;
-              flex-direction: column;
-              gap: 9px;
-              animation: bcFadeUp 0.25s ease both;
-            "
+            v-if="!isSimpleCategory(cat) && isSpiritOpen(cat, spirit as string)"
+            class="menu-drinks"
           >
             <!-- "Served as" label -->
-            <div style="display: flex; align-items: center; gap: 6px">
-              <span style="display: flex; color: var(--faint)">
-                <Icon name="glass" :size="14" />
-              </span>
-              <span
-                style="
-                  font-size: 10px;
-                  color: var(--faint);
-                  text-transform: uppercase;
-                  letter-spacing: 0.07em;
-                  font-weight: 700;
-                "
-                >Served as</span
-              >
+            <div class="menu-drinks__label">
+              <Icon name="glass" :size="14" />
+              <span>Served as</span>
             </div>
 
             <!-- Drink rows -->
             <div
               v-for="(drinkPct, drink) in spiritData.drinks ?? {}"
               :key="drink"
-              style="display: flex; flex-direction: column; gap: 6px"
+              class="menu-drink"
             >
               <!-- name + percent + actions on one line -->
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span
-                  style="
-                    flex: 1;
-                    min-width: 0;
-                    font-size: 13px;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                  "
-                  >{{ drink }}</span
-                >
-                <span style="font-size: 12px; font-weight: 600; flex-shrink: 0"
+              <div class="menu-drink__row">
+                <span class="menu-drink__name">{{ drink }}</span>
+                <span class="menu-drink__pct"
                   >{{ Math.round((drinkPct as number) * 100) }}%</span
                 >
                 <!-- Recipe info -->
                 <button
                   v-if="hasRecipe(drink as string)"
+                  type="button"
                   title="Show recipe"
-                  style="
-                    cursor: pointer;
-                    display: flex;
-                    width: 26px;
-                    height: 26px;
-                    flex-shrink: 0;
-                    align-items: center;
-                    justify-content: center;
-                    border: none;
-                    background: transparent;
-                    transition: color 0.15s;
-                  "
-                  :style="{
-                    color:
-                      openRecipe === `${cat}:${spirit}:${drink}`
-                        ? 'var(--accent)'
-                        : 'var(--faint)',
+                  :aria-label="`${drink} recipe`"
+                  :aria-expanded="openRecipe === `${cat}:${spirit}:${drink}`"
+                  class="menu-icon-btn menu-icon-btn--sm menu-info"
+                  :class="{
+                    'is-open': openRecipe === `${cat}:${spirit}:${drink}`,
                   }"
                   @click="toggleRecipe(`${cat}:${spirit}:${drink}`)"
                 >
                   <Icon name="info" :size="15" />
                 </button>
                 <button
+                  type="button"
                   title="Remove cocktail"
-                  style="
-                    cursor: pointer;
-                    display: flex;
-                    width: 26px;
-                    height: 26px;
-                    flex-shrink: 0;
-                    align-items: center;
-                    justify-content: center;
-                    border: none;
-                    background: transparent;
-                    color: var(--faint);
-                    transition: color 0.15s;
-                  "
+                  :aria-label="`Remove ${drink}`"
+                  class="menu-icon-btn menu-icon-btn--sm menu-remove"
                   @click="
                     store.removeCocktail(cat, spirit as string, drink as string)
                   "
@@ -607,7 +350,7 @@ function toggleSpirit(cat: string, spirit: string): void {
               <Slider
                 :model-value="drinkPct as number"
                 :color="color"
-                style="height: 22px"
+                class="menu-slider"
                 @update:model-value="
                   (v) =>
                     store.rebalanceDrink(
@@ -622,69 +365,24 @@ function toggleSpirit(cat: string, spirit: string): void {
               <!-- Recipe detail -->
               <div
                 v-if="openRecipe === `${cat}:${spirit}:${drink}`"
-                style="
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 6px 8px;
-                  padding: 8px 10px;
-                  border-radius: var(--rs, 10px);
-                  background: var(--surface);
-                  border: 1px solid var(--border);
-                  animation: bcFadeUp 0.2s ease both;
-                "
+                class="menu-recipe"
               >
                 <span
                   v-for="r in recipeFor(drink as string)"
                   :key="r.name"
-                  style="
-                    display: inline-flex;
-                    align-items: baseline;
-                    gap: 4px;
-                    font-size: 11px;
-                  "
+                  class="menu-recipe__item"
                 >
-                  <span style="color: var(--dim); font-weight: 600">{{
-                    r.name
-                  }}</span>
-                  <span style="color: var(--faint)">{{ r.amount }}</span>
+                  <span class="menu-recipe__name">{{ r.name }}</span>
+                  <span class="menu-faint">{{ r.amount }}</span>
                 </span>
               </div>
             </div>
 
             <!-- Add cocktail button -->
             <button
-              style="
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                margin-top: 2px;
-                padding: 9px;
-                border-radius: var(--rs, 10px);
-                border: 1.5px dashed var(--border);
-                background: transparent;
-                color: var(--dim);
-                font-size: 12px;
-                font-weight: 600;
-                min-height: 38px;
-                transition:
-                  border-color 0.15s,
-                  color 0.15s;
-              "
+              type="button"
+              class="menu-add menu-add--drink"
               @click="store.openCocktail(cat, spirit as string)"
-              @mouseenter="
-                ($event.currentTarget as HTMLButtonElement).style.borderColor =
-                  'var(--accent)';
-                ($event.currentTarget as HTMLButtonElement).style.color =
-                  'var(--accent)';
-              "
-              @mouseleave="
-                ($event.currentTarget as HTMLButtonElement).style.borderColor =
-                  'var(--border)';
-                ($event.currentTarget as HTMLButtonElement).style.color =
-                  'var(--dim)';
-              "
             >
               <Icon name="plus" :size="14" />
               Add / create a {{ spirit }} cocktail
@@ -694,43 +392,324 @@ function toggleSpirit(cat: string, spirit: string): void {
 
         <!-- Add bottle button -->
         <button
-          style="
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            margin-top: 12px;
-            padding: 11px;
-            border-radius: var(--rs, 10px);
-            border: 1.5px dashed var(--border);
-            background: transparent;
-            color: var(--dim);
-            font-size: 13px;
-            font-weight: 600;
-            min-height: 42px;
-            transition:
-              border-color 0.15s,
-              color 0.15s;
-          "
+          type="button"
+          class="menu-add menu-add--bottle"
           @click="store.openBottle(cat)"
-          @mouseenter="
-            ($event.currentTarget as HTMLButtonElement).style.borderColor =
-              'var(--accent)';
-            ($event.currentTarget as HTMLButtonElement).style.color =
-              'var(--accent)';
-          "
-          @mouseleave="
-            ($event.currentTarget as HTMLButtonElement).style.borderColor =
-              'var(--border)';
-            ($event.currentTarget as HTMLButtonElement).style.color =
-              'var(--dim)';
-          "
         >
           <Icon name="plus" :size="16" />
           Add {{ cat }} option
         </button>
       </div>
-    </div>
+    </Card>
   </div>
 </template>
+
+<style scoped>
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 32px;
+  animation: bcFadeUp 0.3s ease both;
+}
+
+.menu-title {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.menu-faint {
+  color: var(--faint);
+}
+
+/* The category's segment colour, set as --seg on its card or legend item. */
+.menu-seg-text {
+  color: var(--seg);
+}
+
+/* ── Pour mix ── */
+.menu-mix__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+/* Keeps today's phone layout, where the tile gives way to the long hint.
+   Drop it to keep the tile square at 390px (a visible change). */
+.menu .menu-mix__tile {
+  flex-shrink: 1;
+}
+.menu-mix__hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--faint);
+}
+.menu-mix__bar {
+  display: flex;
+  height: 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--track);
+  margin-bottom: 12px;
+}
+.menu-mix__seg {
+  transition: width 0.15s ease;
+}
+.menu-mix__seg:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.menu-mix__seg:last-child:not(:first-child) {
+  border-radius: 0 999px 999px 0;
+}
+.menu-mix__legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.menu-mix__item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.menu-mix__name,
+.menu-mix__pct {
+  font-size: 12px;
+  font-weight: 600;
+}
+.menu-mix__name {
+  color: var(--dim);
+}
+.menu-mix__pct {
+  color: var(--text);
+}
+
+/* ── Snacks ── */
+.menu-snacks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+  animation: bcFadeUp 0.2s ease both;
+}
+.menu-snack {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--dim);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+/* ── Category card ── */
+.menu-cat__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.menu .menu-cat__tile {
+  background: color-mix(in srgb, var(--seg) 15%, transparent);
+  color: var(--seg);
+}
+.menu-cat__count {
+  font-size: 11px;
+  color: var(--faint);
+}
+.menu-cat__pct {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 20px;
+}
+
+/* Square icon buttons: 32px in the card header, 28px on a spirit row, 26px on
+   a drink row. */
+.menu-icon-btn {
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  transition: color 0.15s;
+}
+.menu-icon-btn--lg {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+.menu-icon-btn--sm {
+  width: 26px;
+  height: 26px;
+}
+
+.menu-pin {
+  border: 1.5px solid var(--border);
+  color: var(--dim);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.menu-pin.is-locked {
+  border-color: var(--seg);
+  background: color-mix(in srgb, var(--seg) 18%, transparent);
+  color: var(--seg);
+}
+.menu-chev {
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+.menu-remove,
+.menu-info {
+  color: var(--faint);
+}
+.menu-info.is-open {
+  color: var(--accent);
+}
+
+/* ── Spirits ── */
+.menu-spirits {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  animation: bcFadeUp 0.25s ease both;
+}
+.menu-spirit {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.menu-spirit__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.menu-spirit__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.menu-spirit__qty {
+  font-size: 11px;
+  color: var(--faint);
+}
+.menu-spirit__pct {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Slider sets its 30px height inline; spirit and drink rows are slimmer. */
+.menu-slider {
+  height: 22px !important;
+}
+
+/* ── Drinks ── */
+.menu-drinks {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: var(--rs, 10px);
+  background: var(--surface2);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  animation: bcFadeUp 0.25s ease both;
+}
+.menu-drinks__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+}
+.menu-drinks__label span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+}
+.menu-drink {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.menu-drink__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.menu-drink__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menu-drink__pct {
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.menu-recipe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border-radius: var(--rs, 10px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  animation: bcFadeUp 0.2s ease both;
+}
+.menu-recipe__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11px;
+}
+.menu-recipe__name {
+  color: var(--dim);
+  font-weight: 600;
+}
+
+/* ── Dashed add buttons ── */
+.menu-add {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--rs, 10px);
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--dim);
+  font-weight: 600;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.menu-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.menu-add--drink {
+  gap: 6px;
+  margin-top: 2px;
+  padding: 9px;
+  font-size: 12px;
+  min-height: 38px;
+}
+.menu-add--bottle {
+  gap: 7px;
+  margin-top: 12px;
+  padding: 11px;
+  font-size: 13px;
+  min-height: 42px;
+}
+</style>
