@@ -6,6 +6,7 @@ import { VIBES, BUFFERS } from './planPresets';
 import { runsBar } from './core';
 import { formatEuro, venueWhere as whereOf } from '../../lib/display';
 import Icon from '../../components/ui/Icon.vue';
+import Toggle from '../../components/ui/Toggle.vue';
 import Slider from '../../components/ui/Slider.vue';
 import PaymentSettings from '../payments/PaymentSettings.vue';
 
@@ -698,63 +699,16 @@ const pnlRows = computed(() => {
         :style="{ borderColor: maxCapOn ? 'var(--accent)' : 'var(--border)' }"
       >
         <!-- toggle row -->
-        <div
-          style="cursor: pointer; display: flex; align-items: center; gap: 12px"
-          @click="store.toggleMaxCapacity()"
+        <Toggle
+          :model-value="maxCapOn"
+          icon="users"
+          @update:model-value="store.toggleMaxCapacity()"
         >
-          <span
-            style="
-              display: flex;
-              width: 32px;
-              height: 32px;
-              border-radius: 9px;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            "
-            :style="{
-              background: maxCapOn ? 'var(--accent-soft)' : 'var(--track)',
-              color: maxCapOn ? 'var(--accent)' : 'var(--faint)',
-            }"
-          >
-            <Icon name="users" :size="15" />
-          </span>
-          <div style="flex: 1; min-width: 0">
-            <div style="font-size: 13px; font-weight: 600">
-              Cap the headcount
-            </div>
-            <div style="font-size: 11px; color: var(--faint)">
-              Set a hard limit on how many guests can fit
-            </div>
-          </div>
-          <!-- toggle switch -->
-          <span
-            style="
-              display: flex;
-              align-items: center;
-              width: 42px;
-              height: 24px;
-              border-radius: 999px;
-              padding: 3px;
-              transition: background 0.2s;
-              flex-shrink: 0;
-            "
-            :style="{ background: maxCapOn ? 'var(--accent)' : 'var(--track)' }"
-          >
-            <span
-              style="
-                width: 18px;
-                height: 18px;
-                border-radius: 50%;
-                background: #fff;
-                transition: transform 0.2s;
-              "
-              :style="{
-                transform: maxCapOn ? 'translateX(18px)' : 'translateX(0)',
-              }"
-            />
-          </span>
-        </div>
+          Cap the headcount
+          <template #description>
+            Set a hard limit on how many guests can fit
+          </template>
+        </Toggle>
 
         <!-- expanded slider -->
         <div
@@ -811,17 +765,11 @@ const pnlRows = computed(() => {
       </div>
 
       <!-- who runs the bar -->
-      <div
-        role="switch"
-        tabindex="0"
-        :aria-checked="!planningDrinks"
+      <Toggle
+        :model-value="!planningDrinks"
+        icon="glass"
         style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 12px;
           border: 1px solid var(--border);
-          border-radius: var(--rs);
           background: var(--surface2);
           padding: 12px 14px;
         "
@@ -829,72 +777,20 @@ const pnlRows = computed(() => {
           borderColor: planningDrinks ? 'var(--border)' : 'var(--accent)',
           marginBottom: planningDrinks ? '20px' : '0',
         }"
-        @click="store.toggleBarManaged()"
-        @keydown.enter.prevent="store.toggleBarManaged()"
-        @keydown.space.prevent="store.toggleBarManaged()"
+        @update:model-value="store.toggleBarManaged()"
       >
-        <span
-          style="
-            display: flex;
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-          "
-          :style="{
-            background: planningDrinks ? 'var(--track)' : 'var(--accent-soft)',
-            color: planningDrinks ? 'var(--faint)' : 'var(--accent)',
-          }"
-        >
-          <Icon name="glass" :size="15" />
-        </span>
-        <div style="flex: 1; min-width: 0">
-          <div style="font-size: 13px; font-weight: 600">
-            The venue runs the bar
-          </div>
-          <div style="font-size: 11px; color: var(--faint)">
-            <template v-if="planningDrinks">
-              Turn on to skip drink planning — no menu, shopping list or drink
-              costs
-            </template>
-            <template v-else>
-              Drink planning is off. Your menu is kept — turn this off to bring
-              it back
-            </template>
-          </div>
-        </div>
-        <!-- toggle switch -->
-        <span
-          style="
-            display: flex;
-            align-items: center;
-            width: 42px;
-            height: 24px;
-            border-radius: 999px;
-            padding: 3px;
-            transition: background 0.2s;
-            flex-shrink: 0;
-          "
-          :style="{
-            background: planningDrinks ? 'var(--track)' : 'var(--accent)',
-          }"
-        >
-          <span
-            style="
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              background: #fff;
-              transition: transform 0.2s;
-            "
-            :style="{
-              transform: planningDrinks ? 'translateX(0)' : 'translateX(18px)',
-            }"
-          />
-        </span>
-      </div>
+        The venue runs the bar
+        <template #description>
+          <template v-if="planningDrinks">
+            Turn on to skip drink planning — no menu, shopping list or drink
+            costs
+          </template>
+          <template v-else>
+            Drink planning is off. Your menu is kept — turn this off to bring it
+            back
+          </template>
+        </template>
+      </Toggle>
 
       <!-- how hard does it go -->
       <div

@@ -4,6 +4,7 @@ import { useStore } from '../../store/store';
 import { isSimpleCategory } from './menu';
 import { cocktailRecipe } from './catalog';
 import Icon from '../../components/ui/Icon.vue';
+import Toggle from '../../components/ui/Toggle.vue';
 import type { IconName } from '../../lib/icons';
 import { TYPE_META } from './ingredientTypes';
 import Slider from '../../components/ui/Slider.vue';
@@ -205,71 +206,19 @@ function toggleSpirit(cat: string, spirit: string): void {
       }"
     >
       <!-- toggle row -->
-      <div
-        style="cursor: pointer; display: flex; align-items: center; gap: 12px"
-        @click="store.toggleSnacks()"
+      <Toggle
+        :model-value="includeSnacks"
+        icon="cart"
+        :tile-size="34"
+        :icon-size="17"
+        size="lg"
+        @update:model-value="store.toggleSnacks()"
       >
-        <span
-          style="
-            display: flex;
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-          "
-          :style="{
-            background: includeSnacks ? 'var(--accent-soft)' : 'var(--track)',
-            color: includeSnacks ? 'var(--accent)' : 'var(--faint)',
-          }"
-        >
-          <Icon name="cart" :size="17" />
-        </span>
-        <div style="flex: 1; min-width: 0">
-          <div
-            style="
-              font-family: var(--font-disp);
-              font-weight: 600;
-              font-size: 16px;
-            "
-          >
-            Add snacks
-          </div>
-          <div style="font-size: 11px; color: var(--faint)">
-            Include nibbles in the shopping list &amp; costs
-          </div>
-        </div>
-        <!-- toggle switch -->
-        <span
-          style="
-            display: flex;
-            align-items: center;
-            width: 42px;
-            height: 24px;
-            border-radius: 999px;
-            padding: 3px;
-            transition: background 0.2s;
-            flex-shrink: 0;
-          "
-          :style="{
-            background: includeSnacks ? 'var(--accent)' : 'var(--track)',
-          }"
-        >
-          <span
-            style="
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              background: #fff;
-              transition: transform 0.2s;
-            "
-            :style="{
-              transform: includeSnacks ? 'translateX(18px)' : 'translateX(0)',
-            }"
-          />
-        </span>
-      </div>
+        Add snacks
+        <template #description>
+          Include nibbles in the shopping list &amp; costs
+        </template>
+      </Toggle>
 
       <!-- snack chips -->
       <div

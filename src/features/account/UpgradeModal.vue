@@ -5,7 +5,7 @@ import { redeemLicence } from '../../lib/api/session';
 import { errorCode } from '../../lib/api/request';
 import type { Feature } from '../../../shared/tiers';
 import { APP_URL } from '../../lib/links';
-import Modal from '../../components/ui/Modal.vue';
+import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 
 const store = useStore();
@@ -73,10 +73,11 @@ watch(feature, (f) => {
 </script>
 
 <template>
-  <Modal
+  <ModalShell
+    v-slot="{ titleId }"
     :open="feature !== null"
     variant="sheet"
-    max-width="460px"
+    size="md"
     @close="store.closeUpgrade()"
   >
     <div v-if="copy" style="padding: 22px">
@@ -103,6 +104,7 @@ watch(feature, (f) => {
           <Icon name="lock" :size="17" />
         </span>
         <div
+          :id="titleId"
           style="
             font-family: var(--font-disp);
             font-weight: 600;
@@ -275,5 +277,5 @@ watch(feature, (f) => {
         Compare plans — including self-hosting for free
       </a>
     </div>
-  </Modal>
+  </ModalShell>
 </template>
