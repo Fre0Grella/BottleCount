@@ -7,6 +7,7 @@ import { watchDevice } from '../lib/device';
 import * as guests from '../features/guests/guestList';
 import * as menu from '../features/menu/menu';
 import { newParty, upgradeParty } from '../features/party/partyDefaults';
+import { setMaxCapacity, toggleMaxCapacity } from '../features/party/planEdits';
 import { fetchSession } from '../features/account/session';
 import * as sharing from '../features/sharing/sharing';
 import {
@@ -141,9 +142,6 @@ function setTab(tab: 'plan' | 'menu' | 'shop' | 'guests'): void {
 
 // ── Plan, menu & shopping ──────────────────────────────────────────────────
 
-/** The largest headcount cap the planner offers. */
-const MAX_CAPACITY = 600;
-
 function toggleLock(key: string): void {
   update((p) => {
     p.locks[key] = !p.locks[key];
@@ -160,26 +158,6 @@ function toggleSnacks(): void {
 function toggleBarManaged(): void {
   update((p) => {
     p.barManaged = !runsBar(p);
-  });
-}
-
-function toggleMaxCapacity(): void {
-  update((p) => {
-    const { guests: n, max_capacity } = p.settings;
-    // Default the cap a little above the expected headcount.
-    p.settings.max_capacity =
-      max_capacity == null
-        ? Math.min(MAX_CAPACITY, Math.max(n + 1, Math.round(n * 1.25)))
-        : null;
-  });
-}
-
-function setMaxCapacity(v: number): void {
-  update((p) => {
-    p.settings.max_capacity = Math.max(
-      1,
-      Math.min(MAX_CAPACITY, Math.round(v)),
-    );
   });
 }
 
