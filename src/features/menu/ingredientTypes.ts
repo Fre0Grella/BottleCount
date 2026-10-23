@@ -16,3 +16,11 @@ export const TYPE_META: Record<
   extra: { label: 'Extras', icon: 'sparkle' },
   snack: { label: 'Snacks', icon: 'cart' },
 };
+
+/** A menu category's icon: beer, wine, or the spirits bottle for the rest. */
+export function categoryIcon(cat: string): IconName {
+  const n = cat.toLowerCase();
+  if (n.includes('beer')) return TYPE_META.beer.icon;
+  if (n.includes('wine')) return TYPE_META.wine.icon;
+  return TYPE_META.spirit.icon;
+}

@@ -2,6 +2,7 @@ import type { Catalog, Ingredient, Cocktail, Settings } from '../../lib/types';
 import { getKey, setKey } from '../../lib/db';
 import catalogData from '../../data/catalog.json';
 import settingsData from '../../data/settings.json';
+import { shortName } from './ingredients';
 
 // ── Catalog merge ──────────────────────────────────────────────────────────
 
@@ -151,11 +152,6 @@ export async function setPriceOverride(
 }
 
 // ── Recipe formatting ──────────────────────────────────────────────────────
-
-/** Strip a trailing size suffix (e.g. "Gin 70cl" → "Gin"). */
-function shortName(key: string): string {
-  return key.replace(/\s+\d+(?:cl|ml|L|kg|g)$/i, '').trim();
-}
 
 /**
  * Human-readable breakdown of a cocktail's recipe, e.g.
