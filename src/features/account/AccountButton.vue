@@ -63,81 +63,45 @@ async function handleLogout(): Promise<void> {
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    style="position: relative; display: flex; align-items: center; gap: 8px"
-  >
+  <div v-if="visible" class="account">
     <template v-if="!session.authenticated && session.devSignIn">
       <button
         type="button"
+        class="account-pill"
         :aria-expanded="signInOpen"
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 8px 13px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--dim);
-        "
         @click="signInOpen = !signInOpen"
       >
         <Icon name="user" :size="14" />
-        <span style="white-space: nowrap">Sign in</span>
+        <span class="account-pill__text">Sign in</span>
       </button>
       <form
         v-if="signInOpen"
         class="dev-signin"
         @submit.prevent="handleDevSignIn"
       >
-        <label
-          for="dev-signin-email"
-          style="font-size: 11.5px; color: var(--dim); line-height: 1.5"
-        >
-          This server signs you in by email — no Google account needed.
+        <!-- The label wraps its input but lays out as two rows of the form. -->
+        <label class="dev-signin__field" for="dev-signin-email">
+          <span class="dev-signin__label">
+            This server signs you in by email — no Google account needed.
+          </span>
+          <input
+            id="dev-signin-email"
+            v-model="email"
+            class="dev-signin__input"
+            type="email"
+            required
+            autocomplete="email"
+            placeholder="you@example.com"
+            @keydown.escape="signInOpen = false"
+          />
         </label>
-        <input
-          id="dev-signin-email"
-          v-model="email"
-          type="email"
-          required
-          autocomplete="email"
-          placeholder="you@example.com"
-          style="
-            font-size: 14px;
-            padding: 10px 12px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: var(--surface2);
-            color: var(--text);
-            font-family: inherit;
-          "
-          @keydown.escape="signInOpen = false"
-        />
-        <span
-          v-if="signInError"
-          role="alert"
-          style="font-size: 11.5px; color: var(--bad)"
-          >{{ signInError }}</span
-        >
+        <span v-if="signInError" role="alert" class="dev-signin__error">{{
+          signInError
+        }}</span>
         <button
           type="submit"
+          class="dev-signin__submit"
           :disabled="busy || !email.trim()"
-          style="
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 700;
-            padding: 10px 14px;
-            border-radius: 999px;
-            border: none;
-            background: var(--accent);
-            color: var(--on-accent);
-          "
-          :style="{ opacity: busy || !email.trim() ? 0.55 : 1 }"
         >
           Continue
         </button>
@@ -147,40 +111,14 @@ async function handleLogout(): Promise<void> {
     <a
       v-else-if="!session.authenticated"
       href="/auth/google"
-      style="
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 8px 13px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--dim);
-        text-decoration: none;
-      "
+      class="account-pill"
     >
       <Icon name="user" :size="14" />
       Sign in
     </a>
 
     <template v-else>
-      <span
-        style="
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 7px 12px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--text);
-          max-width: 190px;
-        "
-      >
+      <span class="account-chip">
         <img
           v-if="session.user?.picture"
           :src="session.user.picture"
@@ -188,45 +126,19 @@ async function handleLogout(): Promise<void> {
           width="18"
           height="18"
           referrerpolicy="no-referrer"
-          style="border-radius: 999px; display: block; flex-shrink: 0"
+          class="account-chip__picture"
         />
         <Icon v-else name="user" :size="14" />
-        <span
-          style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-          >{{ label }}</span
-        >
-        <span
-          v-if="session.tier === 'pro'"
-          style="
-            font-size: 9.5px;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            padding: 2px 6px;
-            border-radius: 999px;
-            background: var(--accent-soft);
-            color: var(--accent);
-            flex-shrink: 0;
-          "
-          >{{ session.selfHosted ? 'Self-hosted' : 'Pro' }}</span
-        >
+        <span class="account-chip__name">{{ label }}</span>
+        <span v-if="session.tier === 'pro'" class="account-chip__tier">{{
+          session.selfHosted ? 'Self-hosted' : 'Pro'
+        }}</span>
       </span>
       <button
         title="Sign out"
         aria-label="Sign out"
         :disabled="busy"
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--dim);
-        "
+        class="account-signout"
         @click="handleLogout"
       >
         <Icon name="logout" :size="15" />
@@ -236,6 +148,79 @@ async function handleLogout(): Promise<void> {
 </template>
 
 <style scoped>
+.account {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-pill {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+  text-decoration: none;
+}
+.account-pill__text {
+  white-space: nowrap;
+}
+
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  max-width: 190px;
+}
+.account-chip__picture {
+  border-radius: 999px;
+  display: block;
+  flex-shrink: 0;
+}
+.account-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-chip__tier {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.account-signout {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dim);
+}
+
 .dev-signin {
   position: absolute;
   top: calc(100% + 8px);
@@ -250,6 +235,41 @@ async function handleLogout(): Promise<void> {
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.dev-signin__field {
+  display: contents;
+}
+.dev-signin__label {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.5;
+}
+.dev-signin__input {
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: inherit;
+}
+.dev-signin__error {
+  font-size: 11.5px;
+  color: var(--bad);
+}
+.dev-signin__submit {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.dev-signin__submit:disabled {
+  opacity: 0.55;
 }
 
 /* The button is not flush right on a phone — Docs and the Theme Switch sit

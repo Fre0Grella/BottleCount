@@ -56,26 +56,12 @@ const tabs = computed(() => {
     { key: 'guests' as const, label: 'Guests', icon: 'users' as const },
   ]
     .filter((t) => planningDrinks.value || !barTabs.has(t.key))
-    .map((t) => ({
-      ...t,
-      active: active === t.key,
-      bg: active === t.key ? 'var(--accent)' : 'transparent',
-      fg: active === t.key ? 'var(--on-accent)' : 'var(--dim)',
-    }));
+    .map((t) => ({ ...t, active: active === t.key }));
 });
 </script>
 
 <template>
-  <div
-    style="
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-body);
-    "
-  >
+  <div class="app">
     <!-- splash -->
     <div v-if="!store.state.ready" class="splash">
       <Logo :size="52" class="splash__mark" />
@@ -93,42 +79,15 @@ const tabs = computed(() => {
         <PartyHeader />
 
         <!-- desktop tab bar -->
-        <div
-          v-if="store.state.device === 'desktop'"
-          style="border-bottom: 1px solid var(--border)"
-        >
-          <div
-            style="
-              display: flex;
-              justify-content: center;
-              padding: 12px 24px 0 24px;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                gap: 4px;
-                background: var(--surface);
-                border: 1px solid var(--border);
-                border-radius: 999px;
-                padding: 4px;
-              "
-            >
+        <div v-if="store.state.device === 'desktop'" class="app-desk-nav">
+          <div class="app-desk-nav__row">
+            <div class="app-desk-nav__tabs">
               <button
                 v-for="t in tabs"
                 :key="t.key"
-                style="
-                  cursor: pointer;
-                  border: none;
-                  display: flex;
-                  align-items: center;
-                  gap: 7px;
-                  font-size: 13px;
-                  font-weight: 600;
-                  padding: 8px 18px;
-                  border-radius: 999px;
-                "
-                :style="{ background: t.bg, color: t.fg }"
+                class="app-tab app-tab--desk"
+                :class="{ 'app-tab--active': t.active }"
+                :aria-current="t.active ? 'page' : undefined"
                 @click="store.setTab(t.key)"
               >
                 <Icon :name="t.icon" :size="15" />
@@ -142,47 +101,18 @@ const tabs = computed(() => {
         </div>
 
         <!-- scrollable content area -->
-        <div
-          style="flex: 1; overflow: auto; display: flex; flex-direction: column"
-        >
+        <div class="app-scroll">
           <!-- phone KPI strip -->
           <KpiBar v-if="store.state.device === 'phone'" />
 
           <!-- phone tab nav -->
-          <div
-            v-if="store.state.device === 'phone'"
-            style="
-              position: sticky;
-              top: 0;
-              z-index: 5;
-              display: flex;
-              gap: 6px;
-              padding: 10px 14px;
-              background: var(--bg);
-              border-bottom: 1px solid var(--border);
-            "
-          >
+          <div v-if="store.state.device === 'phone'" class="app-phone-nav">
             <button
               v-for="t in tabs"
               :key="t.key"
-              style="
-                flex: 1;
-                cursor: pointer;
-                border: 1px solid var(--border);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 5px;
-                font-size: 12px;
-                font-weight: 600;
-                padding: 7px 4px;
-                border-radius: 999px;
-              "
-              :style="{
-                background: t.bg,
-                color: t.fg,
-                borderColor: t.active ? 'var(--accent)' : 'var(--border)',
-              }"
+              class="app-tab app-tab--phone"
+              :class="{ 'app-tab--active': t.active }"
+              :aria-current="t.active ? 'page' : undefined"
               @click="store.setTab(t.key)"
             >
               <Icon :name="t.icon" :size="14" />
@@ -191,15 +121,7 @@ const tabs = computed(() => {
           </div>
 
           <!-- active tab -->
-          <div
-            style="
-              width: 100%;
-              max-width: 960px;
-              margin: 0 auto;
-              padding: 24px 20px;
-              width: 100%;
-            "
-          >
+          <div class="app-tab-content">
             <PlanTab v-if="shownTab === 'plan'" />
             <MenuTab v-else-if="shownTab === 'menu'" />
             <ShoppingTab v-else-if="shownTab === 'shop'" />
@@ -232,6 +154,15 @@ const tabs = computed(() => {
 </template>
 
 <style scoped>
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
 .splash {
   flex: 1;
   display: flex;
@@ -246,5 +177,75 @@ const tabs = computed(() => {
 .splash__note {
   font-size: 14px;
   color: var(--dim);
+}
+.app-desk-nav {
+  border-bottom: 1px solid var(--border);
+}
+.app-desk-nav__row {
+  display: flex;
+  justify-content: center;
+  padding: 12px 24px 0 24px;
+}
+.app-desk-nav__tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.app-scroll {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-phone-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-tab {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dim);
+}
+.app-tab--desk {
+  border: none;
+  gap: 7px;
+  font-size: 13px;
+  padding: 8px 18px;
+}
+.app-tab--phone {
+  flex: 1;
+  border: 1px solid var(--border);
+  justify-content: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 7px 4px;
+}
+.app-tab--active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.app-tab-content {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px;
 }
 </style>

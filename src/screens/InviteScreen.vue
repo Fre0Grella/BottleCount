@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { requireContact } from '../../shared/contact';
 import type { InviteAnswer, InviteOpenDTO } from '../../shared/invites';
 import { inviteUrl, pathParam } from '../../shared/urls';
 import { formatIban, paymentReference } from '../../shared/payments';
@@ -9,7 +8,18 @@ import { isNotFound } from '../lib/api/request';
 import { coverOf } from '../features/party/covers';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, venueWhere } from '../lib/display';
-import { safeLocal } from '../lib/safeStorage';
+import {
+  answerBody,
+  answerOutcome,
+  forwardMessage as forwardMessageFor,
+  forwardQrFileName as qrFileNameFor,
+  needsContact,
+  readGoogleReturn,
+  rememberContact,
+  rememberInviteId,
+  rememberedContact,
+  rememberedInviteId,
+} from '../features/guests/rsvp';
 import BrandMark from '../components/ui/BrandMark.vue';
 import Icon from '../components/ui/Icon.vue';
 import ShareChannels from '../features/sharing/ShareChannels.vue';
@@ -52,50 +62,6 @@ function slugFromPath(): string {
 
 const slug = ref('');
 
-/** Which guest this browser already is, if it has been here before. */
-function storageKey(s: string): string {
-  return `bc-invite:${s}`;
-}
-
-// Where storage is blocked (private windows, blocked site data) a guest is
-// counted as a new visitor on their next visit, which overstates "reached"
-// slightly — far better than refusing to let them RSVP at all.
-function rememberedInviteId(s: string): string | null {
-  return safeLocal.get(storageKey(s));
-}
-
-function rememberInviteId(s: string, id: string): void {
-  safeLocal.set(storageKey(s), id);
-}
-
-/**
- * The email and phone this browser last confirmed with.
- *
- * Kept here because the server never hands them back — the invite id that
- * identifies a guest is a bearer token, and a page that echoed contact details
- * to whoever holds it would leak them. Remembering them locally is what saves a
- * guest who changes their answer from typing them again.
- */
-function contactKey(s: string): string {
-  return `bc-invite-contact:${s}`;
-}
-
-function rememberedContact(s: string): { email: string; phone: string } {
-  const stored = safeLocal.getJSON(contactKey(s));
-  const parsed = (stored && typeof stored === 'object' ? stored : {}) as Record<
-    string,
-    unknown
-  >;
-  return {
-    email: typeof parsed['email'] === 'string' ? parsed['email'] : '',
-    phone: typeof parsed['phone'] === 'string' ? parsed['phone'] : '',
-  };
-}
-
-function rememberContact(s: string, contact: { email: string; phone: string }) {
-  safeLocal.setJSON(contactKey(s), contact);
-}
-
 const cover = computed(() => coverOf(data.value?.party.cover));
 
 const dateLabel = computed(() =>
@@ -129,15 +95,12 @@ function continueWithGoogle(): void {
 }
 
 /**
- * What Google sent back, read off the URL fragment and then erased from it.
- * The fragment never reaches a server, and the invite endpoints never return a
- * guest's email (#21), so this is how the verified one gets into the form.
+ * What Google sent back, read off the URL fragment and then erased from it
+ * (see `readGoogleReturn`).
  */
 function takeGoogleResult(): void {
-  const hash = new URLSearchParams(window.location.hash.slice(1));
-  const encoded = hash.get('google');
-  const failed = hash.get('google_error');
-  if (!encoded && !failed) return;
+  const google = readGoogleReturn(window.location.hash);
+  if (!google) return;
   history.replaceState(
     null,
     '',
@@ -147,27 +110,17 @@ function takeGoogleResult(): void {
   // guest goes back to, whether it worked or not.
   choice.value = 'confirmed';
 
-  if (failed) {
-    error.value =
-      failed === 'email'
-        ? 'Google didn’t share a verified email. Type yours below.'
-        : 'Google sign-in didn’t finish. Try again, or type your email.';
+  if ('error' in google) {
+    error.value = google.error;
     return;
   }
-  try {
-    const padded = encoded!.replace(/-/g, '+').replace(/_/g, '/');
-    const bytes = Uint8Array.from(atob(padded), (ch) => ch.charCodeAt(0));
-    const profile = JSON.parse(new TextDecoder().decode(bytes)) as {
-      name?: string;
-      email?: string;
-    };
-    if (profile.email) email.value = profile.email;
-    if (profile.name && !name.value.trim()) name.value = profile.name;
-    fromGoogle.value = !!profile.email;
-  } catch {
-    /* a mangled fragment: the form is still there to type into */
-  }
+  const profile = google.profile;
+  if (!profile) return;
+  if (profile.email) email.value = profile.email;
+  if (profile.name && !name.value.trim()) name.value = profile.name;
+  fromGoogle.value = !!profile.email;
 }
+
 const isDeclined = computed(() => data.value?.status === 'declined');
 
 /** Their own link to forward, once they have said yes and if the host allows it. */
@@ -177,26 +130,13 @@ const forwardLink = computed(() => {
   return inviteUrl(window.location.origin, base, data.value.party.slug, token);
 });
 
-/**
- * What travels with the forward link. Worded from the guest's side — they are
- * the one sending it, to their own friend — not the host's "you're invited".
- */
 const forwardMessage = computed(() => {
   const party = data.value?.party;
   if (!party) return forwardLink.value;
-  const day = formatLocalDate(party.date, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  const where = whereLabel.value ? ` at ${whereLabel.value}` : '';
-  return `I'm going to ${party.name} on ${day}${where} — come along! RSVP here: ${forwardLink.value}`;
+  return forwardMessageFor(party, whereLabel.value, forwardLink.value);
 });
 
-const forwardQrFileName = computed(
-  () =>
-    `${(data.value?.party.name ?? 'party').replace(/[^\w-]+/g, '-').toLowerCase()}-invite.png`,
-);
+const forwardQrFileName = computed(() => qrFileNameFor(data.value?.party.name));
 
 /** How to pay the host. The server only sends it once they have said yes. */
 const payment = computed(() =>
@@ -249,77 +189,44 @@ onMounted(async () => {
   phase.value = result.value.status === 'opened' ? 'ready' : 'answered';
 });
 
-const CONTACT_ERRORS: Record<string, string> = {
-  contact_required:
-    'Add an email or a phone number — it’s where your ticket goes.',
-  invalid_email: 'That email doesn’t look right.',
-  invalid_phone: 'That phone number doesn’t look right.',
-};
-
 async function respond(answer: InviteAnswer): Promise<void> {
   if (submitting.value || !data.value) return;
-  const trimmed = name.value.trim();
-  if (!trimmed) {
-    error.value = 'Pop your name in first.';
+  const body = answerBody(answer, {
+    name: name.value,
+    email: email.value,
+    phone: phone.value,
+    paidParty: isPaid.value,
+  });
+  if ('error' in body) {
+    error.value = body.error;
     return;
   }
 
-  // Checked here as well as on the server, so the guest hears what is wrong
-  // before the round trip — with the same rules, so the two never disagree.
-  const needsContact = answer === 'confirmed' && isPaid.value;
-  const contact = requireContact(email.value, phone.value);
-  if (needsContact && 'error' in contact) {
-    error.value = CONTACT_ERRORS[contact.error] ?? null;
-    return;
-  }
-
+  // Read before the call: the reply may say the party is now paid.
+  const sendsContact = needsContact(answer, isPaid.value);
   submitting.value = true;
   error.value = null;
 
-  const result = await answerInvite(slug.value, {
-    inviteId: data.value.inviteId,
-    name: trimmed,
-    answer,
-    ...(needsContact && !('error' in contact)
-      ? { email: contact.email ?? '', phone: contact.phone ?? '' }
-      : {}),
-  });
+  const outcome = answerOutcome(
+    await answerInvite(slug.value, { inviteId: data.value.inviteId, ...body }),
+  );
 
-  const failure = result.ok ? null : result.error;
-  const code = failure?.kind === 'http' ? failure.code : null;
-
-  if (result.ok && result.value) {
-    data.value = result.value;
+  if (outcome.kind === 'answered') {
+    data.value = outcome.invite;
     phase.value = 'answered';
-    if (needsContact) {
+    if (sendsContact) {
       rememberContact(slug.value, { email: email.value, phone: phone.value });
     }
-  } else if (code && CONTACT_ERRORS[code]) {
-    // The host made the party paid while this guest had the page open, or the
-    // server read the details differently. Either way, say which field.
-    error.value = CONTACT_ERRORS[code] ?? null;
-    if (data.value && code === 'contact_required') {
-      data.value = {
-        ...data.value,
-        party: { ...data.value.party, paid: true },
-      };
-    }
-  } else if (code === 'party_full') {
-    // Re-read so the card flips to "full" — someone took the last place while
-    // this guest was typing.
-    error.value = 'That was the last place — the party just filled up.';
-    if (data.value) {
-      data.value = {
-        ...data.value,
-        party: { ...data.value.party, full: true },
-      };
-    }
-  } else if (code === 'party_not_found') {
-    // The host closed the link while this guest had the page open. Any other
-    // 404 here is a stale invite on a party that is still open, not a gone one.
+  } else if (outcome.kind === 'gone') {
     phase.value = 'gone';
   } else {
-    error.value = "Couldn't send that. Try again in a moment.";
+    error.value = outcome.error;
+    if (data.value && outcome.party) {
+      data.value = {
+        ...data.value,
+        party: { ...data.value.party, ...outcome.party },
+      };
+    }
   }
 
   submitting.value = false;
@@ -350,7 +257,7 @@ function submitChoice(): void {
 
 /** Whether the details step asks how to reach them: a yes to a paid party. */
 const asksContact = computed(
-  () => choice.value === 'confirmed' && isPaid.value,
+  () => choice.value !== null && needsContact(choice.value, isPaid.value),
 );
 
 function copy(text: string, key: string): void {
@@ -586,16 +493,18 @@ function copy(text: string, key: string): void {
             }}
           </p>
 
-          <label class="invite-label" for="invite-name">Your name</label>
-          <input
-            id="invite-name"
-            v-model="name"
-            class="invite-input"
-            placeholder="How the host knows you"
-            autocomplete="name"
-            maxlength="60"
-            @keyup.enter="submitChoice"
-          />
+          <label class="invite-field" for="invite-name">
+            <span class="invite-label">Your name</span>
+            <input
+              id="invite-name"
+              v-model="name"
+              class="invite-input"
+              placeholder="How the host knows you"
+              autocomplete="name"
+              maxlength="60"
+              @keyup.enter="submitChoice"
+            />
+          </label>
 
           <!-- A yes to a paid party: somewhere to send the ticket once they've paid. -->
           <template v-if="asksContact">
@@ -636,33 +545,37 @@ function copy(text: string, key: string): void {
             <p class="invite-contact-note">
               An email, a phone number, or both — at least one.
             </p>
-            <label class="invite-label" for="invite-email">Your email</label>
-            <input
-              id="invite-email"
-              v-model="email"
-              class="invite-input"
-              type="email"
-              inputmode="email"
-              placeholder="Where your ticket goes"
-              autocomplete="email"
-              spellcheck="false"
-              maxlength="254"
-              @keyup.enter="submitChoice"
-            />
-            <label class="invite-label" for="invite-phone">
-              Your phone
-              <span class="invite-optional">(for WhatsApp)</span>
+            <label class="invite-field" for="invite-email">
+              <span class="invite-label">Your email</span>
+              <input
+                id="invite-email"
+                v-model="email"
+                class="invite-input"
+                type="email"
+                inputmode="email"
+                placeholder="Where your ticket goes"
+                autocomplete="email"
+                spellcheck="false"
+                maxlength="254"
+                @keyup.enter="submitChoice"
+              />
             </label>
-            <input
-              id="invite-phone"
-              v-model="phone"
-              class="invite-input"
-              type="tel"
-              inputmode="tel"
-              placeholder="+39 333 123 4567"
-              autocomplete="tel"
-              @keyup.enter="submitChoice"
-            />
+            <label class="invite-field" for="invite-phone">
+              <span class="invite-label">
+                Your phone
+                <span class="invite-optional">(for WhatsApp)</span>
+              </span>
+              <input
+                id="invite-phone"
+                v-model="phone"
+                class="invite-input"
+                type="tel"
+                inputmode="tel"
+                placeholder="+39 333 123 4567"
+                autocomplete="tel"
+                @keyup.enter="submitChoice"
+              />
+            </label>
             <!-- The phone is the field people hesitate over: say who uses it. -->
             <div class="invite-reassure">
               <svg
@@ -750,6 +663,21 @@ function copy(text: string, key: string): void {
 
 <style scoped>
 .invite-page {
+  /* The payment apps' and Google's own colours, so each button reads as the
+     one people know. Brand colours: the same in both Themes. */
+  --paypal: #ffc439;
+  --paypal-hover: #f2ba36;
+  --paypal-ink: #111;
+  --paypal-navy: #003087;
+  --paypal-blue: #009cde;
+  --satispay: #ef373e;
+  --satispay-hover: #db2f36;
+  --revolut: #191c1f;
+  --revolut-edge: #3d4249;
+  --revolut-hover: #2c3035;
+  --google-surface: #fff;
+  --google-ink: #1f1f1f;
+
   min-height: 100dvh;
   display: flex;
   align-items: center;
@@ -837,7 +765,12 @@ function copy(text: string, key: string): void {
   color: var(--dim);
 }
 
+/* The label wraps its input but lays out as two rows of the column. */
+.invite-field {
+  display: contents;
+}
 .invite-label {
+  display: block;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -897,8 +830,8 @@ function copy(text: string, key: string): void {
   padding: 11px 14px;
   border-radius: var(--rs);
   border: 1px solid var(--border);
-  background: #fff;
-  color: #1f1f1f;
+  background: var(--google-surface);
+  color: var(--google-ink);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
@@ -1035,13 +968,13 @@ function copy(text: string, key: string): void {
   text-decoration: none;
   cursor: pointer;
 }
-/* The colours of PayPal's own button, so it reads as the one people know. */
+/* The colours of PayPal's own button. */
 .pay-btn--paypal {
-  background: #ffc439;
-  color: #111;
+  background: var(--paypal);
+  color: var(--paypal-ink);
 }
 .pay-btn--paypal:hover {
-  background: #f2ba36;
+  background: var(--paypal-hover);
 }
 .paypal-mark {
   font-family: Verdana, 'DejaVu Sans', sans-serif;
@@ -1051,26 +984,26 @@ function copy(text: string, key: string): void {
   letter-spacing: -0.02em;
 }
 .paypal-mark__pay {
-  color: #003087;
+  color: var(--paypal-navy);
 }
 .paypal-mark__pal {
-  color: #009cde;
+  color: var(--paypal-blue);
 }
 .pay-btn--satispay {
-  background: #ef373e;
+  background: var(--satispay);
   color: #fff;
 }
 .pay-btn--satispay:hover {
-  background: #db2f36;
+  background: var(--satispay-hover);
 }
 /* Revolut's own near-black, with an edge so it still reads on a dark card. */
 .pay-btn--revolut {
-  background: #191c1f;
-  border-color: #3d4249;
+  background: var(--revolut);
+  border-color: var(--revolut-edge);
   color: #fff;
 }
 .pay-btn--revolut:hover {
-  background: #2c3035;
+  background: var(--revolut-hover);
 }
 .pay-btn--bank {
   background: transparent;
