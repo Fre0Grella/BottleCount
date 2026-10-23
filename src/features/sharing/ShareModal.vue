@@ -97,59 +97,24 @@ function handleClose() {
     <template #title>Invite to {{ party?.name ?? '' }}</template>
 
     <!-- Preview card -->
-    <div
-      style="
-        border-radius: var(--rs);
-        overflow: hidden;
-        border: 1px solid var(--border);
-        margin-bottom: 16px;
-      "
-    >
-      <div
-        style="
-          height: 74px;
-          display: flex;
-          align-items: flex-end;
-          padding: 10px;
-        "
-        :style="{ background: cover.grad }"
-      >
-        <span style="font-size: 24px">{{ cover.emoji }}</span>
+    <div class="share__card">
+      <div class="share__cover" :style="{ background: cover.grad }">
+        <span class="share__emoji">{{ cover.emoji }}</span>
       </div>
-      <div style="padding: 12px 14px; background: var(--surface2)">
-        <div
-          style="
-            font-family: var(--font-disp);
-            font-weight: 700;
-            font-size: 15px;
-          "
-        >
+      <div class="share__body">
+        <div class="share__name">
           {{ party?.name ?? '' }}
         </div>
-        <div style="font-size: 12px; color: var(--dim); margin-top: 2px">
-          {{ venueWhere }} · {{ partyDateShort }}
-        </div>
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11px;
-            color: var(--faint);
-            margin-top: 8px;
-          "
-        >
+        <div class="share__where">{{ venueWhere }} · {{ partyDateShort }}</div>
+        <div class="share__link">
           <Icon name="link" :size="12" />
           <span v-if="publishing">Creating your link…</span>
-          <span v-else-if="publishFailed" style="color: var(--bad)">
+          <span v-else-if="publishFailed" class="share__link-failed">
             Couldn't reach the server — try again in a moment.
           </span>
-          <span
-            v-else
-            style="user-select: all; overflow-wrap: anywhere"
-            data-testid="invite-link"
-            >{{ inviteLinkLabel }}</span
-          >
+          <span v-else class="share__link-text" data-testid="invite-link">{{
+            inviteLinkLabel
+          }}</span>
         </div>
       </div>
     </div>
@@ -173,14 +138,8 @@ function handleClose() {
       icon="share"
       :tile-size="34"
       :icon-size="16"
-      style="
-        padding: 13px 14px;
-        border-radius: var(--rs);
-        background: var(--surface2);
-      "
-      :style="{
-        border: `1px solid ${allowForward ? 'var(--accent)' : 'var(--border)'}`,
-      }"
+      class="share__forward"
+      :class="{ 'share__forward--on': allowForward }"
       @update:model-value="(on) => store.update((p) => (p.allowForward = on))"
     >
       Let guests invite friends
@@ -190,15 +149,80 @@ function handleClose() {
     </Toggle>
 
     <!-- Footer hint -->
-    <div
-      style="
-        font-size: 11px;
-        color: var(--faint);
-        text-align: center;
-        margin-top: 12px;
-      "
-    >
+    <div class="share__hint">
       {{ shareHint }}
     </div>
   </ModalShell>
 </template>
+
+<style scoped>
+.share__card {
+  border-radius: var(--rs);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.share__cover {
+  height: 74px;
+  display: flex;
+  align-items: flex-end;
+  padding: 10px;
+}
+
+.share__emoji {
+  font-size: 24px;
+}
+
+.share__body {
+  padding: 12px 14px;
+  background: var(--surface2);
+}
+
+.share__name {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.share__where {
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: 2px;
+}
+
+.share__link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 8px;
+}
+
+.share__link-failed {
+  color: var(--bad);
+}
+
+.share__link-text {
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.share__forward {
+  padding: 13px 14px;
+  border-radius: var(--rs);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.share__forward--on {
+  border-color: var(--accent);
+}
+
+.share__hint {
+  font-size: 11px;
+  color: var(--faint);
+  text-align: center;
+  margin-top: 12px;
+}
+</style>
