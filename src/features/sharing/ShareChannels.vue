@@ -180,28 +180,8 @@ watch(
     <div
       v-if="notice"
       role="status"
-      style="
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        padding: 11px 13px;
-        border-radius: var(--rs);
-        background: var(--good-soft);
-        border: 1px solid var(--good);
-        color: var(--good);
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 12px;
-      "
-      :style="
-        copyFailed
-          ? {
-              background: 'var(--surface2)',
-              borderColor: 'var(--border)',
-              color: 'var(--dim)',
-            }
-          : {}
-      "
+      class="channels__notice"
+      :class="{ 'channels__notice--plain': copyFailed }"
     >
       <Icon :name="copyFailed ? 'info' : 'check'" :size="16" />
       {{ notice }}
@@ -209,118 +189,154 @@ watch(
     <div
       v-if="copyFailed"
       data-testid="share-link-fallback"
-      style="
-        font-size: 12px;
-        color: var(--text);
-        padding: 10px 12px;
-        border-radius: var(--rs);
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        margin-bottom: 12px;
-        user-select: all;
-        overflow-wrap: anywhere;
-      "
+      class="channels__fallback"
     >
       {{ link }}
     </div>
 
-    <div
-      style="
-        font-size: 12px;
-        color: var(--dim);
-        font-weight: 600;
-        margin-bottom: 9px;
-      "
-    >
+    <div class="channels__label">
       {{ label }}
     </div>
-    <div
-      style="
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 9px;
-        margin-bottom: 16px;
-      "
-    >
+    <div class="channels__grid">
       <button
         v-for="ch in channels"
         :key="ch.label"
         type="button"
         :disabled="!link"
-        style="
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 7px;
-          padding: 14px 6px;
-          border-radius: var(--rs);
-          border: 1.5px solid var(--border);
-          background: var(--surface2);
-          color: var(--text);
-          font-family: inherit;
-        "
-        :style="{ opacity: link ? 1 : 0.5 }"
+        class="channels__btn"
         @click="ch.onClick"
       >
+        <!-- The channel's own colour, on a tint of itself. -->
         <span
-          style="
-            display: flex;
-            width: 38px;
-            height: 38px;
-            border-radius: 11px;
-            align-items: center;
-            justify-content: center;
-          "
-          :style="{
-            background: ch.color + '22',
-            color: ch.color,
-          }"
+          class="channels__tile"
+          :style="{ background: ch.color + '22', color: ch.color }"
         >
           <Icon :name="ch.iconName" :size="18" />
         </span>
-        <span style="font-size: 11px; font-weight: 600">{{ ch.label }}</span>
+        <span class="channels__name">{{ ch.label }}</span>
       </button>
     </div>
 
     <!-- QR code, for a poster or a phone held up at the bar -->
-    <div
-      v-if="qrDataUrl"
-      style="
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        padding: 14px;
-        border-radius: var(--rs);
-        border: 1px solid var(--border);
-        background: var(--surface2);
-        margin-bottom: 16px;
-      "
-    >
+    <div v-if="qrDataUrl" class="channels__qr">
       <img
         :src="qrDataUrl"
         alt="QR code for the link"
         width="200"
         height="200"
-        style="border-radius: 8px; background: #fff"
+        class="channels__qr-img"
       />
-      <a
-        :href="qrDataUrl"
-        :download="qrFileName"
-        style="
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--accent);
-          text-decoration: none;
-        "
-      >
+      <a :href="qrDataUrl" :download="qrFileName" class="channels__download">
         <Icon name="download" :size="13" />
         Download PNG
       </a>
     </div>
   </div>
 </template>
+
+<style scoped>
+.channels__notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border-radius: var(--rs);
+  background: var(--good-soft);
+  border: 1px solid var(--good);
+  color: var(--good);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+/* Copying failed: a plain note, not a success. */
+.channels__notice--plain {
+  background: var(--surface2);
+  border-color: var(--border);
+  color: var(--dim);
+}
+
+.channels__fallback {
+  font-size: 12px;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--rs);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.channels__label {
+  font-size: 12px;
+  color: var(--dim);
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+
+.channels__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+.channels__btn {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 6px;
+  border-radius: var(--rs);
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: inherit;
+}
+.channels__btn:disabled {
+  opacity: 0.5;
+}
+
+.channels__tile {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  align-items: center;
+  justify-content: center;
+}
+
+.channels__name {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.channels__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  margin-bottom: 16px;
+}
+
+/* White in both Themes: a QR scans best dark on light. */
+.channels__qr-img {
+  border-radius: 8px;
+  background: #fff;
+}
+
+.channels__download {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+</style>

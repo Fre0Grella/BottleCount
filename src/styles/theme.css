@@ -76,6 +76,35 @@
   --seg-4: #c73e8c;
 }
 
+/* ── Door mode: always dark, whatever the Theme ── */
+/* Its own darker palette, set on DoorScannerModal's root, so a phone held up
+   at a dim door looks the same in either Theme. */
+.bc-door {
+  --door-bg: #07090e;
+  --door-text: #f2f5fa;
+  --door-dim: #8b96ab;
+  --door-faint: #5b6a8a;
+  --door-name: #c9d3e6;
+  --door-line: rgba(255, 255, 255, 0.08);
+  --door-frame: rgba(255, 255, 255, 0.1);
+  --door-frame-bg: rgba(255, 255, 255, 0.04);
+  --door-field: rgba(255, 255, 255, 0.06);
+  --door-field-line: rgba(255, 255, 255, 0.16);
+  --door-close-line: rgba(255, 255, 255, 0.18);
+  --door-accent: #ff7a3d;
+  --door-on-accent: #17202e;
+  --door-good: #34d399;
+  --door-on-good: #06281a;
+  --door-good-text: #7fcbaa;
+  --door-good-soft: rgba(52, 211, 153, 0.12);
+  --door-good-line: rgba(52, 211, 153, 0.4);
+  --door-bad: #f87171;
+  --door-on-bad: #2b0808;
+  --door-bad-text: #e89b9b;
+  --door-bad-soft: rgba(248, 113, 113, 0.12);
+  --door-bad-line: rgba(248, 113, 113, 0.4);
+}
+
 /* ── Keyframes ── */
 @keyframes bcFadeUp {
   from {

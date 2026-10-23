@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import QrScanner from 'qr-scanner';
 import { useStore } from '../../store/store';
 import { verifyTicket } from './crypto';
 import { checkTicket } from './ticket';
-import { formatClockTime } from '../../lib/dates';
+import { doorTally, rejection } from './door';
 import type { DoorEntry, DoorVerdict } from './ticket';
 import Icon from '../../components/ui/Icon.vue';
 import ModalShell from '../../components/ui/ModalShell.vue';
@@ -23,23 +23,6 @@ function nowHHMMSS(): string {
     minute: '2-digit',
     second: '2-digit',
   });
-}
-
-function pushHistory(name: string, time: string): void {
-  store.state.scanHistory = [{ name, time }, ...store.state.scanHistory].slice(
-    0,
-    6,
-  );
-}
-
-let clearTimer: ReturnType<typeof setTimeout> | null = null;
-
-function scheduleClear(): void {
-  if (clearTimer !== null) clearTimeout(clearTimer);
-  clearTimer = setTimeout(() => {
-    store.state.scanResult = null;
-    clearTimer = null;
-  }, 2000);
 }
 
 // ── Admitting a guest ──────────────────────────────────────────────────────
@@ -73,79 +56,18 @@ async function admit(entry: DoorEntry): Promise<DoorVerdict | null> {
     return verdict;
   }
 
-  store.state.scanResult = { ok: true, name: invite.name };
-  pushHistory(invite.name, nowHHMMSS());
+  store.showScanResult({ ok: true, name: invite.name });
+  store.recordCheckIn(invite.name, nowHHMMSS());
   navigator.vibrate?.([90, 40, 90]);
-  scheduleClear();
   return verdict;
-}
-
-/** What the door screen says for each way a ticket is refused. */
-function rejection(
-  entry: DoorEntry,
-  verdict: Extract<DoorVerdict, { ok: false }>,
-): { name: string; sub: string } {
-  const who = verdict.invite?.name ?? (verdict.guestName || 'Unknown guest');
-  switch (verdict.reason) {
-    case 'malformed':
-      return entry.kind === 'scan'
-        ? {
-            name: 'Forged or invalid ticket',
-            sub: "That QR isn't a BottleCount ticket",
-          }
-        : {
-            name: 'Invalid code',
-            sub: 'A ticket code is five letters and numbers',
-          };
-    case 'bad_signature':
-      return {
-        name: 'Forged or invalid ticket',
-        sub: 'Signature check failed — this ticket may be counterfeit',
-      };
-    case 'wrong_party':
-      return { name: who, sub: 'Ticket is for another party' };
-    case 'expired':
-      return { name: who, sub: 'This ticket has expired' };
-    case 'unknown_code':
-      return entry.kind === 'scan'
-        ? { name: who, sub: 'Not found on the confirmed guest list' }
-        : {
-            name: 'Unknown code',
-            sub: 'No ticket on this party has that code',
-          };
-    case 'name_missing':
-      return {
-        name: 'Name needed',
-        sub: "Type the guest's name as well as the code",
-      };
-    case 'name_mismatch':
-      // Without naming them — that would hand a stranger a real guest's name.
-      return {
-        name: 'Name does not match',
-        sub: 'That code belongs to a different guest',
-      };
-    case 'not_coming':
-      return { name: who, sub: "They haven't confirmed they're coming" };
-    case 'unpaid':
-      return {
-        name: who,
-        sub: "Hasn't paid yet — mark them paid, then check again",
-      };
-    case 'already_used':
-      return {
-        name: who,
-        sub: `Already scanned at ${formatClockTime(verdict.invite?.usedAt) || '?'} — do not let in again`,
-      };
-  }
 }
 
 function reject(
   entry: DoorEntry,
   verdict: Extract<DoorVerdict, { ok: false }>,
 ): void {
-  store.state.scanResult = { ok: false, ...rejection(entry, verdict) };
+  store.showScanResult({ ok: false, ...rejection(entry, verdict) });
   navigator.vibrate?.(300);
-  scheduleClear();
 }
 
 // ── Real scan callback ─────────────────────────────────────────────────────
@@ -228,28 +150,13 @@ function closeDoor(): void {
 }
 
 // ── Derived stats ──────────────────────────────────────────────────────────
-function accepted() {
-  return (store.activeParty()?.invites ?? []).filter(
-    (i) => i.status === 'confirmed',
-  );
-}
-
-function checkedIn() {
-  return accepted().filter((i) => i.used).length;
-}
-
-function doorStats() {
-  const acc = accepted();
-  return `${checkedIn()}/${acc.length} inside`;
-}
-
-function partyName() {
-  return store.activeParty()?.name ?? '';
-}
-
-function recentHistory() {
-  return store.state.scanHistory.slice(0, 4);
-}
+const tally = computed(() => doorTally(store.activeParty()));
+const partyName = computed(() => store.activeParty()?.name ?? '');
+const recentHistory = computed(() => store.state.scanHistory.slice(0, 4));
+const canCheck = computed(
+  () =>
+    !manualBusy.value && !!manualCode.value.trim() && !!manualName.value.trim(),
+);
 </script>
 
 <template>
@@ -259,52 +166,19 @@ function recentHistory() {
     variant="full"
     @close="closeDoor"
   >
-    <div
-      style="
-        flex: 1;
-        background: #07090e;
-        color: #f2f5fa;
-        display: flex;
-        flex-direction: column;
-      "
-    >
+    <!-- Always dark: `bc-door` brings its own palette (theme.css). -->
+    <div class="bc-door door">
       <!-- Header -->
-      <div
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 16px 20px;
-        "
-      >
+      <div class="door__head">
         <div>
-          <div
-            :id="titleId"
-            style="
-              font-family: var(--font-disp);
-              font-weight: 700;
-              font-size: 17px;
-            "
-          >
-            Door scanner
-          </div>
-          <div style="font-size: 11px; color: #8b96ab">
-            {{ partyName() }} &middot; {{ doorStats() }}
+          <div :id="titleId" class="door__title">Door scanner</div>
+          <div class="door__stats">
+            {{ partyName }} &middot; {{ tally.inside }}/{{ tally.confirmed }}
+            inside
           </div>
         </div>
         <button
-          style="
-            cursor: pointer;
-            display: flex;
-            width: 38px;
-            height: 38px;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: transparent;
-            color: #f2f5fa;
-          "
+          class="door__close"
           aria-label="Close door scanner"
           @click="closeDoor"
         >
@@ -313,274 +187,87 @@ function recentHistory() {
       </div>
 
       <!-- Main content -->
-      <div
-        style="
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 22px;
-          padding: 20px;
-        "
-      >
+      <div class="door__main">
         <!-- Scan frame -->
-        <div
-          style="
-            position: relative;
-            width: min(240px, 60vw);
-            aspect-ratio: 1;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            overflow: hidden;
-          "
-        >
+        <div class="door__frame">
           <!-- Video element for real camera -->
-          <video
-            ref="videoRef"
-            style="
-              position: absolute;
-              inset: 0;
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-              border-radius: 18px;
-            "
-            muted
-            playsinline
-          />
+          <video ref="videoRef" class="door__video" muted playsinline />
 
           <!-- Corner brackets (rendered on top of video) -->
-          <div
-            style="
-              position: absolute;
-              top: -2px;
-              left: -2px;
-              width: 34px;
-              height: 34px;
-              border-top: 3px solid var(--accent);
-              border-left: 3px solid var(--accent);
-              border-top-left-radius: 18px;
-              pointer-events: none;
-              z-index: 2;
-            "
-          />
-          <div
-            style="
-              position: absolute;
-              top: -2px;
-              right: -2px;
-              width: 34px;
-              height: 34px;
-              border-top: 3px solid var(--accent);
-              border-right: 3px solid var(--accent);
-              border-top-right-radius: 18px;
-              pointer-events: none;
-              z-index: 2;
-            "
-          />
-          <div
-            style="
-              position: absolute;
-              bottom: -2px;
-              left: -2px;
-              width: 34px;
-              height: 34px;
-              border-bottom: 3px solid var(--accent);
-              border-left: 3px solid var(--accent);
-              border-bottom-left-radius: 18px;
-              pointer-events: none;
-              z-index: 2;
-            "
-          />
-          <div
-            style="
-              position: absolute;
-              bottom: -2px;
-              right: -2px;
-              width: 34px;
-              height: 34px;
-              border-bottom: 3px solid var(--accent);
-              border-right: 3px solid var(--accent);
-              border-bottom-right-radius: 18px;
-              pointer-events: none;
-              z-index: 2;
-            "
-          />
+          <div class="door__corner door__corner--tl" />
+          <div class="door__corner door__corner--tr" />
+          <div class="door__corner door__corner--bl" />
+          <div class="door__corner door__corner--br" />
 
           <!-- Animated scan line -->
-          <div
-            style="
-              position: absolute;
-              left: 8%;
-              right: 8%;
-              height: 2px;
-              background: var(--accent);
-              box-shadow: 0 0 14px var(--accent);
-              animation: bcScan 2.6s ease-in-out infinite;
-              pointer-events: none;
-              z-index: 3;
-            "
-          />
+          <div class="door__scanline" />
         </div>
 
         <!-- Scan result: OK -->
         <div
           v-if="store.state.scanResult?.ok === true"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(52, 211, 153, 0.12);
-            border: 1px solid rgba(52, 211, 153, 0.4);
-            border-radius: 14px;
-            padding: 14px 20px;
-            animation: bcPop 0.25s ease both;
-          "
+          class="door__result door__result--ok"
         >
-          <span
-            style="
-              display: flex;
-              width: 34px;
-              height: 34px;
-              flex-shrink: 0;
-              border-radius: 50%;
-              background: #34d399;
-              color: #06281a;
-              align-items: center;
-              justify-content: center;
-            "
-          >
+          <span class="door__badge">
             <Icon name="check" :size="16" />
           </span>
           <div>
-            <div style="font-weight: 700; font-size: 15px">
+            <div class="door__result-name">
               {{ store.state.scanResult.name }}
             </div>
-            <div style="font-size: 12px; color: #7fcbaa">
-              Ticket valid &mdash; welcome in
-            </div>
+            <div class="door__result-sub">Ticket valid &mdash; welcome in</div>
           </div>
         </div>
 
         <!-- Scan result: FAIL -->
         <div
           v-else-if="store.state.scanResult?.ok === false"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(248, 113, 113, 0.12);
-            border: 1px solid rgba(248, 113, 113, 0.4);
-            border-radius: 14px;
-            padding: 14px 20px;
-            animation: bcPop 0.25s ease both;
-          "
+          class="door__result door__result--bad"
         >
-          <span
-            style="
-              display: flex;
-              width: 34px;
-              height: 34px;
-              flex-shrink: 0;
-              border-radius: 50%;
-              background: #f87171;
-              color: #2b0808;
-              align-items: center;
-              justify-content: center;
-              font-weight: 800;
-              font-size: 18px;
-            "
-          >
-            !
-          </span>
+          <span class="door__badge">!</span>
           <div>
-            <div style="font-weight: 700; font-size: 15px">
+            <div class="door__result-name">
               {{ store.state.scanResult.name }}
             </div>
-            <div style="font-size: 12px; color: #e89b9b">
+            <div class="door__result-sub">
               {{ store.state.scanResult.sub ?? 'No pending ticket found' }}
             </div>
           </div>
         </div>
 
         <!-- Scanning hint -->
-        <div
-          v-if="!store.state.scanResult"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: #8b96ab;
-          "
-        >
+        <div v-if="!store.state.scanResult" class="door__hint">
           <Icon name="scan" :size="16" />
           Point a guest's ticket QR at the camera
         </div>
       </div>
 
       <!-- Recent check-ins -->
-      <div style="padding: 0 20px 22px 20px">
-        <div
-          style="
-            font-size: 10px;
-            color: #5b6a8a;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-weight: 700;
-            margin-bottom: 8px;
-          "
-        >
-          Recent check-ins
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px">
+      <div class="door__recent">
+        <div class="door__label door__label--recent">Recent check-ins</div>
+        <div class="door__history">
           <div
-            v-for="h in recentHistory()"
+            v-for="h in recentHistory"
             :key="h.name + h.time"
-            style="
-              display: flex;
-              justify-content: space-between;
-              font-size: 13px;
-            "
+            class="door__history-row"
           >
-            <span style="color: #c9d3e6">{{ h.name }}</span>
-            <span style="color: #5b6a8a; font-size: 12px">{{ h.time }}</span>
+            <span class="door__history-name">{{ h.name }}</span>
+            <span class="door__history-time">{{ h.time }}</span>
           </div>
-          <div
-            v-if="recentHistory().length === 0"
-            style="font-size: 13px; color: #5b6a8a"
-          >
+          <div v-if="recentHistory.length === 0" class="door__empty">
             No check-ins yet
           </div>
         </div>
       </div>
 
       <!-- Check a ticket by hand -->
-      <div
-        style="
-          padding: 14px 20px 18px 20px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-        "
-      >
-        <div
-          style="
-            font-size: 10px;
-            color: #5b6a8a;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-weight: 700;
-            margin-bottom: 4px;
-          "
-        >
-          Check by code
-        </div>
-        <div style="font-size: 12px; color: #5b6a8a; margin-bottom: 9px">
+      <div class="door__manual">
+        <div class="door__label">Check by code</div>
+        <div class="door__manual-hint">
           When the QR won't scan. Both the code and the name have to match.
         </div>
 
-        <div style="display: flex; gap: 8px; margin-bottom: 8px">
+        <div class="door__fields">
           <input
             v-model="manualCode"
             type="text"
@@ -589,63 +276,22 @@ function recentHistory() {
             spellcheck="false"
             maxlength="7"
             placeholder="AB23C"
-            style="
-              width: 40%;
-              box-sizing: border-box;
-              padding: 10px 12px;
-              border-radius: 10px;
-              border: 1px solid rgba(255, 255, 255, 0.16);
-              background: rgba(255, 255, 255, 0.06);
-              color: #f2f5fa;
-              font-size: 15px;
-              font-family: monospace;
-              letter-spacing: 0.12em;
-              text-transform: uppercase;
-              outline: none;
-            "
+            aria-label="Ticket code"
+            class="door__field door__field--code"
           />
           <input
             v-model="manualName"
             type="text"
             placeholder="Guest's name"
-            style="
-              flex: 1;
-              min-width: 0;
-              box-sizing: border-box;
-              padding: 10px 12px;
-              border-radius: 10px;
-              border: 1px solid rgba(255, 255, 255, 0.16);
-              background: rgba(255, 255, 255, 0.06);
-              color: #f2f5fa;
-              font-size: 14px;
-              outline: none;
-            "
+            aria-label="Guest's name"
+            class="door__field door__field--name"
             @keyup.enter="verifyManually"
           />
         </div>
 
         <button
-          :disabled="manualBusy || !manualCode.trim() || !manualName.trim()"
-          style="
-            width: 100%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 14px;
-            font-weight: 700;
-            padding: 12px 16px;
-            border-radius: 999px;
-            border: none;
-            background: #ff7a3d;
-            color: #17202e;
-            min-height: 44px;
-          "
-          :style="{
-            opacity:
-              manualBusy || !manualCode.trim() || !manualName.trim() ? 0.5 : 1,
-          }"
+          :disabled="!canCheck"
+          class="door__check"
           @click="verifyManually"
         >
           <Icon name="check" :size="15" />
@@ -655,3 +301,285 @@ function recentHistory() {
     </div>
   </ModalShell>
 </template>
+
+<style scoped>
+.door {
+  flex: 1;
+  background: var(--door-bg);
+  color: var(--door-text);
+  display: flex;
+  flex-direction: column;
+}
+
+.door__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+
+.door__title {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.door__stats {
+  font-size: 11px;
+  color: var(--door-dim);
+}
+
+.door__close {
+  cursor: pointer;
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--door-close-line);
+  background: transparent;
+  color: var(--door-text);
+}
+
+.door__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 20px;
+}
+
+.door__frame {
+  position: relative;
+  width: min(240px, 60vw);
+  aspect-ratio: 1;
+  border-radius: 18px;
+  background: var(--door-frame-bg);
+  border: 1px solid var(--door-frame);
+  overflow: hidden;
+}
+
+.door__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
+/* The brackets and the scan line take the Theme's accent, as they always
+   have; the button below is the door's own orange. */
+.door__corner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border: 0 solid var(--accent);
+  pointer-events: none;
+  z-index: 2;
+}
+.door__corner--tl {
+  top: -2px;
+  left: -2px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+  border-top-left-radius: 18px;
+}
+.door__corner--tr {
+  top: -2px;
+  right: -2px;
+  border-top-width: 3px;
+  border-right-width: 3px;
+  border-top-right-radius: 18px;
+}
+.door__corner--bl {
+  bottom: -2px;
+  left: -2px;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+  border-bottom-left-radius: 18px;
+}
+.door__corner--br {
+  bottom: -2px;
+  right: -2px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+  border-bottom-right-radius: 18px;
+}
+
+.door__scanline {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent);
+  animation: bcScan 2.6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.door__result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  padding: 14px 20px;
+  animation: bcPop 0.25s ease both;
+}
+.door__result--ok {
+  background: var(--door-good-soft);
+  border: 1px solid var(--door-good-line);
+}
+.door__result--bad {
+  background: var(--door-bad-soft);
+  border: 1px solid var(--door-bad-line);
+}
+
+.door__badge {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+}
+.door__result--ok .door__badge {
+  background: var(--door-good);
+  color: var(--door-on-good);
+}
+.door__result--bad .door__badge {
+  background: var(--door-bad);
+  color: var(--door-on-bad);
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.door__result-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.door__result-sub {
+  font-size: 12px;
+}
+.door__result--ok .door__result-sub {
+  color: var(--door-good-text);
+}
+.door__result--bad .door__result-sub {
+  color: var(--door-bad-text);
+}
+
+.door__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--door-dim);
+}
+
+.door__recent {
+  padding: 0 20px 22px 20px;
+}
+
+.door__label {
+  font-size: 10px;
+  color: var(--door-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.door__label--recent {
+  margin-bottom: 8px;
+}
+
+.door__history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.door__history-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.door__history-name {
+  color: var(--door-name);
+}
+
+.door__history-time {
+  color: var(--door-faint);
+  font-size: 12px;
+}
+
+.door__empty {
+  font-size: 13px;
+  color: var(--door-faint);
+}
+
+.door__manual {
+  padding: 14px 20px 18px 20px;
+  border-top: 1px solid var(--door-line);
+}
+
+.door__manual-hint {
+  font-size: 12px;
+  color: var(--door-faint);
+  margin-bottom: 9px;
+}
+
+.door__fields {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.door__field {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--door-field-line);
+  background: var(--door-field);
+  color: var(--door-text);
+  outline: none;
+}
+.door__field--code {
+  width: 40%;
+  font-size: 15px;
+  font-family: monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.door__field--name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.door__check {
+  width: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: none;
+  background: var(--door-accent);
+  color: var(--door-on-accent);
+  min-height: 44px;
+}
+.door__check:disabled {
+  opacity: 0.5;
+}
+</style>

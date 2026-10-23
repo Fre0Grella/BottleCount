@@ -11,6 +11,7 @@ import {
 } from './ticket';
 import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
+import CloseButton from '../../components/ui/CloseButton.vue';
 
 const store = useStore();
 
@@ -80,113 +81,131 @@ watch(
     size="xs"
     @close="store.closeTicket()"
   >
-    <div
-      style="
-        padding: 26px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-      "
-    >
+    <!-- The centred ticket keeps its own heading; the close sits in the corner. -->
+    <CloseButton
+      class="ticket__close"
+      label="Close ticket"
+      @click="store.closeTicket()"
+    />
+    <div class="ticket">
       <!-- Party name -->
-      <div
-        style="
-          font-size: 11px;
-          color: var(--faint);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          font-weight: 700;
-        "
-      >
+      <div class="ticket__party">
         {{ party?.name ?? '' }}
       </div>
 
       <!-- Guest name -->
-      <div
-        :id="titleId"
-        style="
-          font-family: var(--font-disp);
-          font-weight: 700;
-          font-size: 20px;
-          letter-spacing: -0.01em;
-        "
-      >
+      <div :id="titleId" class="ticket__guest">
         {{ guestName }}
       </div>
 
       <!-- QR code area -->
-      <div
-        style="
-          margin: 12px 0;
-          padding: 12px;
-          background: #fff;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 220px;
-          height: 220px;
-        "
-      >
+      <div class="ticket__qr">
         <img
           v-if="qrDataUrl"
           :src="qrDataUrl"
           alt="Ticket QR code"
           width="196"
           height="196"
-          style="display: block; border-radius: 4px"
+          class="ticket__qr-img"
         />
         <!-- Loading / placeholder spinner -->
-        <div
-          v-else
-          style="
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            color: var(--dim);
-          "
-        >
+        <div v-else class="ticket__qr-wait">
           <Icon v-if="qrLoading" name="loader" :size="32" class="bc-spin" />
           <Icon v-else name="qr" :size="32" />
         </div>
       </div>
 
       <!-- Ticket ID -->
-      <div
-        style="
-          font-size: 11px;
-          color: var(--dim);
-          font-family: var(--font-mono);
-        "
-      >
+      <div class="ticket__code">
         {{ ticketId }}
       </div>
 
       <!-- Expiry -->
-      <div style="font-size: 11px; color: var(--faint)">
-        valid until {{ ticketExpiry }}
-      </div>
+      <div class="ticket__expiry">valid until {{ ticketExpiry }}</div>
 
       <!-- Done button -->
-      <button
-        style="
-          margin-top: 12px;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 700;
-          padding: 10px 26px;
-          border-radius: 999px;
-          border: none;
-          background: var(--accent);
-          color: var(--on-accent);
-          min-height: 40px;
-        "
-        @click="store.closeTicket()"
-      >
-        Done
-      </button>
+      <button class="ticket__done" @click="store.closeTicket()">Done</button>
     </div>
   </ModalShell>
 </template>
+
+<style scoped>
+.ticket {
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticket__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.ticket__party {
+  font-size: 11px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.ticket__guest {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+/* White in both Themes: a QR scans best dark on light. */
+.ticket__qr {
+  margin: 12px 0;
+  padding: 12px;
+  background: #fff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  height: 220px;
+}
+
+.ticket__qr-img {
+  display: block;
+  border-radius: 4px;
+}
+
+.ticket__qr-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+}
+
+.ticket__code {
+  font-size: 11px;
+  color: var(--dim);
+  font-family: var(--font-mono);
+}
+
+.ticket__expiry {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.ticket__done {
+  margin-top: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 26px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  min-height: 40px;
+}
+</style>
