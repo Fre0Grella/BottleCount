@@ -6,29 +6,31 @@ import {
   deleteIngredient,
   setPriceOverride,
 } from './catalog';
-import type { IngredientType } from '../../lib/types';
+import type { Catalog, Ingredient, IngredientType } from '../../lib/types';
 import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
+import Field from '../../components/ui/Field.vue';
 import { TYPE_META } from './ingredientTypes';
-import { formatEuroRange } from '../../lib/display';
+import {
+  builtInEdit,
+  emptyIngredientFields,
+  fieldsFromIngredient,
+  ingredientFromFields,
+  ingredientMetaLine,
+  typeHasAbv,
+  typeHasVolume,
+  type IngredientFields,
+} from './ingredients';
 
 import catalogData from '../../data/catalog.json';
-import type { Catalog } from '../../lib/types';
 
 const store = useStore();
 
 // ── Form state ─────────────────────────────────────────────────────────────
 
-interface FormState {
+interface FormState extends IngredientFields {
   mode: 'new' | 'edit';
   key?: string; // original ingredient key (edit only)
-  name: string;
-  type: IngredientType;
-  abv: string;
-  vol: string;
-  unit: string;
-  priceMin: string;
-  priceMax: string;
 }
 
 const form = ref<FormState | null>(null);
@@ -49,11 +51,9 @@ const TYPE_GROUPS = (
 
 // ── Derived ingredient list ────────────────────────────────────────────────
 
-const ingredients = computed(() => {
-  const cat = store.state.catalog;
-  if (!cat) return {} as Record<string, (typeof cat.ingredients)[string]>;
-  return cat.ingredients;
-});
+const ingredients = computed<Record<string, Ingredient>>(
+  () => store.state.catalog?.ingredients ?? {},
+);
 
 function ingsByType(type: IngredientType) {
   return Object.entries(ingredients.value)
@@ -61,31 +61,10 @@ function ingsByType(type: IngredientType) {
     .sort(([a], [b]) => a.localeCompare(b));
 }
 
-function metaLine(ing: (typeof ingredients.value)[string]): string {
-  const parts: string[] = [];
-  if (ing.abv && ing.abv > 0) {
-    parts.push(`${Math.round(ing.abv * 100)}%`);
-  }
-  if (ing.volume_ml) {
-    parts.push(`${ing.volume_ml} ml`);
-  } else if (ing.unit) {
-    parts.push(ing.unit);
-  }
-  parts.push(formatEuroRange(ing.price_min, ing.price_max, 'always'));
-  return parts.join(' · ');
-}
-
 // ── Form field helpers ─────────────────────────────────────────────────────
 
-const hasAbv = computed(() => {
-  if (!form.value) return false;
-  return ['beer', 'wine', 'spirit'].includes(form.value.type);
-});
-
-const hasVol = computed(() => {
-  if (!form.value) return false;
-  return ['beer', 'wine', 'spirit', 'mixer'].includes(form.value.type);
-});
+const hasAbv = computed(() => !!form.value && typeHasAbv(form.value.type));
+const hasVol = computed(() => !!form.value && typeHasVolume(form.value.type));
 
 const canSave = computed(() => {
   return !!form.value && form.value.name.trim().length > 0;
@@ -94,32 +73,13 @@ const canSave = computed(() => {
 // ── Actions ────────────────────────────────────────────────────────────────
 
 function openNewForm(type: IngredientType = 'spirit') {
-  form.value = {
-    mode: 'new',
-    name: '',
-    type,
-    abv: '',
-    vol: '',
-    unit: '',
-    priceMin: '',
-    priceMax: '',
-  };
+  form.value = { mode: 'new', ...emptyIngredientFields(type) };
 }
 
 function openEditForm(key: string) {
   const ing = ingredients.value[key];
   if (!ing) return;
-  form.value = {
-    mode: 'edit',
-    key,
-    name: key,
-    type: ing.type,
-    abv: ing.abv ? String(Math.round(ing.abv * 100)) : '',
-    vol: ing.volume_ml ? String(ing.volume_ml) : '',
-    unit: ing.unit ?? '',
-    priceMin: String(ing.price_min),
-    priceMax: String(ing.price_max),
-  };
+  form.value = { mode: 'edit', key, ...fieldsFromIngredient(key, ing) };
 }
 
 async function handleDelete(name: string) {
@@ -132,68 +92,23 @@ async function handleSave() {
 
   const f = form.value;
   const name = f.name.trim();
-  const abvVal = hasAbv.value ? Number(f.abv) / 100 : 0;
-  const volVal = hasVol.value ? Number(f.vol) || undefined : undefined;
-  const unitVal = !hasVol.value && f.unit.trim() ? f.unit.trim() : undefined;
-  const priceMin = Number(f.priceMin) || 0;
-  const priceMax = Number(f.priceMax) || 0;
+  const edited = ingredientFromFields(f);
 
-  if (f.mode === 'new') {
-    // Always savePersonalIngredient for new
-    await savePersonalIngredient(name, {
-      type: f.type,
-      abv: abvVal,
-      volume_ml: volVal,
-      unit: unitVal,
-      price_min: priceMin,
-      price_max: priceMax,
-    });
+  // A built-in ingredient keeps its entry when only the price changed;
+  // otherwise it is hidden and the edit saved as a personal one. New and
+  // personal ingredients are simply upserted.
+  const originalKey = f.key ?? name;
+  const builtIn =
+    f.mode === 'edit'
+      ? (catalogData as Catalog).ingredients[originalKey]
+      : undefined;
+  if (!builtIn) {
+    await savePersonalIngredient(name, edited);
+  } else if (builtInEdit(builtIn, originalKey, edited, name) === 'replace') {
+    await deleteIngredient(originalKey);
+    await savePersonalIngredient(name, edited);
   } else {
-    // Edit mode
-    const originalKey = f.key ?? name;
-    const defaultIngs = (catalogData as Catalog).ingredients;
-    const isDefault = !!defaultIngs[originalKey];
-
-    if (isDefault) {
-      // For default ingredients, check if only price changed
-      const defaultIng = defaultIngs[originalKey]!;
-      const defaultAbv = defaultIng.abv ?? 0;
-      const defaultVol = defaultIng.volume_ml;
-      const defaultUnit = defaultIng.unit;
-      const editedAbv = abvVal;
-      const editedVol = volVal;
-
-      const onlyPriceChanged =
-        Math.abs(defaultAbv - editedAbv) < 0.0001 &&
-        defaultVol === editedVol &&
-        (defaultUnit ?? '') === (unitVal ?? '') &&
-        originalKey === name;
-
-      if (onlyPriceChanged) {
-        await setPriceOverride(originalKey, priceMin, priceMax);
-      } else {
-        // Other fields changed — hide the default and save as personal
-        await deleteIngredient(originalKey);
-        await savePersonalIngredient(name, {
-          type: f.type,
-          abv: editedAbv,
-          volume_ml: editedVol,
-          unit: unitVal,
-          price_min: priceMin,
-          price_max: priceMax,
-        });
-      }
-    } else {
-      // Personal ingredient — just upsert
-      await savePersonalIngredient(name, {
-        type: f.type,
-        abv: abvVal,
-        volume_ml: volVal,
-        unit: unitVal,
-        price_min: priceMin,
-        price_max: priceMax,
-      });
-    }
+    await setPriceOverride(originalKey, edited.price_min, edited.price_max);
   }
 
   await store.reloadCatalog();
@@ -216,11 +131,8 @@ function handleClose() {
     @close="handleClose"
   >
     <!-- LIST mode -->
-    <div
-      v-if="form === null"
-      style="display: flex; flex-direction: column; gap: 14px"
-    >
-      <div style="font-size: 11.5px; color: var(--dim); line-height: 1.55">
+    <div v-if="form === null" class="ing-list">
+      <div class="ing-intro">
         Edit prices, strength and sizes, or add and remove bottles, mixers and
         extras. Changes feed straight into the shopping math.
       </div>
@@ -228,44 +140,13 @@ function handleClose() {
       <!-- Per-type groups -->
       <div v-for="group in TYPE_GROUPS" :key="group.type">
         <!-- Group header -->
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-          "
-        >
-          <span style="display: flex; color: var(--accent)">
-            <Icon :name="group.icon" :size="16" />
-          </span>
-          <span
-            style="
-              font-size: 12px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 0.05em;
-              color: var(--dim);
-            "
-          >
-            {{ group.label }}
-          </span>
+        <div class="ing-group__head">
+          <Icon :name="group.icon" :size="16" class="ing-accent" />
+          <span class="ing-group__label">{{ group.label }}</span>
           <button
-            style="
-              margin-left: auto;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              font-size: 11px;
-              font-weight: 600;
-              padding: 5px 10px;
-              border-radius: 999px;
-              border: 1px solid var(--border);
-              background: transparent;
-              color: var(--dim);
-              min-height: 32px;
-            "
+            type="button"
+            :aria-label="`Add to ${group.label}`"
+            class="ing-group__add"
             @click="openNewForm(group.type)"
           >
             <Icon name="plus" :size="12" />
@@ -274,70 +155,30 @@ function handleClose() {
         </div>
 
         <!-- Items list -->
-        <div style="display: flex; flex-direction: column">
+        <div class="ing-items">
           <div
             v-for="[name, ing] in ingsByType(group.type)"
             :key="name"
-            style="
-              display: flex;
-              align-items: center;
-              gap: 11px;
-              padding: 10px 2px;
-              border-top: 1px solid var(--border);
-              min-height: 48px;
-            "
+            class="ing-item"
           >
-            <div style="min-width: 0; flex: 1">
-              <div
-                style="
-                  font-size: 13.5px;
-                  font-weight: 600;
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                "
-              >
-                {{ name }}
-              </div>
-              <div style="font-size: 11px; color: var(--faint)">
-                {{ metaLine(ing) }}
-              </div>
+            <div class="ing-item__text">
+              <div class="ing-item__name">{{ name }}</div>
+              <div class="ing-item__meta">{{ ingredientMetaLine(ing) }}</div>
             </div>
             <button
+              type="button"
               title="Edit"
-              style="
-                cursor: pointer;
-                display: flex;
-                width: 32px;
-                height: 32px;
-                flex-shrink: 0;
-                align-items: center;
-                justify-content: center;
-                border-radius: 8px;
-                border: 1px solid var(--border);
-                background: transparent;
-                color: var(--dim);
-              "
+              :aria-label="`Edit ${name}`"
+              class="ing-icon-btn"
               @click="openEditForm(name)"
             >
               <Icon name="pencil" :size="15" />
             </button>
             <button
+              type="button"
               title="Remove"
-              class="ing-delete-btn"
-              style="
-                cursor: pointer;
-                display: flex;
-                width: 32px;
-                height: 32px;
-                flex-shrink: 0;
-                align-items: center;
-                justify-content: center;
-                border-radius: 8px;
-                border: 1px solid var(--border);
-                background: transparent;
-                color: var(--faint);
-              "
+              :aria-label="`Remove ${name}`"
+              class="ing-icon-btn ing-icon-btn--delete"
               @click="handleDelete(name)"
             >
               <Icon name="trash" :size="15" />
@@ -347,71 +188,30 @@ function handleClose() {
       </div>
 
       <!-- Bottom "Add an ingredient" CTA -->
-      <button
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 14px;
-          border-radius: var(--rs);
-          border: 1.5px dashed var(--accent);
-          background: var(--accent-soft);
-          color: var(--accent);
-          font-size: 14px;
-          font-weight: 700;
-          min-height: 48px;
-        "
-        @click="openNewForm('spirit')"
-      >
+      <button type="button" class="ing-cta" @click="openNewForm('spirit')">
         <Icon name="plus" :size="16" />
         Add an ingredient
       </button>
     </div>
 
     <!-- FORM mode -->
-    <div v-else style="display: flex; flex-direction: column; gap: 13px">
+    <div v-else class="ing-form">
       <!-- Form title -->
-      <div
-        style="font-family: var(--font-disp); font-weight: 600; font-size: 15px"
-      >
+      <div class="ing-form__title">
         {{ form.mode === 'new' ? 'New ingredient' : `Edit ${form.key}` }}
       </div>
 
       <!-- Type selector (new only) -->
       <div v-if="form.mode === 'new'">
-        <div
-          style="
-            font-size: 12px;
-            color: var(--dim);
-            font-weight: 600;
-            margin-bottom: 7px;
-          "
-        >
-          Type
-        </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+        <div id="ing-type-label" class="ing-type__label">Type</div>
+        <div class="ing-types" role="group" aria-labelledby="ing-type-label">
           <button
             v-for="group in TYPE_GROUPS"
             :key="group.type"
-            style="
-              cursor: pointer;
-              font-size: 12px;
-              font-weight: 600;
-              padding: 7px 13px;
-              border-radius: 999px;
-              min-height: 34px;
-            "
-            :style="{
-              border:
-                form.type === group.type
-                  ? '1.5px solid var(--accent)'
-                  : '1.5px solid var(--border)',
-              background:
-                form.type === group.type ? 'var(--accent-soft)' : 'transparent',
-              color: form.type === group.type ? 'var(--accent)' : 'var(--dim)',
-            }"
+            type="button"
+            :aria-pressed="form.type === group.type"
+            class="ing-type"
+            :class="{ 'is-on': form.type === group.type }"
             @click="form.type = group.type"
           >
             {{ group.label }}
@@ -420,193 +220,65 @@ function handleClose() {
       </div>
 
       <!-- Name -->
-      <div style="display: flex; flex-direction: column; gap: 6px">
-        <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-          Name
-        </label>
+      <Field v-slot="{ id }" label="Name">
         <input
+          :id="id"
           v-model="form.name"
           placeholder="e.g. Premium Gin 70cl"
-          style="
-            font-size: 15px;
-            padding: 11px 13px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: var(--surface2);
-            color: var(--text);
-            font-family: var(--font-body);
-            outline: none;
-            width: 100%;
-            box-sizing: border-box;
-          "
         />
-      </div>
+      </Field>
 
-      <!-- ABV + Volume / Unit (conditional) -->
-      <div
-        v-if="hasAbv || hasVol || !hasVol"
-        style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
-      >
-        <div
-          v-if="hasAbv"
-          style="display: flex; flex-direction: column; gap: 6px"
-        >
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-            Strength (ABV %)
-          </label>
+      <!-- ABV + Volume / Unit (by type) -->
+      <div class="ing-grid">
+        <Field v-if="hasAbv" v-slot="{ id }" label="Strength (ABV %)">
           <input
+            :id="id"
             v-model="form.abv"
             inputmode="decimal"
             placeholder="0"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              font-family: var(--font-body);
-              outline: none;
-              width: 100%;
-              box-sizing: border-box;
-            "
           />
-        </div>
-        <div
-          v-if="hasVol"
-          style="display: flex; flex-direction: column; gap: 6px"
-        >
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-            Bottle size (ml)
-          </label>
+        </Field>
+        <Field v-if="hasVol" v-slot="{ id }" label="Bottle size (ml)">
           <input
+            :id="id"
             v-model="form.vol"
             inputmode="numeric"
             placeholder="0"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              font-family: var(--font-body);
-              outline: none;
-              width: 100%;
-              box-sizing: border-box;
-            "
           />
-        </div>
-        <div
-          v-if="!hasVol"
-          style="display: flex; flex-direction: column; gap: 6px"
-        >
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-            Unit
-          </label>
-          <input
-            v-model="form.unit"
-            placeholder="e.g. kg / pcs"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              font-family: var(--font-body);
-              outline: none;
-              width: 100%;
-              box-sizing: border-box;
-            "
-          />
-        </div>
+        </Field>
+        <Field v-else v-slot="{ id }" label="Unit">
+          <input :id="id" v-model="form.unit" placeholder="e.g. kg / pcs" />
+        </Field>
       </div>
 
       <!-- Price from / Price to -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-            Price from (€)
-          </label>
+      <div class="ing-grid">
+        <Field v-slot="{ id }" label="Price from (€)">
           <input
+            :id="id"
             v-model="form.priceMin"
             inputmode="decimal"
             placeholder="0.00"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              font-family: var(--font-body);
-              outline: none;
-              width: 100%;
-              box-sizing: border-box;
-            "
           />
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600">
-            Price to (€)
-          </label>
+        </Field>
+        <Field v-slot="{ id }" label="Price to (€)">
           <input
+            :id="id"
             v-model="form.priceMax"
             inputmode="decimal"
             placeholder="0.00"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              font-family: var(--font-body);
-              outline: none;
-              width: 100%;
-              box-sizing: border-box;
-            "
           />
-        </div>
+        </Field>
       </div>
 
       <!-- Back / Save -->
-      <div style="display: flex; gap: 9px">
-        <button
-          style="
-            cursor: pointer;
-            flex-shrink: 0;
-            padding: 13px 18px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--dim);
-            font-size: 14px;
-            font-weight: 600;
-            font-family: var(--font-body);
-          "
-          @click="form = null"
-        >
+      <div class="ing-actions">
+        <button type="button" class="ing-back" @click="form = null">
           Back
         </button>
         <button
-          style="
-            cursor: pointer;
-            flex: 1;
-            padding: 13px;
-            border-radius: var(--rs);
-            border: none;
-            font-size: 14px;
-            font-weight: 700;
-            font-family: var(--font-body);
-            color: var(--on-accent);
-          "
-          :style="{
-            background: canSave ? 'var(--accent)' : 'var(--faint)',
-            opacity: canSave ? 1 : 0.5,
-            cursor: canSave ? 'pointer' : 'not-allowed',
-          }"
+          type="button"
+          class="ing-save"
           :disabled="!canSave"
           @click="handleSave"
         >
@@ -618,8 +290,191 @@ function handleClose() {
 </template>
 
 <style scoped>
-.ing-delete-btn:hover {
-  border-color: var(--bad) !important;
-  color: var(--bad) !important;
+.ing-accent {
+  color: var(--accent);
+}
+
+/* ── List ── */
+.ing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ing-intro {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.55;
+}
+
+.ing-group__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.ing-group__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dim);
+}
+.ing-group__add {
+  margin-left: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+  min-height: 32px;
+}
+
+.ing-items {
+  display: flex;
+  flex-direction: column;
+}
+.ing-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 2px;
+  border-top: 1px solid var(--border);
+  min-height: 48px;
+}
+.ing-item__text {
+  min-width: 0;
+  flex: 1;
+}
+.ing-item__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ing-item__meta {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.ing-icon-btn {
+  cursor: pointer;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+}
+.ing-icon-btn--delete {
+  color: var(--faint);
+}
+.ing-icon-btn--delete:hover {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.ing-cta {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--rs);
+  border: 1.5px dashed var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 48px;
+}
+
+/* ── Form ── */
+.ing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.ing-form__title {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ing-type__label {
+  font-size: 12px;
+  color: var(--dim);
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.ing-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ing-type {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 999px;
+  min-height: 34px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+}
+.ing-type.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ing-actions {
+  display: flex;
+  gap: 9px;
+}
+.ing-back {
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 13px 18px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ing-save {
+  cursor: pointer;
+  flex: 1;
+  padding: 13px;
+  border-radius: var(--rs);
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ing-save:disabled {
+  background: var(--faint);
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

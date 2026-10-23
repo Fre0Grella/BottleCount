@@ -4,39 +4,30 @@ import { useStore } from '../../store/store';
 import { savePersonalIngredient } from './catalog';
 import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
+import Field from '../../components/ui/Field.vue';
 import { TYPE_META } from './ingredientTypes';
-import { formatEuroRange } from '../../lib/display';
+import {
+  bottleDefaults,
+  bottleFromFields,
+  bottleMetaLine,
+  bottleTypeFor,
+  shortName,
+  type BottleFields,
+} from './ingredients';
 
 const store = useStore();
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function shortName(key: string): string {
-  return key.replace(/\s+\d+(?:cl|ml|L|kg|g)$/i, '').trim();
-}
 
 // ── Derived from store ───────────────────────────────────────────────────────
 
 const isOpen = computed(() => store.state.bottleFor !== null);
 const cat = computed(() => store.state.bottleFor ?? '');
 
-const wantType = computed(() => {
-  if (cat.value === 'Beer') return 'beer';
-  if (cat.value === 'Wine') return 'wine';
-  return 'spirit';
-});
+/** beer, wine or spirit: what this category is stocked with. */
+const bottleType = computed(() => bottleTypeFor(cat.value));
 
-const thingLabel = computed(() => {
-  if (cat.value === 'Beer') return 'beer';
-  if (cat.value === 'Wine') return 'wine';
-  return 'spirit';
-});
-
-const namePlaceholder = computed(() => {
-  if (thingLabel.value === 'spirit') return 'e.g. Mezcal';
-  if (thingLabel.value === 'beer') return 'e.g. Craft IPA 33cl';
-  return 'e.g. Prosecco';
-});
+const namePlaceholder = computed(
+  () => bottleDefaults(bottleType.value).placeholder,
+);
 
 const bottleOptions = computed(() => {
   const catalog = store.state.catalog;
@@ -46,37 +37,21 @@ const bottleOptions = computed(() => {
   const catEntry = party.menu[cat.value];
   if (!catEntry) return [];
   return Object.entries(catalog.ingredients)
-    .filter(([k, v]) => v.type === wantType.value && !catEntry.spirits[k])
+    .filter(([k, v]) => v.type === bottleType.value && !catEntry.spirits[k])
     .map(([k, v]) => ({
       key: k,
       name: shortName(k),
       icon: TYPE_META[v.type].icon,
-      meta:
-        (v.abv ? Math.round(v.abv * 100) + '% ABV · ' : '') +
-        formatEuroRange(v.price_min, v.price_max, 'always'),
+      meta: bottleMetaLine(v),
     }));
 });
 
 // ── Custom form state ────────────────────────────────────────────────────────
 
-interface CustomForm {
-  name: string;
-  abv: string;
-  vol: string;
-  priceMin: string;
-  priceMax: string;
-}
-
-const customForm = ref<CustomForm | null>(null);
-
-function defaultsForType(): { abv: string; vol: string } {
-  if (cat.value === 'Beer') return { abv: '5', vol: '660' };
-  if (cat.value === 'Wine') return { abv: '12', vol: '750' };
-  return { abv: '40', vol: '700' };
-}
+const customForm = ref<BottleFields | null>(null);
 
 function openCustomForm(): void {
-  const d = defaultsForType();
+  const d = bottleDefaults(bottleType.value);
   customForm.value = {
     name: '',
     abv: d.abv,
@@ -100,17 +75,10 @@ function pickBottle(key: string): void {
 async function saveCustomBottle(): Promise<void> {
   const f = customForm.value;
   if (!f || !f.name.trim()) return;
-  const abvNum = parseFloat(f.abv) || 0;
-  const volNum = parseInt(f.vol, 10) || 0;
-  const priceMin = parseFloat(f.priceMin) || 0;
-  const priceMax = parseFloat(f.priceMax) || 0;
-  await savePersonalIngredient(f.name.trim(), {
-    type: wantType.value as 'spirit' | 'beer' | 'wine',
-    abv: abvNum / 100,
-    volume_ml: volNum,
-    price_min: priceMin,
-    price_max: priceMax,
-  });
+  await savePersonalIngredient(
+    f.name.trim(),
+    bottleFromFields(bottleType.value, f),
+  );
   await store.reloadCatalog();
   store.addBottle(cat.value, f.name.trim());
   store.closeBottle();
@@ -140,21 +108,10 @@ const canSave = computed(() => !!customForm.value?.name.trim());
     <template #title>Add to {{ cat }}</template>
 
     <!-- PICK MODE -->
-    <div
-      v-if="!customForm"
-      style="display: flex; flex-direction: column; gap: 8px"
-    >
+    <div v-if="!customForm" class="ab-pick">
       <!-- Empty state -->
-      <div
-        v-if="bottleOptions.length === 0"
-        style="
-          padding: 20px;
-          text-align: center;
-          color: var(--faint);
-          font-size: 13px;
-        "
-      >
-        No more {{ thingLabel }}s to add — all catalog options are already on
+      <div v-if="bottleOptions.length === 0" class="ab-empty">
+        No more {{ bottleType }}s to add — all catalog options are already on
         your menu.
       </div>
 
@@ -162,212 +119,73 @@ const canSave = computed(() => !!customForm.value?.name.trim());
       <button
         v-for="opt in bottleOptions"
         :key="opt.key"
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          padding: 12px 14px;
-          border-radius: var(--rs);
-          border: 1px solid var(--border);
-          background: var(--surface2);
-          color: var(--text);
-          text-align: left;
-          transition: border-color 0.15s;
-        "
+        type="button"
+        class="ab-option"
         @click="pickBottle(opt.key)"
-        @mouseenter="
-          ($event.currentTarget as HTMLElement).style.borderColor =
-            'var(--accent)'
-        "
-        @mouseleave="
-          ($event.currentTarget as HTMLElement).style.borderColor =
-            'var(--border)'
-        "
       >
-        <span style="display: flex; color: var(--accent); flex-shrink: 0">
-          <Icon :name="opt.icon" :size="16" />
-        </span>
-        <div style="flex: 1; min-width: 0">
-          <div style="font-size: 14px; font-weight: 600">{{ opt.name }}</div>
-          <div style="font-size: 11px; color: var(--faint)">
-            {{ opt.meta }}
-          </div>
+        <Icon :name="opt.icon" :size="16" class="ab-accent" />
+        <div class="ab-option__text">
+          <div class="ab-option__name">{{ opt.name }}</div>
+          <div class="ab-option__meta">{{ opt.meta }}</div>
         </div>
-        <span style="display: flex; color: var(--accent); flex-shrink: 0">
-          <Icon name="plus" :size="16" />
-        </span>
+        <Icon name="plus" :size="16" class="ab-accent" />
       </button>
 
       <!-- Create your own -->
-      <button
-        style="
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin-top: 2px;
-          padding: 13px;
-          border-radius: var(--rs);
-          border: 1.5px dashed var(--accent);
-          background: var(--accent-soft);
-          color: var(--accent);
-          font-size: 13px;
-          font-weight: 700;
-          min-height: 46px;
-          width: 100%;
-        "
-        @click="openCustomForm"
-      >
-        <span style="display: flex"><Icon name="sparkle" :size="16" /></span>
-        Create your own {{ thingLabel }}
+      <button type="button" class="ab-create" @click="openCustomForm">
+        <Icon name="sparkle" :size="16" />
+        Create your own {{ bottleType }}
       </button>
     </div>
 
     <!-- CUSTOM FORM MODE -->
-    <div v-else style="display: flex; flex-direction: column; gap: 12px">
-      <!-- Name -->
-      <div style="display: flex; flex-direction: column; gap: 6px">
-        <label style="font-size: 12px; color: var(--dim); font-weight: 600"
-          >Name</label
-        >
+    <div v-else class="ab-form">
+      <Field v-slot="{ id }" label="Name">
         <input
+          :id="id"
           v-model="customForm.name"
           :placeholder="namePlaceholder"
-          style="
-            font-size: 15px;
-            padding: 11px 13px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: var(--surface2);
-            color: var(--text);
-            width: 100%;
-            box-sizing: border-box;
-          "
         />
-      </div>
+      </Field>
 
       <!-- 2x2 grid -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600"
-            >Strength (ABV %)</label
-          >
-          <input
-            v-model="customForm.abv"
-            inputmode="decimal"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              width: 100%;
-              box-sizing: border-box;
-            "
-          />
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600"
-            >Bottle size (ml)</label
-          >
-          <input
-            v-model="customForm.vol"
-            inputmode="numeric"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              width: 100%;
-              box-sizing: border-box;
-            "
-          />
-        </div>
+      <div class="ab-grid">
+        <Field v-slot="{ id }" label="Strength (ABV %)">
+          <input :id="id" v-model="customForm.abv" inputmode="decimal" />
+        </Field>
+        <Field v-slot="{ id }" label="Bottle size (ml)">
+          <input :id="id" v-model="customForm.vol" inputmode="numeric" />
+        </Field>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600"
-            >Price from (€)</label
-          >
+      <div class="ab-grid">
+        <Field v-slot="{ id }" label="Price from (€)">
           <input
+            :id="id"
             v-model="customForm.priceMin"
             inputmode="decimal"
             placeholder="0.00"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              width: 100%;
-              box-sizing: border-box;
-            "
           />
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <label style="font-size: 12px; color: var(--dim); font-weight: 600"
-            >Price to (€)</label
-          >
+        </Field>
+        <Field v-slot="{ id }" label="Price to (€)">
           <input
+            :id="id"
             v-model="customForm.priceMax"
             inputmode="decimal"
             placeholder="0.00"
-            style="
-              font-size: 15px;
-              padding: 11px 13px;
-              border-radius: var(--rs);
-              border: 1px solid var(--border);
-              background: var(--surface2);
-              color: var(--text);
-              width: 100%;
-              box-sizing: border-box;
-            "
           />
-        </div>
+        </Field>
       </div>
 
       <!-- Actions -->
-      <div style="display: flex; gap: 9px">
-        <button
-          style="
-            cursor: pointer;
-            flex-shrink: 0;
-            padding: 13px 18px;
-            border-radius: var(--rs);
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--dim);
-            font-size: 14px;
-            font-weight: 600;
-          "
-          @click="cancelCustomForm"
-        >
+      <div class="ab-actions">
+        <button type="button" class="ab-back" @click="cancelCustomForm">
           Back
         </button>
         <button
+          type="button"
           :disabled="!canSave"
-          style="
-            cursor: pointer;
-            flex: 1;
-            padding: 13px;
-            border-radius: var(--rs);
-            border: none;
-            font-size: 14px;
-            font-weight: 700;
-            transition: opacity 0.15s;
-          "
-          :style="{
-            background: canSave ? 'var(--accent)' : 'var(--track)',
-            color: 'var(--on-accent)',
-            opacity: canSave ? '1' : '0.5',
-          }"
+          class="ab-save"
           @click="saveCustomBottle"
         >
           Add to menu
@@ -376,3 +194,114 @@ const canSave = computed(() => !!customForm.value?.name.trim());
     </div>
   </ModalShell>
 </template>
+
+<style scoped>
+.ab-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ab-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.ab-accent {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.ab-option {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.ab-option:hover {
+  border-color: var(--accent);
+}
+.ab-option__text {
+  flex: 1;
+  min-width: 0;
+}
+.ab-option__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.ab-option__meta {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.ab-create {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 13px;
+  border-radius: var(--rs);
+  border: 1.5px dashed var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 46px;
+  width: 100%;
+}
+
+.ab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ab-actions {
+  display: flex;
+  gap: 9px;
+}
+.ab-back {
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 13px 18px;
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ab-save {
+  cursor: pointer;
+  flex: 1;
+  padding: 13px;
+  border-radius: var(--rs);
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14px;
+  font-weight: 700;
+  transition: opacity 0.15s;
+}
+.ab-save:disabled {
+  background: var(--track);
+  opacity: 0.5;
+}
+</style>
