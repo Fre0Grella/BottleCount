@@ -44,7 +44,7 @@ const builder = ref<Builder | null>(null);
  * All of them are editable and deletable; custom ones sort first.
  */
 const spiritCocktails = computed(() => {
-  const catalog = store.state.catalog;
+  const catalog = store.pickerCatalog();
   if (!catalog || !spirit.value) return [];
   const party = store.activeParty();
   const existing = party?.menu[cat.value]?.spirits[spirit.value]?.drinks ?? {};
@@ -54,7 +54,7 @@ const spiritCocktails = computed(() => {
 // ── Build mode data ───────────────────────────────────────────────────────────
 
 const otherSpirits = computed(() => {
-  const catalog = store.state.catalog;
+  const catalog = store.pickerCatalog();
   const b = builder.value;
   if (!catalog || !b) return [];
   return Object.entries(catalog.ingredients)
@@ -68,7 +68,7 @@ const otherSpirits = computed(() => {
 });
 
 const mixerExtras = computed(() => {
-  const catalog = store.state.catalog;
+  const catalog = store.pickerCatalog();
   const b = builder.value;
   if (!catalog || !b) return [];
   return Object.entries(catalog.ingredients)
@@ -92,7 +92,7 @@ const mixerExtras = computed(() => {
 
 const serving = computed(() => {
   const b = builder.value;
-  const catalog = store.state.catalog;
+  const catalog = store.pickerCatalog();
   if (!b || !catalog) return { ml: 0, abvPct: 0 };
   return servingOf(catalog, b, spirit.value);
 });
@@ -112,7 +112,7 @@ function openBuilder(): void {
 
 /** Open the builder pre-filled from an existing cocktail. */
 function openEditBuilder(key: string): void {
-  const catalog = store.state.catalog;
+  const catalog = store.pickerCatalog();
   const filled = catalog && builderFromCocktail(catalog, key, spirit.value);
   if (filled) builder.value = filled;
 }
@@ -182,11 +182,11 @@ async function saveCocktail(): Promise<void> {
         store.renameCocktailInMenu(cat.value, spirit.value, b.editKey, newName);
       }
     }
-    await store.reloadCatalog();
+    await store.libraryEdited('cocktails', newName);
     if (!wasInMenu) store.addCocktail(cat.value, spirit.value, newName);
   } else {
     // Brand-new cocktail — add it to the menu.
-    await store.reloadCatalog();
+    await store.libraryEdited('cocktails', newName);
     store.addCocktail(cat.value, spirit.value, newName);
   }
 

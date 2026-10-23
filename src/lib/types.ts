@@ -1,6 +1,12 @@
 import type { FeatureSet } from '../../shared/tiers';
 import type { InviteStatus } from '../../shared/invites';
 import type { PaymentDetails } from '../../shared/payments';
+import type {
+  Catalog,
+  Cocktail,
+  Ingredient,
+  IngredientType,
+} from '../../shared/catalog';
 
 /**
  * Re-exported so components import their types from one place. The states
@@ -11,40 +17,8 @@ export type { InviteStatus };
 
 // ── Catalog ────────────────────────────────────────────────────────────────
 
-export type IngredientType =
-  | 'spirit'
-  | 'beer'
-  | 'wine'
-  | 'mixer'
-  | 'extra'
-  | 'snack';
-
-export interface Ingredient {
-  type: IngredientType;
-  abv: number;
-  volume_ml?: number;
-  price_min: number;
-  price_max: number;
-  unit?: string;
-  custom?: boolean;
-}
-
-interface CocktailRecipeItem {
-  quantity: number;
-  unit?: string;
-}
-
-export interface Cocktail {
-  main_spirit: string;
-  category?: string;
-  recipe: Record<string, CocktailRecipeItem>;
-  custom?: boolean;
-}
-
-export interface Catalog {
-  ingredients: Record<string, Ingredient>;
-  cocktails: Record<string, Cocktail>;
-}
+/** Re-exported: a party carries catalog copies, so the shape is shared. */
+export type { Catalog, Cocktail, Ingredient, IngredientType };
 
 // ── Settings ───────────────────────────────────────────────────────────────
 
@@ -178,6 +152,8 @@ export interface Party {
   venue: Venue;
   settings: PartySettings; // existing interface
   menu: PartyMenu; // existing type (Record<string, CategoryEntry>)
+  /** Copies of the catalog entries the party uses (features/menu/partyCatalog.ts). */
+  catalog: Catalog;
   locks: Record<string, boolean>; // keys 'm:Cat' and 's:Cat:Spirit'
   checked: Record<string, boolean>; // shopping check-off
   allowForward: boolean;

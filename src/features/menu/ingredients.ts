@@ -1,4 +1,4 @@
-import type { Catalog, Ingredient, IngredientType } from '../../lib/types';
+import type { Ingredient, IngredientType } from '../../lib/types';
 import { formatEuroRange } from '../../lib/display';
 
 // ── Names ──────────────────────────────────────────────────────────────────
@@ -6,15 +6,6 @@ import { formatEuroRange } from '../../lib/display';
 /** Strip a trailing size suffix (e.g. "Gin 70cl" → "Gin"). */
 export function shortName(key: string): string {
   return key.replace(/\s+\d+(?:cl|ml|L|kg|g)$/i, '').trim();
-}
-
-/** The catalog's ingredient names of one type, in catalog order. */
-export function namesOfType(
-  catalog: Catalog | null | undefined,
-  type: IngredientType,
-): string[] {
-  const ings = catalog?.ingredients ?? {};
-  return Object.keys(ings).filter((k) => ings[k]?.type === type);
 }
 
 // ── What a type has ─────────────────────────────────────────────────────────

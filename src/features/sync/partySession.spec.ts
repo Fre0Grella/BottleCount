@@ -46,6 +46,7 @@ function aParty(id: number, remoteId: string | null): Party {
       max_capacity: null,
     },
     menu: {},
+    catalog: { ingredients: {}, cocktails: {} },
     locks: {},
     checked: {},
     allowForward: true,

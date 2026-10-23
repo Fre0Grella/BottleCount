@@ -6,6 +6,7 @@ import { db } from '../lib/db';
 import { watchDevice } from '../lib/device';
 import * as guests from '../features/guests/guestList';
 import * as menu from '../features/menu/menu';
+import * as partyCatalogs from '../features/menu/partyCatalog';
 import { newParty, upgradeParty } from '../features/party/partyDefaults';
 import { setMaxCapacity, toggleMaxCapacity } from '../features/party/planEdits';
 import { fetchSession } from '../features/account/session';
@@ -13,6 +14,7 @@ import * as sharing from '../features/sharing/sharing';
 import * as door from '../features/tickets/door';
 import {
   activeParty,
+  adoptLibrary,
   can,
   isPhone,
   requestUpgrade,
@@ -22,7 +24,7 @@ import {
 } from './storeState';
 import { currentTheme, toggleTheme as switchTheme } from '../lib/theme';
 import { findInvite } from '../features/tickets/ticket';
-import type { CalculationResult, Party, Settings } from '../lib/types';
+import type { CalculationResult, Catalog, Party, Settings } from '../lib/types';
 
 /**
  * The planner's store: the reactive state every screen reads, and the actions
@@ -66,7 +68,10 @@ async function load(): Promise<void> {
   const parties = await db.parties.toArray();
   for (const party of parties) {
     try {
-      if (upgradeParty(party)) await db.parties.put(party);
+      const upgraded = upgradeParty(party);
+      // A shared party takes its copies when it opens, so they are sent.
+      const adopted = !party.publication && adoptLibrary(party);
+      if (upgraded || adopted) await db.parties.put(party);
     } catch (err) {
       console.error('Failed to upgrade a stored party', err);
     }
@@ -93,6 +98,37 @@ async function reloadCatalog(): Promise<void> {
   state.catalog = await loadCatalog();
 }
 
+/**
+ * After an entry was saved to this browser's library from a picker: the open
+ * party takes the edited entry too (features/menu/partyCatalog.ts).
+ */
+async function libraryEdited(kind: keyof Catalog, key: string): Promise<void> {
+  await reloadCatalog();
+  const library = state.catalog;
+  if (library) {
+    update((p) => partyCatalogs.takeFromLibrary(p, kind, key, library));
+  }
+}
+
+/** What the open party's menu and costs read from. */
+function partyCatalog(): Catalog | null {
+  const p = activeParty();
+  return p ? partyCatalogs.partyCatalog(p) : null;
+}
+
+/** What the pickers offer: the library, with the open party's copies. */
+function pickerCatalog(): Catalog | null {
+  return state.catalog
+    ? partyCatalogs.pickerCatalog(state.catalog, activeParty())
+    : null;
+}
+
+/** The snacks the open party buys. */
+function snackNames(): string[] {
+  const p = activeParty();
+  return p ? partyCatalogs.snackNames(p, Object.keys(defaultExtras())) : [];
+}
+
 function toggleTheme(): void {
   state.theme = switchTheme();
 }
@@ -114,6 +150,9 @@ function openParty(id: number): void {
   // Pushes, pulls and the funnel, while it is open — for a shared party.
   const party = activeParty();
   if (party) session.start(party);
+  // Entries only this browser has go into the party now, after the session
+  // started, so they are sent like any edit.
+  if (party && adoptLibrary(party)) update(() => {});
 }
 
 function closeParty(): void {
@@ -199,10 +238,10 @@ const ZERO_RESULT: CalculationResult = {
 function extrasForParty(p: Party): Settings['extras'] {
   const all = defaultExtras();
   if (p.includeSnacks ?? true) return all;
-  const cat = state.catalog;
+  const cat = partyCatalogs.partyCatalog(p);
   const filtered: Settings['extras'] = {};
   for (const [name, cfg] of Object.entries(all)) {
-    if (cat?.ingredients[name]?.type === 'snack') continue;
+    if (cat.ingredients[name]?.type === 'snack') continue;
     filtered[name] = cfg;
   }
   return filtered;
@@ -214,13 +253,15 @@ function calc(): CalculationResult {
 }
 
 function calcForParty(p: Party): CalculationResult {
-  if (!state.catalog) return ZERO_RESULT;
   const settings = {
     ...p.settings,
     extras: extrasForParty(p),
     menu: p.menu,
   };
-  return calculate(planFor(settings, runsBar(p)), state.catalog);
+  return calculate(
+    planFor(settings, runsBar(p)),
+    partyCatalogs.partyCatalog(p),
+  );
 }
 
 // ── Modal openers/closers ──────────────────────────────────────────────────
@@ -314,6 +355,10 @@ export const store = {
   calcForParty,
   menuErrors,
   reloadCatalog,
+  libraryEdited,
+  partyCatalog,
+  pickerCatalog,
+  snackNames,
   // loader
   load,
   // session & entitlements

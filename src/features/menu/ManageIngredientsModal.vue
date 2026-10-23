@@ -52,7 +52,7 @@ const TYPE_GROUPS = (
 // ── Derived ingredient list ────────────────────────────────────────────────
 
 const ingredients = computed<Record<string, Ingredient>>(
-  () => store.state.catalog?.ingredients ?? {},
+  () => store.pickerCatalog()?.ingredients ?? {},
 );
 
 function ingsByType(type: IngredientType) {
@@ -111,7 +111,8 @@ async function handleSave() {
     await setPriceOverride(originalKey, edited.price_min, edited.price_max);
   }
 
-  await store.reloadCatalog();
+  // The open party takes the edit too: it owns the entries it uses.
+  await store.libraryEdited('ingredients', name);
   form.value = null;
 }
 

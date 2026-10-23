@@ -30,6 +30,7 @@ export function aDocument(
       max_capacity: null,
     },
     menu: { Vodka: { macro_pct: 1, spirits: {} } },
+    catalog: { ingredients: {}, cocktails: {} },
     locks: {},
     checked: {},
     allowForward: true,
