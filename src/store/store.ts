@@ -10,6 +10,7 @@ import { newParty, upgradeParty } from '../features/party/partyDefaults';
 import { setMaxCapacity, toggleMaxCapacity } from '../features/party/planEdits';
 import { fetchSession } from '../features/account/session';
 import * as sharing from '../features/sharing/sharing';
+import * as door from '../features/tickets/door';
 import {
   activeParty,
   can,
@@ -388,6 +389,8 @@ export const store = {
     state.doorOpen = false;
     state.scanResult = null;
   },
+  showScanResult: door.showScanResult,
+  recordCheckIn: door.recordCheckIn,
 };
 
 export function useStore(): typeof store {
