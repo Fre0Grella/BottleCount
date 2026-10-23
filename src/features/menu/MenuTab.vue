@@ -8,7 +8,6 @@ import Toggle from '../../components/ui/Toggle.vue';
 import Card from '../../components/ui/Card.vue';
 import IconTile from '../../components/ui/IconTile.vue';
 import { categoryIcon } from './ingredientTypes';
-import { namesOfType } from './ingredients';
 import { quantityByName } from './shopping';
 import Slider from '../../components/ui/Slider.vue';
 import { segColor } from '../../lib/display';
@@ -20,11 +19,11 @@ const store = useStore();
 const openRecipe = ref<string | null>(null);
 
 function hasRecipe(drink: string): boolean {
-  return (store.state.catalog?.cocktails[drink]?.recipe ?? null) !== null;
+  return (store.partyCatalog()?.cocktails[drink]?.recipe ?? null) !== null;
 }
 
 function recipeFor(drink: string): { name: string; amount: string }[] {
-  const catalog = store.state.catalog;
+  const catalog = store.partyCatalog();
   return catalog ? cocktailRecipe(catalog, drink) : [];
 }
 
@@ -54,7 +53,7 @@ const shoppingMap = computed(() => quantityByName(store.calc().shopping_list));
 
 const includeSnacks = computed(() => party.value?.includeSnacks ?? true);
 
-const snackNames = computed(() => namesOfType(store.state.catalog, 'snack'));
+const snackNames = computed(() => store.snackNames());
 
 // ── Locks ─────────────────────────────────────────────────────────────────────
 

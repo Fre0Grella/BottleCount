@@ -30,7 +30,7 @@ const namePlaceholder = computed(
 );
 
 const bottleOptions = computed(() => {
-  const catalog = store.state.catalog;
+  const catalog = store.pickerCatalog();
   if (!catalog || !cat.value) return [];
   const party = store.activeParty();
   if (!party) return [];
@@ -79,7 +79,7 @@ async function saveCustomBottle(): Promise<void> {
     f.name.trim(),
     bottleFromFields(bottleType.value, f),
   );
-  await store.reloadCatalog();
+  await store.libraryEdited('ingredients', f.name.trim());
   store.addBottle(cat.value, f.name.trim());
   store.closeBottle();
 }

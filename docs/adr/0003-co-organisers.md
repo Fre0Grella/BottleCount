@@ -61,6 +61,32 @@ Two things make this work:
 `baseVersion` is reported on, not enforced: a client that had fallen behind gets
 the merged document back to catch up, rather than an error.
 
+### The party carries the catalog entries it uses
+
+A menu names its drinks by catalog key. Keys resolve against the preset
+catalog, which every browser ships, and against a browser's own custom
+ingredients, cocktails and price overrides, which only that browser has. So a
+co-organiser, or the owner on a second device, used to compute a different
+shopping list from the same party (#4).
+
+The party owns what it uses. The document's `catalog` (`shared/catalog.ts`)
+holds a copy of every ingredient and cocktail the menu, its recipes and the
+fixed extras use that is not preset or whose price differs from it. A party's
+numbers are computed from the preset plus those copies and nothing else
+(`src/features/menu/partyCatalog.ts`), so every organiser gets the same ones.
+
+- A browser's own catalog is a library to pick from. Every edit copies in the
+  entries the party now uses that only the library has, and drops copies the
+  party no longer uses. It never replaces an existing copy, so a co-organiser
+  whose library lacks an entry cannot remove it.
+- Editing an entry in a picker while the party is open edits the party's copy
+  too. Hiding an entry hides it from the pickers only; the party still
+  resolves it.
+- The catalog is keyed records, so it merges like the rest of the document.
+- Parties stored before this get their copies on the owner's device: local
+  parties when the app loads, shared ones when they open (after the sync
+  starts, so the copies are sent).
+
 ### Membership is the authorisation, and a 404 is the refusal
 
 Every party route is keyed on the server's id, not the owner's local one — a

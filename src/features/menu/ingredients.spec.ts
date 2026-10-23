@@ -9,13 +9,12 @@ import {
   fieldsFromIngredient,
   ingredientFromFields,
   ingredientMetaLine,
-  namesOfType,
   shortName,
   typeHasAbv,
   typeHasVolume,
 } from './ingredients';
 import { categoryIcon } from './ingredientTypes';
-import type { Catalog, Ingredient } from '../../lib/types';
+import type { Ingredient } from '../../lib/types';
 
 const gin: Ingredient = {
   type: 'spirit',
@@ -34,21 +33,6 @@ describe('shortName', () => {
   it('keeps a name without a numbered size', () => {
     expect(shortName('Ice kg')).toBe('Ice kg');
     expect(shortName('Disposable Cups')).toBe('Disposable Cups');
-  });
-});
-
-describe('namesOfType', () => {
-  it('lists one type in catalog order', () => {
-    const catalog = {
-      ingredients: {
-        Chips: { ...gin, type: 'snack' },
-        'Gin 70cl': gin,
-        Nuts: { ...gin, type: 'snack' },
-      },
-      cocktails: {},
-    } as Catalog;
-    expect(namesOfType(catalog, 'snack')).toEqual(['Chips', 'Nuts']);
-    expect(namesOfType(null, 'snack')).toEqual([]);
   });
 });
 

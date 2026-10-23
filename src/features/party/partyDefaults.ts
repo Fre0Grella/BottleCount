@@ -1,3 +1,4 @@
+import { emptyCatalog } from '../../../shared/catalog';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import settingsData from '../../data/settings.json';
 import { localIsoDate } from '../../lib/dates';
@@ -31,6 +32,7 @@ export function newParty(now: Date = new Date()): Party {
       max_capacity: null,
     },
     menu: structuredClone((settingsData as { menu: PartyMenu }).menu),
+    catalog: emptyCatalog(),
     locks: {},
     checked: {},
     allowForward: true,

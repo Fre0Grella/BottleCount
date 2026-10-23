@@ -1,3 +1,5 @@
+import type { Catalog } from './catalog';
+import { normaliseCatalog } from './catalog';
 import type { FeatureSet } from './tiers';
 import type { MergePatch } from './patch';
 import type { PaymentDetails } from './payments';
@@ -64,6 +66,11 @@ export interface PartyDocument {
   };
   /** `Record<category, { macro_pct, spirits: Record<spirit, …> }>`. */
   menu: Record<string, unknown>;
+  /**
+   * Copies of the catalog entries the menu uses that are not preset or whose
+   * price differs (shared/catalog.ts). Absent on older documents: empty.
+   */
+  catalog: Catalog;
   locks: Record<string, boolean>;
   checked: Record<string, boolean>;
   allowForward: boolean;
@@ -86,6 +93,7 @@ export const DOCUMENT_FIELDS = [
   'venue',
   'settings',
   'menu',
+  'catalog',
   'locks',
   'checked',
   'allowForward',
@@ -154,6 +162,7 @@ export function normaliseDocument(value: unknown): PartyDocument {
           : null,
     },
     menu: record(d['menu']),
+    catalog: normaliseCatalog(d['catalog']),
     locks: record(d['locks']) as Record<string, boolean>,
     checked: record(d['checked']) as Record<string, boolean>,
     allowForward: d['allowForward'] !== false,

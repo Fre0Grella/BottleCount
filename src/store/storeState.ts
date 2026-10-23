@@ -8,6 +8,8 @@ import {
   type SessionStatus,
 } from '../features/sync/partySession';
 import { ANONYMOUS_SESSION } from '../features/account/session';
+import { defaultExtras } from '../features/menu/catalog';
+import { adoptCatalog } from '../features/menu/partyCatalog';
 import type { Catalog, Party } from '../lib/types';
 
 /**
@@ -37,6 +39,7 @@ export interface StoreState extends SessionStatus {
   theme: 'dark' | 'light';
   device: Device;
   parties: Party[];
+  /** This browser's library: preset, minus hidden, plus its own entries. */
   catalog: Catalog | null;
   // modal context flags
   bottleFor: string | null;
@@ -118,6 +121,16 @@ async function persist(p: Party): Promise<void> {
 }
 
 /**
+ * Copies into the party the entries it uses that only this browser's library
+ * has, and drops copies it no longer uses (features/menu/partyCatalog.ts).
+ * Returns whether anything changed.
+ */
+export function adoptLibrary(party: Party): boolean {
+  if (!state.catalog) return false;
+  return adoptCatalog(party, state.catalog, Object.keys(defaultExtras()));
+}
+
+/**
  * Changes a party and saves it. Not sent to the server: for a change that came
  * from there, or one to a field that does not travel. Edits go through
  * `update`.
@@ -143,7 +156,11 @@ export const session = new PartySession({
 export function update(mutator: (p: Party) => void): void {
   const p = activeParty();
   if (!p) return;
-  save(p, mutator);
+  save(p, (party) => {
+    mutator(party);
+    // Whatever the edit was, the party's catalog copies follow its menu.
+    adoptLibrary(party);
+  });
   // Every edit goes through here, so this is the one place that has to tell the
   // sync engine something changed. It diffs against what the server is believed
   // to hold and sends only that, debounced — see features/sync/sync.ts.

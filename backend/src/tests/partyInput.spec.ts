@@ -28,6 +28,44 @@ describe('parseDocument', () => {
       );
     });
   });
+
+  describe('catalog', () => {
+    // A party carries copies of the entries it uses that are not preset, so a
+    // co-organiser computes the same costs (shared/catalog.ts).
+    it('keeps the party catalog copies', () => {
+      const catalog = {
+        ingredients: {
+          'House Gin 70cl': {
+            type: 'spirit',
+            abv: 0.42,
+            price_min: 18,
+            price_max: 22,
+          },
+        },
+        cocktails: {},
+      };
+      expect(parsed({ ...aDocument(), catalog })?.catalog).toEqual(catalog);
+    });
+
+    it('reads a document from before the field as an empty catalog', () => {
+      const { catalog: _omitted, ...older } = aDocument();
+      expect(parsed(older)?.catalog).toEqual({
+        ingredients: {},
+        cocktails: {},
+      });
+    });
+
+    it('drops entries that are not an ingredient', () => {
+      const catalog = {
+        ingredients: { Bad: { type: 'potion' } },
+        cocktails: 7,
+      };
+      expect(parsed({ ...aDocument(), catalog })?.catalog).toEqual({
+        ingredients: {},
+        cocktails: {},
+      });
+    });
+  });
 });
 
 describe('normaliseDocument', () => {

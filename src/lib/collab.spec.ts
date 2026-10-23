@@ -22,6 +22,7 @@ function aParty(): Party {
       max_capacity: null,
     },
     menu: {},
+    catalog: { ingredients: {}, cocktails: {} },
     locks: {},
     checked: {},
     allowForward: true,
