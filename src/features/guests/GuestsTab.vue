@@ -147,7 +147,7 @@ function addGuest() {
   store.openAddGuest();
 }
 
-const isPhone = computed(() => store.state.device === 'phone');
+const isPhone = computed(store.isPhone);
 
 // ── Live funnel ────────────────────────────────────────────────────────────
 

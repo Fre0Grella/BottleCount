@@ -129,7 +129,10 @@ async function handleLogout(): Promise<void> {
           class="account-chip__picture"
         />
         <Icon v-else name="user" :size="14" />
-        <span class="account-chip__name">{{ label }}</span>
+        <!-- A phone shows the picture and the tier; the name won't fit. -->
+        <span v-if="!store.isPhone()" class="account-chip__name">{{
+          label
+        }}</span>
         <span v-if="session.tier === 'pro'" class="account-chip__tier">{{
           session.selfHosted ? 'Self-hosted' : 'Pro'
         }}</span>

@@ -16,6 +16,11 @@ const store = useStore();
 
 const base = import.meta.env.BASE_URL as string;
 
+/** Signed in on a phone the account chip needs the room: mark only. */
+const compactHeader = computed(
+  () => store.isPhone() && store.state.session.authenticated,
+);
+
 const summary = computed(() => {
   const n = store.state.parties.length;
   if (n === 0) return 'No parties yet — create your first one below.';
@@ -91,14 +96,10 @@ async function handleDelete(e: Event, id: number): Promise<void> {
     <!-- header -->
     <div class="home-header">
       <a :href="base" class="home-brand" aria-label="BottleCount home">
-        <Logo wordmark />
+        <Logo :wordmark="!compactHeader" />
       </a>
       <div class="home-header__actions">
         <AccountButton />
-        <a :href="`${base}docs`" class="home-docs">
-          <Icon name="doc" :size="14" />
-          Docs
-        </a>
         <button
           class="home-theme"
           aria-label="Switch theme"
@@ -241,19 +242,6 @@ async function handleDelete(e: Event, id: number): Promise<void> {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.home-docs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--dim);
-  text-decoration: none;
 }
 .home-theme {
   cursor: pointer;
