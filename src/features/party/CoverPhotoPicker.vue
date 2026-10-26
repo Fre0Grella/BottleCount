@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import type { PhotoSlot } from '../../../shared/coverPhotos';
 import { useStore } from '../../store/store';
 import {
   photoSrc,
@@ -10,18 +11,36 @@ import {
 import Icon from '../../components/ui/Icon.vue';
 
 /**
- * The party's own photo or poster, on the Plan tab's cover. Shown whole, never
- * cropped: a poster with the details written on it is the common case, and its
- * text must survive. Absent on a deployment with no photo storage.
+ * One of the party's photos, on the Plan tab's cover: the banner, which the
+ * cover itself then shows, or the poster, shown here as a thumbnail, whole and
+ * never cropped, since its text must survive. Absent on a deployment with no
+ * photo storage.
  */
+/** Which photo: named `photo` because `slot` is Vue's own attribute. */
+const props = defineProps<{ photo: PhotoSlot }>();
+
+/** What each slot's buttons say. */
+const LABELS: Record<PhotoSlot, { add: string; change: string; noun: string }> =
+  {
+    banner: { add: 'Banner photo', change: 'Change banner', noun: 'banner' },
+    poster: { add: 'Poster', change: 'Change poster', noun: 'poster' },
+  };
+const label = computed(() => LABELS[props.photo]);
+
 const store = useStore();
 const party = computed(() => store.activeParty());
 
 const offered = computed(photosOffered);
-const src = computed(() => photoSrc(party.value));
+const src = computed(() => photoSrc(party.value, props.photo));
+/** The banner needs no thumbnail: the cover behind these buttons is it. */
+const thumbnail = computed(() => props.photo === 'poster');
 
-/** The photo this thumbnail failed to load, so a new one gets its chance. */
+/**
+ * The thumbnail shows once loaded, and not at all if it fails (today's photo
+ * budget spent, say). A new photo gets its own chance.
+ */
 const failed = ref<string | null>(null);
+const loaded = ref<string | null>(null);
 const shown = computed(() => (src.value !== failed.value ? src.value : null));
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -48,34 +67,35 @@ async function onFile(e: Event): Promise<void> {
   const file = input.files?.[0];
   // Cleared so picking the same file again still fires `change`.
   input.value = '';
-  if (file) await run(() => setPartyPhoto(file));
+  if (file) await run(() => setPartyPhoto(props.photo, file));
 }
 </script>
 
 <template>
   <div v-if="offered" class="photo">
     <a
-      v-if="shown"
+      v-if="thumbnail && shown"
+      v-show="loaded === shown"
       :href="shown"
       target="_blank"
       rel="noopener"
       class="photo__thumb"
-      aria-label="Open the party photo"
+      :aria-label="`Open the ${label.noun} full size`"
     >
-      <img :src="shown" alt="" @error="failed = shown" />
+      <img :src="shown" alt="" @load="loaded = shown" @error="failed = shown" />
     </a>
 
     <div class="photo__actions">
       <button type="button" class="photo__btn" :disabled="busy" @click="choose">
         <Icon :name="busy ? 'loader' : 'image'" :size="13" />
-        {{ busy ? 'Saving…' : src ? 'Change' : 'Poster or photo' }}
+        {{ busy ? 'Saving…' : src ? label.change : label.add }}
       </button>
       <button
         v-if="src && !busy"
         type="button"
         class="photo__btn"
-        aria-label="Remove the party photo"
-        @click="run(removePartyPhoto)"
+        :aria-label="`Remove the ${label.noun}`"
+        @click="run(() => removePartyPhoto(photo))"
       >
         <Icon name="x" :size="13" />
       </button>

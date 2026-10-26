@@ -2,10 +2,11 @@
  * Cover photos in R2: the one place that knows how they are keyed, and the
  * budget that keeps them free (ADR 0007).
  *
- * Every photo of a party lives under `covers/<partyId>/<token>`. A document
- * can only name a token, never a key, so it cannot point at another party's
- * photo, and the ledger (`CoverPhotoRepository`) says which token is current,
- * so a replaced or removed photo is never served again.
+ * Every photo of a party lives at `covers/<partyId>/<token>`, whichever slot
+ * it fills (banner or poster). A document can only name a token, never a key,
+ * so it cannot point at another party's photo, and the ledger
+ * (`CoverPhotoRepository`) says which token is current in each slot, so a
+ * replaced or removed photo is never served again.
  *
  * R2 has no spending cap of its own. This module is it: every operation that
  * R2 bills is spent from a daily budget first, and refused once the day's is
@@ -13,8 +14,8 @@
  * Deletes are free in R2 and are never refused.
  */
 
-import type { CoverPhotoType } from '../../../shared/coverPhotos';
-import { isCoverPhotoToken } from '../../../shared/coverPhotos';
+import type { CoverPhotoType, PhotoSlot } from '../../../shared/coverPhotos';
+import { isCoverPhotoToken, isPhotoSlot } from '../../../shared/coverPhotos';
 import type {
   CoverPhotoRepository,
   R2Spend,
@@ -74,23 +75,24 @@ async function spend(
 }
 
 /**
- * Stores a photo under a fresh token and removes the party's previous one,
- * or says why it may not. The token is new on every upload, so a cached copy
- * of the old photo can never stand in for the new one.
+ * Stores a photo in `slot` under a fresh token and removes the one the slot
+ * held, or says why it may not. The token is new on every upload, so a cached
+ * copy of the old photo can never stand in for the new one.
  */
 export async function storeCoverPhoto(
   bucket: CoverBucket,
   ledger: CoverPhotoRepository,
   partyId: string,
+  slot: PhotoSlot,
   bytes: Uint8Array,
   type: CoverPhotoType,
   now = new Date(),
 ): Promise<{ token: string } | { refused: Refusal }> {
-  const previous = await ledger.find(partyId);
+  const previous = await ledger.find(partyId, slot);
   const total = await ledger.totalBytes();
   if (!previous.ok || !total.ok) return { refused: COVER_REFUSALS.BUDGET };
 
-  // What is stored once this replaces the party's current photo.
+  // What is stored once this replaces the slot's current photo.
   const after = total.value - (previous.value?.bytes ?? 0) + bytes.byteLength;
   if (after > R2_BUDGET.storageBytes) return { refused: COVER_REFUSALS.FULL };
   if (!(await spend(ledger, 'write', now))) {
@@ -100,13 +102,13 @@ export async function storeCoverPhoto(
   const token = newToken();
   // Recorded before the object exists, so the ledger never under-counts what
   // the bucket holds; a failed put takes the record back out.
-  await ledger.save({ partyId, token, bytes: bytes.byteLength });
+  await ledger.save({ partyId, slot, token, bytes: bytes.byteLength });
   try {
     await bucket.put(keyOf(partyId, token), bytes, {
       httpMetadata: { contentType: type },
     });
   } catch (error) {
-    await ledger.remove(partyId);
+    await ledger.remove(partyId, slot);
     throw error;
   } finally {
     // The ledger no longer counts it either way, so it must not stay behind.
@@ -117,17 +119,32 @@ export async function storeCoverPhoto(
   return { token };
 }
 
-/** Removes the party's photo, object first and record after. */
+/** Removes the party's photo in `slot`, object first and record after. */
 export async function deleteCoverPhoto(
   bucket: CoverBucket,
   ledger: CoverPhotoRepository,
   partyId: string,
+  slot: PhotoSlot,
 ): Promise<void> {
-  const current = await ledger.find(partyId);
+  const current = await ledger.find(partyId, slot);
   if (current.ok && current.value) {
     await bucket.delete(keyOf(partyId, current.value.token));
   }
-  await ledger.remove(partyId);
+  await ledger.remove(partyId, slot);
+}
+
+/**
+ * Removes every photo the party has, for a party being deleted. The records
+ * go with the party (ON DELETE CASCADE), so only the objects are cleared.
+ */
+export async function deletePartyPhotos(
+  bucket: CoverBucket,
+  ledger: CoverPhotoRepository,
+  partyId: string,
+): Promise<void> {
+  const photos = await ledger.listForParty(partyId);
+  if (!photos.ok || photos.value.length === 0) return;
+  await bucket.delete(photos.value.map((p) => keyOf(partyId, p.token)));
 }
 
 const notFound = () =>
@@ -135,20 +152,23 @@ const notFound = () =>
 
 /**
  * The photo, or the answer that stands in for it: 404 when the token is not
- * the party's current photo (or there is no bucket), 503 once today's reads
- * are spent, which the pages show as the emoji cover. `cacheControl` is the
+ * the slot's current photo (or there is no bucket), 503 once today's reads are
+ * spent, which the pages show as the emoji cover. `cacheControl` is the
  * caller's: an organiser's copy and a guest's are cached differently.
  */
 export async function coverPhotoResponse(
   bucket: CoverBucket | undefined,
   ledger: CoverPhotoRepository,
   partyId: string,
-  token: string,
+  slot: string | undefined,
+  token: string | undefined,
   cacheControl: string,
   now = new Date(),
 ): Promise<Response> {
-  if (!bucket || !isCoverPhotoToken(token)) return notFound();
-  const current = await ledger.find(partyId);
+  if (!bucket || !isPhotoSlot(slot) || !isCoverPhotoToken(token)) {
+    return notFound();
+  }
+  const current = await ledger.find(partyId, slot);
   if (!current.ok || current.value?.token !== token) return notFound();
   if (!(await spend(ledger, 'read', now))) {
     return Response.json(

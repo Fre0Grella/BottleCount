@@ -2,6 +2,7 @@ import type { FeatureSet } from '../../shared/tiers';
 import type { InviteStatus } from '../../shared/invites';
 import type { PaymentDetails } from '../../shared/payments';
 import type { Venue } from '../../shared/collab';
+import type { PartyPhotos } from '../../shared/coverPhotos';
 import type { PartyDetails } from '../../shared/details';
 import type {
   Catalog,
@@ -145,8 +146,8 @@ export interface Party {
   date: string;
   createdAt: string;
   cover: number; // 0..5 index into COVERS (covers.ts)
-  /** The party's own photo over the cover, or ''. See shared/coverPhotos.ts. */
-  coverPhoto: string;
+  /** The party's own banner and poster tokens, '' for none. See shared/coverPhotos.ts. */
+  photos: PartyPhotos;
   venue: Venue;
   settings: PartySettings; // existing interface
   menu: PartyMenu; // existing type (Record<string, CategoryEntry>)

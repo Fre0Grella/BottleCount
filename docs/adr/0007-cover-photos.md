@@ -1,7 +1,8 @@
 # ADR 0007 — Cover photos and posters
 
 Status: accepted
-Date: 2026-10-26 (amended the same day: the free-tier budget)
+Date: 2026-10-26 (amended the same day: the free-tier budget, then a
+banner beside the poster)
 Follows: [ADR 0001](0001-cloudflare-tiers.md), [ADR 0002](0002-invite-links-and-the-funnel.md), [ADR 0003](0003-co-organisers.md)
 
 ## Context
@@ -37,8 +38,12 @@ provider joins the stack.
   set the photo. The free, browser-only tier keeps the emoji covers. An image
   kept in IndexedDB would never reach a guest, which is the point of the
   feature.
-- **One image per party.** Uploading replaces the previous one, so there is no
-  count to police. That one image is the count limit.
+- **Two images per party, one per slot** (migration 0008). The **banner**
+  replaces the gradient behind the party's name and is cropped to it, like any
+  header photo. The **poster** is shown whole on the invite. Uploading into a
+  slot replaces what it held, so there is no count to police: the two slots
+  are the count limit. Every party starts with neither, and a party with one
+  photo from before slots keeps it as its poster.
 - **Size: at most 2000 px on the longest side and 750 KB.** The browser does
   the work: it draws the image on a canvas and encodes WebP at quality 0.9,
   stepping the quality down, then the size, until the image fits. It falls back
@@ -64,14 +69,15 @@ provider joins the stack.
 
 - **Keys.** Objects live at `covers/<partyId>/<token>`, where the token is a
   fresh 20-character random string on every upload. The document stores only
-  the token (`coverPhoto`), and the Worker builds the key from the party it has
+  the token, per slot (`photos.banner`, `photos.poster`), and the Worker builds
+  the key from the party it has
   already authorised, so a document cannot point at another party's image. A
   token is never reused, so organisers may cache their copy for good.
-- **Deletion.** Replacing, removing (`DELETE /api/parties/:id/cover`) and
-  deleting the party (`DELETE /api/parties/:id`) each delete the party's
-  object. Deletes are free in R2.
-- **The document follows the bytes.** `PUT /api/parties/:id/cover` stores the
-  image and patches the document's `coverPhoto` in the same request, so
+- **Deletion.** Replacing, removing (`DELETE /api/parties/:id/photos/:slot`)
+  and deleting the party (`DELETE /api/parties/:id`, both slots) each delete
+  the objects. Deletes are free in R2.
+- **The document follows the bytes.** `PUT /api/parties/:id/photos/:slot`
+  stores the image and patches the document's `photos` in the same request, so
   co-organisers get the new image through the existing sync.
 - **A hard budget keeps R2 free.** R2 has no spending cap of its own, and the
   owner must never be billed for it, so the Worker enforces one
@@ -99,10 +105,15 @@ provider joins the stack.
   never under-counts. Each read is one D1 row written (`r2_usage`), which keeps
   the read budget under a third of D1's own free 100,000 writes a day.
 
-- **Display.** The image is never cropped. On the invite page it replaces the
-  gradient banner, shown whole (up to 75% of the screen height) and tappable for
-  full size, with the name and date below it as text. On the Plan tab it is a
-  contained thumbnail on the cover.
+- **Display.** The banner fills the header behind the party's name, on the
+  Plan tab and the invite, cropped to fit. The poster is never cropped: on the
+  invite it sits in the body, shown whole (up to 75% of the screen height) and
+  tappable for full size; on the Plan tab it is a contained thumbnail. Tickets
+  keep the emoji cover, which is fixed branding (`CONTEXT.md`).
+- **A refused photo is invisible.** A photo shows only once it has loaded.
+  Until then, and for good if it is refused (today's reads spent) or fails,
+  the page is exactly the one it would be without it: the gradient and emoji,
+  no poster. A guest never sees an error, a broken image or its alt text.
 
 ## Consequences
 

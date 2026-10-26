@@ -301,6 +301,18 @@ describe('the version 4 upgrade', () => {
 });
 
 describe('upgradeParty', () => {
+  it('keeps the single photo of an older party as its poster', () => {
+    const p = {
+      ...(oldParty({ id: 9 }) as object),
+      coverPhoto: 'abcdefghjkmnpqrstuvw',
+    } as unknown as Party;
+
+    upgradeParty(p);
+
+    expect(p.photos).toEqual({ banner: '', poster: 'abcdefghjkmnpqrstuvw' });
+    expect(p).not.toHaveProperty('coverPhoto');
+  });
+
   it('reports a change once and nothing on a second run', () => {
     const p = oldParty({ id: 9 }) as unknown as Party;
     expect(upgradeParty(p)).toBe(true);

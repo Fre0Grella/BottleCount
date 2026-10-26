@@ -1,4 +1,5 @@
 import { emptyCatalog } from '../../../shared/catalog';
+import { emptyPhotos, normalisePhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import settingsData from '../../data/settings.json';
@@ -22,7 +23,7 @@ export function newParty(now: Date = new Date()): Party {
     date: localIsoDate(now),
     createdAt: now.toISOString(),
     cover: 0,
-    coverPhoto: '',
+    photos: emptyPhotos(),
     venue: { place: '', city: '', time: '21:00' },
     settings: {
       guests: 40,
@@ -60,6 +61,16 @@ export function upgradeParty(party: Party): boolean {
   const before = JSON.stringify(party);
   const defaults = newParty();
   const p = party as unknown as Record<string, unknown>;
+
+  // A party saved when there was one photo, before slots: it was the poster.
+  // Moved before the defaults fill in empty slots, or the next sync would
+  // send those over the poster the server still has.
+  if ('coverPhoto' in p) {
+    if (p['photos'] === undefined) {
+      p['photos'] = normalisePhotos(undefined, p['coverPhoto']);
+    }
+    delete p['coverPhoto'];
+  }
 
   // Fields added after a party was first saved.
   for (const [key, value] of Object.entries(defaults)) {

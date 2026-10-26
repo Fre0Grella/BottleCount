@@ -86,19 +86,35 @@ describe('normaliseDocument', () => {
     }
   });
 
-  describe('cover photo', () => {
-    const photo = (coverPhoto: unknown) =>
-      normaliseDocument({ ...aDocument(), coverPhoto }).coverPhoto;
+  describe('photos', () => {
+    const TOKEN = 'abcdefghjkmnpqrstuvw';
+    const photos = (document: Record<string, unknown>) =>
+      normaliseDocument({ ...aDocument(), ...document }).photos;
 
-    it('keeps a token the Worker gave out', () => {
-      expect(photo('abcdefghjkmnpqrstuvw')).toBe('abcdefghjkmnpqrstuvw');
+    it('keeps a token the Worker gave out, in its slot', () => {
+      expect(photos({ photos: { banner: TOKEN, poster: '' } })).toEqual({
+        banner: TOKEN,
+        poster: '',
+      });
     });
 
     // The token becomes part of an R2 key and a URL: nothing else gets in.
-    it('drops anything that is not a token', () => {
+    it('drops anything that is not a token, and slots it does not know', () => {
       for (const value of ['../other-party/x', 'short', 42, null, undefined]) {
-        expect(photo(value)).toBe('');
+        expect(photos({ photos: { banner: value, poster: value } })).toEqual({
+          banner: '',
+          poster: '',
+        });
       }
+      expect(photos({ photos: { logo: TOKEN } })).not.toHaveProperty('logo');
+    });
+
+    // Before slots there was one photo, and it was shown as the poster.
+    it('reads the single photo of an older document as its poster', () => {
+      expect(photos({ photos: undefined, coverPhoto: TOKEN })).toEqual({
+        banner: '',
+        poster: TOKEN,
+      });
     });
   });
 

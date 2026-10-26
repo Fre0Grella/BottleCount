@@ -1,6 +1,7 @@
 import type { Catalog } from './catalog';
 import { normaliseCatalog } from './catalog';
-import { isCoverPhotoToken } from './coverPhotos';
+import type { PartyPhotos } from './coverPhotos';
+import { normalisePhotos } from './coverPhotos';
 import type { PartyDetails } from './details';
 import { normaliseDetails } from './details';
 import type { FeatureSet } from './tiers';
@@ -83,10 +84,10 @@ export interface PartyDocument {
   date: string;
   cover: number;
   /**
-   * The token of the party's own photo in R2, shown over the cover gradient,
-   * or '' for none (ADR 0007). Set after the Worker has stored the photo.
+   * The party's own banner and poster in R2, by token, '' for none (ADR 0007).
+   * Each is set by the Worker once it has stored the photo.
    */
-  coverPhoto: string;
+  photos: PartyPhotos;
   venue: Venue;
   settings: {
     guests: number;
@@ -127,7 +128,7 @@ export const DOCUMENT_FIELDS = [
   'name',
   'date',
   'cover',
-  'coverPhoto',
+  'photos',
   'venue',
   'settings',
   'menu',
@@ -210,7 +211,7 @@ export function normaliseDocument(value: unknown): PartyDocument {
     name: str(d['name'], 80).trim(),
     date: str(d['date'], 10),
     cover: Math.max(0, Math.min(5, Math.trunc(num(d['cover'], 0)))),
-    coverPhoto: isCoverPhotoToken(d['coverPhoto']) ? d['coverPhoto'] : '',
+    photos: normalisePhotos(d['photos'], d['coverPhoto']),
     venue: normaliseVenue(d['venue']),
     settings: {
       guests: num(settings['guests'], 0),

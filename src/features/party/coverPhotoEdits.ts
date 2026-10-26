@@ -1,3 +1,4 @@
+import type { PhotoSlot } from '../../../shared/coverPhotos';
 import { deleteCoverPhoto, uploadCoverPhoto } from '../../lib/api/parties';
 import { errorCode } from '../../lib/api/request';
 import type { Party } from '../../lib/types';
@@ -40,19 +41,24 @@ export function photosOffered(): boolean {
   return state.session.coverPhotos === true;
 }
 
-/** Where an organiser's browser fetches the party's photo, or null for none. */
-export function photoSrc(party: Party | null | undefined): string | null {
+/** Where an organiser's browser fetches a photo of the party, or null for none. */
+export function photoSrc(
+  party: Party | null | undefined,
+  slot: PhotoSlot,
+): string | null {
   const remoteId = party?.publication?.remoteId;
-  return party?.coverPhoto && remoteId
-    ? organiserPhotoUrl(remoteId, party.coverPhoto)
-    : null;
+  const token = party?.photos[slot];
+  return token && remoteId ? organiserPhotoUrl(remoteId, slot, token) : null;
 }
 
 /**
- * Shrinks `file`, uploads it and points the party at it. Answers an error to
- * show, or null once it is on.
+ * Shrinks `file`, uploads it into `slot` and points the party at it. Answers
+ * an error to show, or null once it is on.
  */
-export async function setPartyPhoto(file: Blob): Promise<string | null> {
+export async function setPartyPhoto(
+  slot: PhotoSlot,
+  file: Blob,
+): Promise<string | null> {
   if (!can('coverPhotos')) {
     requestUpgrade('coverPhotos');
     return null;
@@ -68,25 +74,27 @@ export async function setPartyPhoto(file: Blob): Promise<string | null> {
   const remoteId = activeParty()?.publication?.remoteId;
   if (!remoteId) return message('');
 
-  const result = await uploadCoverPhoto(remoteId, photo);
+  const result = await uploadCoverPhoto(remoteId, slot, photo);
   if (!result.ok) return message(errorCode(result.error));
   // The server has already pointed its copy at the photo; this is ours.
   const { token } = result.value;
   update((p) => {
-    p.coverPhoto = token;
+    p.photos[slot] = token;
   });
   return null;
 }
 
-/** Takes the photo off, back to the emoji cover. */
-export async function removePartyPhoto(): Promise<string | null> {
+/** Takes the photo in `slot` off. */
+export async function removePartyPhoto(
+  slot: PhotoSlot,
+): Promise<string | null> {
   const remoteId = activeParty()?.publication?.remoteId;
   if (remoteId) {
-    const result = await deleteCoverPhoto(remoteId);
+    const result = await deleteCoverPhoto(remoteId, slot);
     if (!result.ok) return message(errorCode(result.error));
   }
   update((p) => {
-    p.coverPhoto = '';
+    p.photos[slot] = '';
   });
   return null;
 }

@@ -66,11 +66,11 @@ describe('smallestFit', () => {
 
 describe('photo URLs', () => {
   it('fetch an organiser copy behind membership, a guest copy behind the link', () => {
-    expect(organiserPhotoUrl('p 1', 'tok')).toBe(
-      '/api/parties/p%201/cover/tok',
+    expect(organiserPhotoUrl('p 1', 'banner', 'tok')).toBe(
+      '/api/parties/p%201/photos/banner/tok',
     );
-    expect(guestPhotoUrl('rooftop-ab', 'tok')).toBe(
-      '/invite/rooftop-ab/cover/tok',
+    expect(guestPhotoUrl('rooftop-ab', 'poster', 'tok')).toBe(
+      '/invite/rooftop-ab/photos/poster/tok',
     );
   });
 });

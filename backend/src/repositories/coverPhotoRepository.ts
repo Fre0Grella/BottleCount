@@ -1,8 +1,10 @@
+import type { PhotoSlot } from '../../../shared/coverPhotos';
 import type { Result } from './result';
 
-/** A party's photo as the ledger records it (migration 0007). */
+/** One of a party's photos as the ledger records it (migration 0008). */
 export interface StoredCoverPhoto {
   partyId: string;
+  slot: PhotoSlot;
   token: string;
   bytes: number;
 }
@@ -12,20 +14,27 @@ export type R2Spend = 'write' | 'read';
 
 /**
  * The ledger that keeps R2 inside its free tier (ADR 0007): which photo each
- * party has and how big it is, and how many operations each day has spent.
+ * party has in each slot and how big it is, and how many operations each day
+ * has spent.
  */
 export interface CoverPhotoRepository {
-  /** The party's photo, or null when it has none. */
-  find(partyId: string): Promise<Result<StoredCoverPhoto | null>>;
+  /** The party's photo in `slot`, or null when it has none. */
+  find(
+    partyId: string,
+    slot: PhotoSlot,
+  ): Promise<Result<StoredCoverPhoto | null>>;
 
-  /** Bytes stored across every party. */
+  /** Every photo the party has, in any slot. */
+  listForParty(partyId: string): Promise<Result<StoredCoverPhoto[]>>;
+
+  /** Bytes stored across every party and slot. */
   totalBytes(): Promise<Result<number>>;
 
-  /** Records the party's photo, replacing the one it had. */
+  /** Records the photo, replacing the one the party had in that slot. */
   save(photo: StoredCoverPhoto): Promise<Result<void>>;
 
-  /** Forgets the party's photo. Already gone is fine. */
-  remove(partyId: string): Promise<Result<void>>;
+  /** Forgets the party's photo in `slot`. Already gone is fine. */
+  remove(partyId: string, slot: PhotoSlot): Promise<Result<void>>;
 
   /**
    * Takes one operation from `day`'s budget of `limit` for `kind`, and answers

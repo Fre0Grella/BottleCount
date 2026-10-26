@@ -9,9 +9,33 @@
  * The browser shrinks and re-encodes a photo before it is sent — that is what
  * keeps storage small and strips EXIF, location included — and the Worker
  * refuses anything that is not an image of the right kind and size. A party
- * has one photo at most; its document holds the photo's token, and the bytes
- * live in R2.
+ * has two at most, one per {@link PHOTO_SLOTS slot}; its document holds each
+ * photo's token, and the bytes live in R2.
  */
+
+/**
+ * The images a party may have. The `banner` stands in for the gradient behind
+ * the party's name and is cropped to fit it, like any header. The `poster` is
+ * shown whole on the invite, since it is often the flyer with the details
+ * written on it.
+ */
+const PHOTO_SLOTS = ['banner', 'poster'] as const;
+
+export type PhotoSlot = (typeof PHOTO_SLOTS)[number];
+
+/** Each slot's photo token, or '' for none. */
+export type PartyPhotos = Record<PhotoSlot, string>;
+
+export function isPhotoSlot(value: unknown): value is PhotoSlot {
+  return (
+    typeof value === 'string' &&
+    (PHOTO_SLOTS as readonly string[]).includes(value)
+  );
+}
+
+export function emptyPhotos(): PartyPhotos {
+  return { banner: '', poster: '' };
+}
 
 /**
  * Enough for a 2000px poster in WebP with its small print readable; about
@@ -56,4 +80,21 @@ export function sniffCoverPhoto(bytes: Uint8Array): CoverPhotoType | null {
  */
 export function isCoverPhotoToken(value: unknown): value is string {
   return typeof value === 'string' && /^[a-z2-9]{20}$/.test(value);
+}
+
+/**
+ * Any value, as a party's photos: a slot without a valid token has none.
+ * `legacy` is a document's `coverPhoto` from before there were slots, which was
+ * shown as the poster, so it stays the poster.
+ */
+export function normalisePhotos(value: unknown, legacy?: unknown): PartyPhotos {
+  const given = (
+    typeof value === 'object' && value !== null ? value : {}
+  ) as Record<string, unknown>;
+  const photos = emptyPhotos();
+  for (const slot of PHOTO_SLOTS) {
+    if (isCoverPhotoToken(given[slot])) photos[slot] = given[slot];
+  }
+  if (!photos.poster && isCoverPhotoToken(legacy)) photos.poster = legacy;
+  return photos;
 }

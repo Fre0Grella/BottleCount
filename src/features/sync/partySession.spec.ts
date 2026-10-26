@@ -3,6 +3,7 @@ import { reactive, toRaw } from 'vue';
 import type { SharedPartyDTO } from '../../../shared/collab';
 import type { HostInviteDTO } from '../../../shared/invites';
 import { emptyPaymentDetails } from '../../../shared/payments';
+import { emptyPhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
 import { fetchFunnel } from '../../lib/api/guests';
 import { fetchParty, patchParty } from '../../lib/api/parties';
@@ -36,7 +37,7 @@ function aParty(id: number, remoteId: string | null): Party {
     date: '2026-10-01',
     createdAt: '2026-09-01T00:00:00.000Z',
     cover: 0,
-    coverPhoto: '',
+    photos: emptyPhotos(),
     venue: { place: 'Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,

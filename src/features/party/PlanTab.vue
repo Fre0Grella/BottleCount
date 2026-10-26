@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useStore } from '../../store/store';
 import { COVERS, coverOf } from './covers';
 import { VIBES, BUFFERS } from './planPresets';
@@ -38,6 +38,7 @@ import PaymentSettings from '../payments/PaymentSettings.vue';
 import VenuePicker from './VenuePicker.vue';
 import PartyDetailsCard from './PartyDetailsCard.vue';
 import CoverPhotoPicker from './CoverPhotoPicker.vue';
+import { photoSrc } from './coverPhotoEdits';
 
 const store = useStore();
 
@@ -58,6 +59,21 @@ function typed(e: Event): string {
 // ── Venue hero ─────────────────────────────────────────────────────────────
 
 const heroCover = computed(() => coverOf(p.value?.cover));
+
+/**
+ * The banner photo, over the cover gradient, or null. It shows once loaded;
+ * until then, and if it fails (today's photo budget spent, say), the gradient
+ * and emoji show as they would without it.
+ */
+const bannerFailed = ref<string | null>(null);
+const bannerLoaded = ref<string | null>(null);
+const banner = computed(() => {
+  const src = photoSrc(p.value, 'banner');
+  return src !== bannerFailed.value ? src : null;
+});
+const bannerShown = computed(
+  () => !!banner.value && banner.value === bannerLoaded.value,
+);
 
 const venueWhere = computed(() => {
   const party = p.value;
@@ -187,28 +203,44 @@ const pnl = computed(() =>
     <!-- ── 1. Venue hero ──────────────────────────────────────────────── -->
     <div class="hero">
       <div class="hero__cover" :style="{ background: heroCover.grad }">
+        <!-- the banner photo, cropped to the cover like any header -->
+        <img
+          v-if="banner"
+          :src="banner"
+          alt=""
+          class="hero__photo"
+          :class="{ 'is-loaded': bannerShown }"
+          @load="bannerLoaded = banner"
+          @error="bannerFailed = banner"
+        />
         <!-- dark scrim -->
         <div class="hero__scrim" />
 
-        <!-- top row: emoji + cover picker -->
+        <!-- top row: emoji + cover picker, and the banner photo -->
         <div class="hero__top">
-          <span class="hero__emoji">{{ heroCover.emoji }}</span>
-          <div class="hero__covers">
-            <button
-              v-for="(cover, i) in COVERS"
-              :key="i"
-              :title="cover.label"
-              :aria-label="`${cover.label} cover`"
-              :aria-pressed="p.cover === i"
-              class="hero__swatch"
-              :class="{ 'is-on': p.cover === i }"
-              :style="{ background: cover.grad }"
-              @click="setCover(i)"
-            />
+          <span v-if="!bannerShown" class="hero__emoji">{{
+            heroCover.emoji
+          }}</span>
+          <div class="hero__controls">
+            <!-- The colours still choose the tickets' cover, and the fallback. -->
+            <div class="hero__covers">
+              <button
+                v-for="(cover, i) in COVERS"
+                :key="i"
+                :title="cover.label"
+                :aria-label="`${cover.label} cover`"
+                :aria-pressed="p.cover === i"
+                class="hero__swatch"
+                :class="{ 'is-on': p.cover === i }"
+                :style="{ background: cover.grad }"
+                @click="setCover(i)"
+              />
+            </div>
+            <CoverPhotoPicker photo="banner" />
           </div>
         </div>
 
-        <!-- bottom row: party name + venue line, and the photo or poster -->
+        <!-- bottom row: party name + venue line, and the poster -->
         <div class="hero__bottom">
           <div class="hero__text">
             <input
@@ -225,7 +257,7 @@ const pnl = computed(() =>
               {{ venueWhere }}
             </div>
           </div>
-          <CoverPhotoPicker />
+          <CoverPhotoPicker photo="poster" />
         </div>
       </div>
     </div>
@@ -495,6 +527,21 @@ const pnl = computed(() =>
   justify-content: space-between;
 }
 
+/* Cropped to fill, under the scrim, like any header photo. */
+.hero__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.hero__photo.is-loaded {
+  opacity: 1;
+}
+
 .hero__scrim {
   position: absolute;
   inset: 0;
@@ -513,6 +560,15 @@ const pnl = computed(() =>
   font-size: 40px;
   line-height: 1;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
+}
+
+/* The emoji goes when a banner photo takes its place; these stay right. */
+.hero__controls {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .hero__covers {
