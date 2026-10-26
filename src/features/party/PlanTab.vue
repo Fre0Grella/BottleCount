@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useStore } from '../../store/store';
 import { COVERS, coverOf } from './covers';
 import { VIBES, BUFFERS } from './planPresets';
@@ -39,6 +39,7 @@ import VenuePicker from './VenuePicker.vue';
 import PartyDetailsCard from './PartyDetailsCard.vue';
 import CoverPhotoPicker from './CoverPhotoPicker.vue';
 import { photoSrc } from './coverPhotoEdits';
+import { usePhotoLoads } from './photoLoads';
 
 const store = useStore();
 
@@ -65,15 +66,9 @@ const heroCover = computed(() => coverOf(p.value?.cover));
  * until then, and if it fails (today's photo budget spent, say), the gradient
  * and emoji show as they would without it.
  */
-const bannerFailed = ref<string | null>(null);
-const bannerLoaded = ref<string | null>(null);
-const banner = computed(() => {
-  const src = photoSrc(p.value, 'banner');
-  return src !== bannerFailed.value ? src : null;
-});
-const bannerShown = computed(
-  () => !!banner.value && banner.value === bannerLoaded.value,
-);
+const photos = usePhotoLoads();
+const banner = computed(() => photos.usable(photoSrc(p.value, 'banner')));
+const bannerShown = computed(() => photos.shown(banner.value));
 
 const venueWhere = computed(() => {
   const party = p.value;
@@ -210,8 +205,8 @@ const pnl = computed(() =>
           alt=""
           class="hero__photo"
           :class="{ 'is-loaded': bannerShown }"
-          @load="bannerLoaded = banner"
-          @error="bannerFailed = banner"
+          @load="photos.onLoad(banner)"
+          @error="photos.onError(banner)"
         />
         <!-- dark scrim -->
         <div class="hero__scrim" />

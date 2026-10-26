@@ -1,8 +1,8 @@
 # ADR 0007 — Cover photos and posters
 
 Status: accepted
-Date: 2026-10-26 (amended the same day: the free-tier budget, then a
-banner beside the poster)
+Date: 2026-10-26 (amended the same day: the free-tier budget, a banner
+beside the poster, then the banner on tickets and the home page)
 Follows: [ADR 0001](0001-cloudflare-tiers.md), [ADR 0002](0002-invite-links-and-the-funnel.md), [ADR 0003](0003-co-organisers.md)
 
 ## Context
@@ -52,8 +52,8 @@ provider joins the stack.
   free 10 GB. No server-side image transforms, which would be paid.
 - **Privacy.** Re-encoding through a canvas keeps only the pixels, so the EXIF
   block goes with it, location included. The image is shown to the party's
-  organisers and to guests holding the open invite link, and the privacy policy
-  says so.
+  organisers and to guests holding the open invite link, and the banner also to
+  whoever holds a live ticket link; the privacy policy says so.
 - **Abuse.** A public page that shows any uploaded file would be free hosting,
   so the Worker:
   - accepts only bytes whose header is WebP or JPEG, whatever the content type
@@ -108,8 +108,14 @@ provider joins the stack.
 - **Display.** The banner fills the header behind the party's name, on the
   Plan tab and the invite, cropped to fit. The poster is never cropped: on the
   invite it sits in the body, shown whole (up to 75% of the screen height) and
-  tappable for full size; on the Plan tab it is a contained thumbnail. Tickets
-  keep the emoji cover, which is fixed branding (`CONTEXT.md`).
+  tappable for full size; on the Plan tab it is a contained thumbnail. The
+  banner also heads the party's card on the home page and the guest's ticket.
+  A ticket fetches it behind its own short link
+  (`GET /ticket/:slug/photos/banner/:token`), not the invite link, which the
+  host may close once the party is full; it serves only while the ticket is
+  live, and is cached for a day so it still shows at a door with no signal. A
+  long (fragment) ticket link carries no banner, and the ticket image a guest
+  saves keeps the emoji cover.
 - **The host frames the banner.** Picking a banner opens a frame of its 3:1
   shape over the photo, dragged and zoomed to choose the part that shows; the
   browser crops to exactly that before shrinking, so every page shows what was

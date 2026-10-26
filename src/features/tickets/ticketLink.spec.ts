@@ -122,4 +122,12 @@ describe('openTicket', () => {
     expect(fromServer).toEqual(fromFragment);
     expect(fromServer?.signed).toBe(signed);
   });
+
+  it('keeps a short link’s banner token, and drops one that is not a token', () => {
+    const banner = 'abcdefghjkmnpqrstvwx';
+    expect(openTicket(signed, { ...display, banner })?.banner).toBe(banner);
+    expect(
+      openTicket(signed, { ...display, banner: '../../secret' }),
+    ).not.toHaveProperty('banner');
+  });
 });

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import type { PhotoSlot } from '../../../shared/coverPhotos';
 import type { InvitePartyDTO } from '../../../shared/invites';
 import { coverOf } from '../party/covers';
 import { infoLines } from '../party/partyDetails';
+import { usePhotoLoads } from '../party/photoLoads';
 import { mapsLink } from '../party/venue';
 import { formatLocalDate } from '../../lib/dates';
 import { timeSpan, venueWhere } from '../../lib/display';
@@ -31,35 +32,16 @@ const base = import.meta.env.BASE_URL as string;
 
 const cover = computed(() => coverOf(props.party.cover));
 
-/**
- * The host's banner and poster, each null when there is none or it failed.
- *
- * A photo shows only once it has loaded. Until then, and for good if it
- * fails (the host just replaced it, or today's photo budget is spent), the
- * card is the one it would be without it: the gradient and emoji, no poster.
- * A guest never sees an error, a broken image or its alt text for a photo.
- */
-const failedPhotos = ref<string[]>([]);
-const loadedPhotos = ref<string[]>([]);
+/** The host's banner and poster, each null when there is none or it failed. */
+const photos = usePhotoLoads();
 function photoOf(slot: PhotoSlot): string | null {
   const token = props.party.photos?.[slot];
-  const url = token ? props.photoUrl(slot, token) : null;
-  return url && !failedPhotos.value.includes(url) ? url : null;
+  return photos.usable(token ? props.photoUrl(slot, token) : null);
 }
 const banner = computed(() => photoOf('banner'));
 const poster = computed(() => photoOf('poster'));
-const bannerShown = computed(
-  () => !!banner.value && loadedPhotos.value.includes(banner.value),
-);
-const posterShown = computed(
-  () => !!poster.value && loadedPhotos.value.includes(poster.value),
-);
-function photoLoaded(url: string | null): void {
-  if (url) loadedPhotos.value = [...loadedPhotos.value, url];
-}
-function photoFailed(url: string | null): void {
-  if (url) failedPhotos.value = [...failedPhotos.value, url];
-}
+const bannerShown = computed(() => photos.shown(banner.value));
+const posterShown = computed(() => photos.shown(poster.value));
 
 /** `Saturday 14 June · 21:00 – 03:00`, leaving out whatever the host left blank. */
 const whenLabel = computed(() => {
@@ -98,8 +80,8 @@ const mapsHref = computed(() => (pin.value ? mapsLink(pin.value) : null));
         :src="banner"
         alt=""
         class="invite-cover__photo"
-        @load="photoLoaded(banner)"
-        @error="photoFailed(banner)"
+        @load="photos.onLoad(banner)"
+        @error="photos.onError(banner)"
       />
       <div v-if="bannerShown" class="invite-cover__scrim" />
       <span v-else class="invite-emoji">{{ cover?.emoji }}</span>
@@ -141,8 +123,8 @@ const mapsHref = computed(() => (pin.value ? mapsLink(pin.value) : null));
         <img
           :src="poster"
           :alt="`Poster for ${party.name}`"
-          @load="photoLoaded(poster)"
-          @error="photoFailed(poster)"
+          @load="photos.onLoad(poster)"
+          @error="photos.onError(poster)"
         />
       </a>
 

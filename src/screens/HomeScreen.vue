@@ -2,6 +2,8 @@
 import { computed } from 'vue';
 import { useStore } from '../store/store';
 import { coverOf } from '../features/party/covers';
+import { photoSrc } from '../features/party/coverPhotoEdits';
+import { usePhotoLoads } from '../features/party/photoLoads';
 import { runsBar } from '../features/party/core';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, segColor, venueWhere } from '../lib/display';
@@ -33,6 +35,8 @@ interface PartyCard {
   name: string;
   cover: string;
   emoji: string;
+  /** The banner photo's URL, or null for none. */
+  banner: string | null;
   where: string;
   dateLabel: string;
   guests: number;
@@ -43,6 +47,9 @@ interface PartyCard {
   bar: { w: string; c: string }[];
   party: Party;
 }
+
+/** Each card's banner, shown once it has loaded, over the gradient it falls back to. */
+const photos = usePhotoLoads();
 
 const partyCards = computed<PartyCard[]>(() => {
   return store.state.parties.map((p) => {
@@ -73,6 +80,7 @@ const partyCards = computed<PartyCard[]>(() => {
       name: p.name,
       cover: cv.grad,
       emoji: cv.emoji,
+      banner: photos.usable(photoSrc(p, 'banner')),
       where,
       dateLabel,
       guests: p.settings.guests,
@@ -133,8 +141,17 @@ async function handleDelete(e: Event, id: number): Promise<void> {
         <div v-for="p in partyCards" :key="p.id" class="party-card">
           <!-- cover -->
           <div class="party-card__cover" :style="{ background: p.cover }">
+            <img
+              v-if="p.banner"
+              :src="p.banner"
+              alt=""
+              class="party-card__photo"
+              :class="{ 'is-loaded': photos.shown(p.banner) }"
+              @load="photos.onLoad(p.banner)"
+              @error="photos.onError(p.banner)"
+            />
             <div class="party-card__shade" />
-            <div class="party-card__emoji">
+            <div v-if="!photos.shown(p.banner)" class="party-card__emoji">
               {{ p.emoji }}
             </div>
             <div class="party-card__heading">
@@ -311,6 +328,19 @@ async function handleDelete(e: Event, id: number): Promise<void> {
   display: flex;
   align-items: flex-end;
   padding: 12px;
+}
+/* The banner, cropped to the cover like any header; it fades in once loaded. */
+.party-card__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.party-card__photo.is-loaded {
+  opacity: 1;
 }
 .party-card__shade {
   position: absolute;

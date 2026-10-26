@@ -24,6 +24,10 @@ const invite = computed(() =>
 const photoUrl = computed(() =>
   party.value ? previewPhotoUrl(party.value) : () => null,
 );
+const ticketBanner = computed(() => {
+  const token = party.value?.photos.banner;
+  return token ? photoUrl.value('banner', token) : null;
+});
 
 /** The real invite, once the link is open, for a look at it in a new tab. */
 const link = computed(() => {
@@ -99,8 +103,7 @@ watch(
         </div>
         <p class="preview__note">
           What a guest gets once they're in, made out to {{ guestName }}. The QR
-          is a sample the door won't accept. Tickets always use the party's
-          colour cover, not a photo.
+          is a sample the door won't accept.
         </p>
 
         <TicketCard
@@ -108,6 +111,7 @@ watch(
           :date="party.date"
           :time="party.venue.time"
           :cover="party.cover"
+          :banner="ticketBanner"
           :guest-name="guestName"
           :code="code"
           :qr="qr"

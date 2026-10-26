@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { coverOf } from '../features/party/covers';
+import { ticketBannerUrl } from '../features/party/coverPhoto';
 import { downloadFile } from '../lib/download';
 import { brandedQrDataUrl, buildTicketFile } from '../lib/drawing';
 import type { TicketLinkDTO } from '../../shared/ticketLinks';
@@ -40,6 +41,16 @@ const saving = ref(false);
 const base = import.meta.env.BASE_URL as string;
 
 const cover = computed(() => coverOf(ticket.value?.cover));
+
+/**
+ * The banner, fetched behind the short link's slug. Only a short link carries
+ * one, and a new fragment changes only the hash, never the path.
+ */
+const banner = computed(() => {
+  const token = ticket.value?.banner;
+  const slug = ticketSlugFromPath(window.location.pathname, base);
+  return token && slug ? ticketBannerUrl(slug, token) : null;
+});
 
 const expired = computed(() => {
   const at = ticket.value?.payload.expiresAt;
@@ -174,6 +185,7 @@ async function saveImage(): Promise<void> {
       :date="ticket.date"
       :time="ticket.time ?? ''"
       :cover="ticket.cover"
+      :banner="banner"
       :guest-name="ticket.payload.guestName"
       :code="ticket.payload.code"
       :qr="qr"
