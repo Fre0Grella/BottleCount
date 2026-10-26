@@ -7,6 +7,7 @@ import type {
   PatchPartyResponse,
   SharedPartyDTO,
 } from '../../../shared/collab';
+import type { PhotoSlot } from '../../../shared/coverPhotos';
 import type { MergePatch } from '../../../shared/patch';
 import { documentOf } from '../collab';
 import type { Party } from '../types';
@@ -52,16 +53,23 @@ export function deleteRemoteParty(id: string): Promise<ApiResult<void>> {
 
 // ── The cover photo ─────────────────────────────────────────────────────────
 
+const photoPath = (id: string, slot: PhotoSlot): string =>
+  `${partyPath(id)}/photos/${slot}`;
+
 /** Uploads a photo the browser has already shrunk; answers its token. */
 export function uploadCoverPhoto(
   id: string,
+  slot: PhotoSlot,
   photo: Blob,
 ): Promise<ApiResult<{ token: string }>> {
-  return request(`${partyPath(id)}/cover`, { method: 'PUT', body: photo });
+  return request(photoPath(id, slot), { method: 'PUT', body: photo });
 }
 
-export function deleteCoverPhoto(id: string): Promise<ApiResult<unknown>> {
-  return request(`${partyPath(id)}/cover`, { method: 'DELETE' });
+export function deleteCoverPhoto(
+  id: string,
+  slot: PhotoSlot,
+): Promise<ApiResult<unknown>> {
+  return request(photoPath(id, slot), { method: 'DELETE' });
 }
 
 // ── The guest-facing link ───────────────────────────────────────────────────

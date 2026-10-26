@@ -13,6 +13,7 @@ import type {
 import { guestName, optionalContact } from '../../../shared/contact';
 import {
   COVER_PHOTO_MAX_BYTES,
+  isPhotoSlot,
   sniffCoverPhoto,
 } from '../../../shared/coverPhotos';
 import type { HostInviteDTO, PublishedPartyDTO } from '../../../shared/invites';
@@ -26,6 +27,7 @@ import {
   COVER_REFUSALS,
   coverPhotoResponse,
   deleteCoverPhoto,
+  deletePartyPhotos,
   storeCoverPhoto,
 } from '../lib/coverPhotos';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
@@ -299,11 +301,11 @@ parties.delete('/:partyId', async (c) => {
 
   // Already gone is the state the caller wanted.
   const partyId = c.get('party').id;
-  // The photo goes with the party (ADR 0007): nothing would ever serve it
-  // again, and it may show people. First, while its ledger row still says
-  // which object it is; the party's deletion cascades the row away.
+  // The photos go with the party (ADR 0007): nothing would ever serve them
+  // again, and they may show people. First, while the ledger still says which
+  // objects they are; the party's deletion cascades the rows away.
   if (c.env.COVER_PHOTOS) {
-    await deleteCoverPhoto(
+    await deletePartyPhotos(
       c.env.COVER_PHOTOS,
       c.var.repositories.coverPhotos,
       partyId,
@@ -313,18 +315,21 @@ parties.delete('/:partyId', async (c) => {
   return c.json({ ok: true });
 });
 
-// ── The cover photo (ADR 0007) ──────────────────────────────────────────────
+// ── The party's photos (ADR 0007) ───────────────────────────────────────────
 
 /**
- * `PUT /api/parties/:partyId/cover` — the raw bytes of a photo or poster the
- * browser has already shrunk and re-encoded. Any member may set it, on a party
- * whose owner has the feature, like everything else about a Pro party.
+ * `PUT /api/parties/:partyId/photos/:slot` — the raw bytes of a banner or a
+ * poster the browser has already shrunk and re-encoded. Any member may set
+ * one, on a party whose owner has the feature, like everything else about a
+ * Pro party.
  *
  * The document is pointed at the new photo here rather than left to the
  * client's next patch, so the photo and the document that names it change
- * together; the previous photo is deleted on the way.
+ * together; the slot's previous photo is deleted on the way.
  */
-parties.put('/:partyId/cover', async (c) => {
+parties.put('/:partyId/photos/:slot', async (c) => {
+  const slot = c.req.param('slot');
+  if (!isPhotoSlot(slot)) return c.json({ error: 'unknown_photo_slot' }, 404);
   const bucket = c.env.COVER_PHOTOS;
   if (!bucket) return c.json({ error: 'cover_photos_unavailable' }, 501);
 
@@ -344,6 +349,7 @@ parties.put('/:partyId/cover', async (c) => {
     bucket,
     c.var.repositories.coverPhotos,
     party.id,
+    slot,
     bytes,
     type,
   );
@@ -356,38 +362,43 @@ parties.put('/:partyId/cover', async (c) => {
   const { token } = stored;
   const patched = await c.var.repositories.parties.patchDocument({
     partyId: party.id,
-    patch: { coverPhoto: token },
+    patch: { photos: { [slot]: token } },
   });
   return respond(c, patched, (value) => ({ token, version: value.version }));
 });
 
-/** `DELETE /api/parties/:partyId/cover` — back to the emoji cover. */
-parties.delete('/:partyId/cover', async (c) => {
+/** `DELETE /api/parties/:partyId/photos/:slot` — that slot back to none. */
+parties.delete('/:partyId/photos/:slot', async (c) => {
+  const slot = c.req.param('slot');
+  if (!isPhotoSlot(slot)) return c.json({ error: 'unknown_photo_slot' }, 404);
+
   const party = c.get('party');
   if (c.env.COVER_PHOTOS) {
     await deleteCoverPhoto(
       c.env.COVER_PHOTOS,
       c.var.repositories.coverPhotos,
       party.id,
+      slot,
     );
   }
   if (!party.document) return c.json({ ok: true });
   const patched = await c.var.repositories.parties.patchDocument({
     partyId: party.id,
-    patch: { coverPhoto: '' },
+    patch: { photos: { [slot]: '' } },
   });
   return respond(c, patched, (value) => ({ version: value.version }));
 });
 
 /**
- * `GET /api/parties/:partyId/cover/:token` — the photo, for its organisers.
- * A token is never reused, so the bytes behind one never change.
+ * `GET /api/parties/:partyId/photos/:slot/:token` — a photo, for its
+ * organisers. A token is never reused, so the bytes behind one never change.
  */
-parties.get('/:partyId/cover/:token', (c) =>
+parties.get('/:partyId/photos/:slot/:token', (c) =>
   coverPhotoResponse(
     c.env.COVER_PHOTOS,
     c.var.repositories.coverPhotos,
     c.get('party').id,
+    c.req.param('slot'),
     c.req.param('token'),
     'private, max-age=31536000, immutable',
   ),

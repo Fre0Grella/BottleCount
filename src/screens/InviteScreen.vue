@@ -6,6 +6,7 @@ import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
 import { coverOf } from '../features/party/covers';
+import type { PhotoSlot } from '../../shared/coverPhotos';
 import { guestPhotoUrl } from '../features/party/coverPhoto';
 import { mapsLink } from '../features/party/venue';
 import { infoLines } from '../features/party/partyDetails';
@@ -68,14 +69,34 @@ const slug = ref('');
 const cover = computed(() => coverOf(data.value?.party.cover));
 
 /**
- * The host's photo or poster, or null. One that fails to load (the host just
- * replaced it, say) falls back to the emoji cover rather than a broken image.
+ * The host's banner and poster, each null when there is none or it failed.
+ *
+ * A photo shows only once it has loaded. Until then, and for good if it
+ * fails (the host just replaced it, or today's photo budget is spent), the
+ * page is the one it would be without it: the gradient and emoji, no poster.
+ * A guest never sees an error, a broken image or its alt text for a photo.
  */
-const posterFailed = ref(false);
-const poster = computed(() => {
-  const token = data.value?.party.coverPhoto;
-  return token && !posterFailed.value ? guestPhotoUrl(slug.value, token) : null;
-});
+const failedPhotos = ref<string[]>([]);
+const loadedPhotos = ref<string[]>([]);
+function photoUrl(slot: PhotoSlot): string | null {
+  const token = data.value?.party.photos?.[slot];
+  const url = token ? guestPhotoUrl(slug.value, slot, token) : null;
+  return url && !failedPhotos.value.includes(url) ? url : null;
+}
+const banner = computed(() => photoUrl('banner'));
+const poster = computed(() => photoUrl('poster'));
+const bannerShown = computed(
+  () => !!banner.value && loadedPhotos.value.includes(banner.value),
+);
+const posterShown = computed(
+  () => !!poster.value && loadedPhotos.value.includes(poster.value),
+);
+function photoLoaded(url: string | null): void {
+  if (url) loadedPhotos.value = [...loadedPhotos.value, url];
+}
+function photoFailed(url: string | null): void {
+  if (url) failedPhotos.value = [...failedPhotos.value, url];
+}
 
 const dateLabel = computed(() =>
   formatLocalDate(data.value?.party.date, {
@@ -328,29 +349,23 @@ function copy(text: string, key: string): void {
 
     <!-- The invitation itself -->
     <div v-else-if="data" class="invite-card">
-      <!-- The host's own photo or poster, whole: a poster's text is the
-           point of it, so it is never cropped. Tapping opens it full size. -->
-      <template v-if="poster">
-        <a
-          class="invite-poster"
-          :href="poster"
-          target="_blank"
-          rel="noopener"
-          aria-label="Open the party poster full size"
-        >
-          <img
-            :src="poster"
-            :alt="`Poster for ${data.party.name}`"
-            @error="posterFailed = true"
-          />
-        </a>
-        <div class="invite-headline">
-          <h1 class="invite-title">{{ data.party.name }}</h1>
-          <p class="invite-when">{{ whenLabel }}</p>
-        </div>
-      </template>
-      <div v-else class="invite-cover" :style="{ background: cover?.grad }">
-        <span class="invite-emoji">{{ cover?.emoji }}</span>
+      <div
+        class="invite-cover"
+        :class="{ 'invite-cover--photo': bannerShown }"
+        :style="{ background: cover?.grad }"
+      >
+        <!-- The host's banner photo, cropped to the header like any other.
+             Invisible until it has loaded; on failure it just goes away. -->
+        <img
+          v-if="banner"
+          :src="banner"
+          alt=""
+          class="invite-cover__photo"
+          @load="photoLoaded(banner)"
+          @error="photoFailed(banner)"
+        />
+        <div v-if="bannerShown" class="invite-cover__scrim" />
+        <span v-else class="invite-emoji">{{ cover?.emoji }}</span>
         <h1 class="invite-title">{{ data.party.name }}</h1>
         <p class="invite-when">{{ whenLabel }}</p>
       </div>
@@ -374,6 +389,25 @@ function copy(text: string, key: string): void {
             </a>
           </div>
         </div>
+
+        <!-- The poster, whole: its text is the point of it, so it is never
+             cropped. Tapping opens it full size. -->
+        <a
+          v-if="poster"
+          v-show="posterShown"
+          class="invite-poster"
+          :href="poster"
+          target="_blank"
+          rel="noopener"
+          aria-label="Open the party poster full size"
+        >
+          <img
+            :src="poster"
+            :alt="`Poster for ${data.party.name}`"
+            @load="photoLoaded(poster)"
+            @error="photoFailed(poster)"
+          />
+        </a>
 
         <p v-if="description" class="invite-description">{{ description }}</p>
 
@@ -806,12 +840,51 @@ function copy(text: string, key: string): void {
 }
 
 .invite-cover {
+  position: relative;
   padding: 28px 22px 22px;
   color: #fff;
 }
+
+/* The banner photo fills the header behind its text, cropped to fit. It
+   fades in once loaded and is never seen half-there or broken. */
+.invite-cover__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.invite-cover--photo .invite-cover__photo {
+  opacity: 1;
+}
+
+.invite-cover__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
+}
+
+/* With a banner, the header is tall enough to show it. */
+.invite-cover--photo {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.invite-cover > .invite-title,
+.invite-cover > .invite-when {
+  position: relative;
+}
+
 .invite-poster {
   display: flex;
   justify-content: center;
+  border-radius: var(--rs);
+  overflow: hidden;
   background: #000;
 }
 
@@ -821,11 +894,6 @@ function copy(text: string, key: string): void {
   max-width: 100%;
   max-height: 75vh;
   object-fit: contain;
-}
-
-.invite-headline {
-  padding: 18px 22px 0;
-  color: var(--text);
 }
 
 .invite-emoji {

@@ -1,3 +1,5 @@
+import type { PhotoSlot } from '../../../../shared/coverPhotos';
+import { isPhotoSlot } from '../../../../shared/coverPhotos';
 import type {
   CoverPhotoRepository,
   R2Spend,
@@ -5,32 +7,61 @@ import type {
 } from '../coverPhotoRepository';
 import { ok, type Result } from '../result';
 
-interface CoverPhotoRow {
+interface PhotoRow {
   party_id: string;
+  slot: string;
   token: string;
   bytes: number;
+}
+
+/** A row as a photo; a slot this code does not know is no photo of its. */
+function toPhoto(row: PhotoRow): StoredCoverPhoto | null {
+  return isPhotoSlot(row.slot)
+    ? {
+        partyId: row.party_id,
+        slot: row.slot,
+        token: row.token,
+        bytes: row.bytes,
+      }
+    : null;
 }
 
 export class CoverPhotoRepositoryD1 implements CoverPhotoRepository {
   constructor(private readonly db: D1Database) {}
 
-  async find(partyId: string): Promise<Result<StoredCoverPhoto | null>> {
+  async find(
+    partyId: string,
+    slot: PhotoSlot,
+  ): Promise<Result<StoredCoverPhoto | null>> {
     const row = await this.db
       .prepare(
-        'SELECT party_id, token, bytes FROM cover_photos WHERE party_id = ?',
+        `SELECT party_id, slot, token, bytes FROM party_photos
+         WHERE party_id = ? AND slot = ?`,
+      )
+      .bind(partyId, slot)
+      .first<PhotoRow>();
+    return ok(row ? toPhoto(row) : null);
+  }
+
+  async listForParty(partyId: string): Promise<Result<StoredCoverPhoto[]>> {
+    const { results } = await this.db
+      .prepare(
+        'SELECT party_id, slot, token, bytes FROM party_photos WHERE party_id = ?',
       )
       .bind(partyId)
-      .first<CoverPhotoRow>();
+      .all<PhotoRow>();
     return ok(
-      row
-        ? { partyId: row.party_id, token: row.token, bytes: row.bytes }
-        : null,
+      results.flatMap((row) => {
+        const photo = toPhoto(row);
+        return photo ? [photo] : [];
+      }),
     );
   }
 
   async totalBytes(): Promise<Result<number>> {
+    // Every row, known slot or not: the bytes are in the bucket either way.
     const row = await this.db
-      .prepare('SELECT COALESCE(SUM(bytes), 0) AS total FROM cover_photos')
+      .prepare('SELECT COALESCE(SUM(bytes), 0) AS total FROM party_photos')
       .first<{ total: number }>();
     return ok(row?.total ?? 0);
   }
@@ -38,22 +69,28 @@ export class CoverPhotoRepositoryD1 implements CoverPhotoRepository {
   async save(photo: StoredCoverPhoto): Promise<Result<void>> {
     await this.db
       .prepare(
-        `INSERT INTO cover_photos (party_id, token, bytes, stored_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT (party_id) DO UPDATE SET
+        `INSERT INTO party_photos (party_id, slot, token, bytes, stored_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (party_id, slot) DO UPDATE SET
            token = excluded.token,
            bytes = excluded.bytes,
            stored_at = excluded.stored_at`,
       )
-      .bind(photo.partyId, photo.token, photo.bytes, new Date().toISOString())
+      .bind(
+        photo.partyId,
+        photo.slot,
+        photo.token,
+        photo.bytes,
+        new Date().toISOString(),
+      )
       .run();
     return ok(undefined);
   }
 
-  async remove(partyId: string): Promise<Result<void>> {
+  async remove(partyId: string, slot: PhotoSlot): Promise<Result<void>> {
     await this.db
-      .prepare('DELETE FROM cover_photos WHERE party_id = ?')
-      .bind(partyId)
+      .prepare('DELETE FROM party_photos WHERE party_id = ? AND slot = ?')
+      .bind(partyId, slot)
       .run();
     return ok(undefined);
   }

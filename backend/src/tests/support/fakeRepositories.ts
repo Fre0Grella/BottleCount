@@ -113,8 +113,8 @@ export function fakeLicences(seed: LicenceKey[] = []): LicenceRepository {
 }
 
 /**
- * The R2 ledger in memory: `rows` like `cover_photos`, `usage` like
- * `r2_usage` keyed `day:kind`.
+ * The R2 ledger in memory: `rows` like `party_photos` keyed `partyId:slot`,
+ * `usage` like `r2_usage` keyed `day:kind`.
  */
 export function fakeCoverPhotos(): CoverPhotoRepository & {
   rows: Map<string, StoredCoverPhoto>;
@@ -126,8 +126,11 @@ export function fakeCoverPhotos(): CoverPhotoRepository & {
   return {
     rows,
     usage,
-    async find(partyId) {
-      return ok(rows.get(partyId) ?? null);
+    async find(partyId, slot) {
+      return ok(rows.get(`${partyId}:${slot}`) ?? null);
+    },
+    async listForParty(partyId) {
+      return ok([...rows.values()].filter((p) => p.partyId === partyId));
     },
     async totalBytes() {
       let total = 0;
@@ -135,11 +138,11 @@ export function fakeCoverPhotos(): CoverPhotoRepository & {
       return ok(total);
     },
     async save(photo) {
-      rows.set(photo.partyId, { ...photo });
+      rows.set(`${photo.partyId}:${photo.slot}`, { ...photo });
       return ok(undefined);
     },
-    async remove(partyId) {
-      rows.delete(partyId);
+    async remove(partyId, slot) {
+      rows.delete(`${partyId}:${slot}`);
       return ok(undefined);
     },
     async spend(kind, day, limit) {
@@ -173,7 +176,9 @@ export function fakeRepositories(
       if (invite.partyId === partyId) invites.rows.delete(id);
     }
     parties.memberships.delete(partyId);
-    coverPhotos.rows.delete(partyId);
+    for (const [key, photo] of coverPhotos.rows) {
+      if (photo.partyId === partyId) coverPhotos.rows.delete(key);
+    }
     for (const [token, invite] of members.invites) {
       if (invite.partyId === partyId) members.invites.delete(token);
     }

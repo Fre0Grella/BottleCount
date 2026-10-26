@@ -713,29 +713,59 @@ export function repositoryContract(name: string, target: ContractTarget): void {
         party = await publish((await signIn('host@example.com')).id);
       });
 
-      it('records one photo per party, the latest replacing the last', async () => {
+      it('records one photo per slot, the latest replacing the last', async () => {
         const photos = repos.coverPhotos;
-        expect(value(await photos.find(party.id))).toBeNull();
+        expect(value(await photos.find(party.id, 'poster'))).toBeNull();
 
-        await photos.save({ partyId: party.id, token: 'one', bytes: 300 });
-        await photos.save({ partyId: party.id, token: 'two', bytes: 200 });
-
-        expect(value(await photos.find(party.id))).toEqual({
+        await photos.save({
           partyId: party.id,
+          slot: 'poster',
+          token: 'one',
+          bytes: 300,
+        });
+        await photos.save({
+          partyId: party.id,
+          slot: 'poster',
           token: 'two',
           bytes: 200,
         });
-        expect(value(await photos.totalBytes())).toBe(200);
+        await photos.save({
+          partyId: party.id,
+          slot: 'banner',
+          token: 'ban',
+          bytes: 50,
+        });
+
+        expect(value(await photos.find(party.id, 'poster'))).toEqual({
+          partyId: party.id,
+          slot: 'poster',
+          token: 'two',
+          bytes: 200,
+        });
+        expect(value(await photos.listForParty(party.id))).toHaveLength(2);
+        expect(value(await photos.totalBytes())).toBe(250);
       });
 
-      it('forgets a removed photo, and a deleted party', async () => {
+      it('forgets a removed photo, and every photo of a deleted party', async () => {
         const photos = repos.coverPhotos;
-        await photos.save({ partyId: party.id, token: 'one', bytes: 300 });
-        await photos.remove(party.id);
-        expect(value(await photos.find(party.id))).toBeNull();
+        await photos.save({
+          partyId: party.id,
+          slot: 'poster',
+          token: 'one',
+          bytes: 300,
+        });
+        await photos.save({
+          partyId: party.id,
+          slot: 'banner',
+          token: 'ban',
+          bytes: 50,
+        });
+        await photos.remove(party.id, 'poster');
+        expect(value(await photos.find(party.id, 'poster'))).toBeNull();
+        expect(value(await photos.find(party.id, 'banner'))).not.toBeNull();
 
-        await photos.save({ partyId: party.id, token: 'two', bytes: 300 });
         await repos.parties.deleteById(party.id);
+        expect(value(await photos.listForParty(party.id))).toEqual([]);
         expect(value(await photos.totalBytes())).toBe(0);
       });
 

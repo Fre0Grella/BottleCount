@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import type { PartyDocument, SharedPartyDTO } from '../../../../shared/collab';
 import { emptyPaymentDetails } from '../../../../shared/payments';
+import { emptyPhotos } from '../../../../shared/coverPhotos';
 import { emptyDetails } from '../../../../shared/details';
 import type { Repositories } from '../../repositories/repositories';
 import { fakeInvites, fakeParties } from './fakeInvites';
@@ -20,7 +21,7 @@ export function aDocument(
     name: 'Rooftop',
     date: '2026-10-02',
     cover: 1,
-    coverPhoto: '',
+    photos: emptyPhotos(),
     venue: { place: 'The Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,

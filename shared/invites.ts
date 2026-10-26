@@ -7,6 +7,7 @@
  */
 
 import type { PartyDocument, Venue } from './collab';
+import type { PartyPhotos } from './coverPhotos';
 import type { PartyDetails } from './details';
 import type { InvitePaymentDTO } from './payments';
 
@@ -45,10 +46,11 @@ export interface InvitePartyDTO {
   date: string;
   cover: number;
   /**
-   * The cover photo's token, or null. Fetched from `/invite/<slug>/cover/<token>`,
-   * which serves only while the link is open.
+   * The banner and poster tokens, '' for none. Fetched from
+   * `/invite/<slug>/photos/<slot>/<token>`, which serves only while the link
+   * is open.
    */
-  coverPhoto: string | null;
+  photos: PartyPhotos;
   /** With its map pin when the host picked one, for "Open in Maps". */
   venue: Venue;
   /** The description and practical info the host wrote for guests. */

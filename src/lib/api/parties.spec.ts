@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyPaymentDetails } from '../../../shared/payments';
+import { emptyPhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
 import type { Party } from '../types';
 import {
@@ -27,7 +28,7 @@ function aParty(): Party {
     date: '2026-10-01',
     createdAt: '2026-09-01T00:00:00.000Z',
     cover: 0,
-    coverPhoto: '',
+    photos: emptyPhotos(),
     venue: { place: 'Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,
@@ -107,12 +108,15 @@ describe('api/parties', () => {
     const fake = fakeWorker({ json: { token: 't' } });
     const photo = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' });
 
-    expect(await uploadCoverPhoto('p1', photo)).toEqual({
+    expect(await uploadCoverPhoto('p1', 'banner', photo)).toEqual({
       ok: true,
       value: { token: 't' },
     });
     const [path, init] = fake.mock.calls[0] as [string, RequestInit];
-    expect([init.method, path]).toEqual(['PUT', '/api/parties/p1/cover']);
+    expect([init.method, path]).toEqual([
+      'PUT',
+      '/api/parties/p1/photos/banner',
+    ]);
     expect(init.body).toBe(photo);
     expect((init.headers as Record<string, string>)['content-type']).toBe(
       'image/webp',

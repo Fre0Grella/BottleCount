@@ -21,9 +21,9 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 | `GET /api/parties/:id`                               | member             | The full document, members and role                                 |
 | `PATCH /api/parties/:id`                             | member             | One organiser's edit, as a merge patch                              |
 | `DELETE /api/parties/:id`                            | owner              | Delete it for everyone                                              |
-| `PUT /api/parties/:id/cover`                         | member, Pro party  | Set the party's photo or poster (raw WebP/JPEG bytes)               |
-| `DELETE /api/parties/:id/cover`                      | member             | Remove it                                                           |
-| `GET /api/parties/:id/cover/:token`                  | member             | The photo, for organisers                                           |
+| `PUT /api/parties/:id/photos/:slot`                  | member, Pro party  | Set the banner or poster (`slot`; raw WebP/JPEG bytes)              |
+| `DELETE /api/parties/:id/photos/:slot`               | member             | Remove it                                                           |
+| `GET /api/parties/:id/photos/:slot/:token`           | member             | A photo, for organisers                                             |
 | `POST /api/parties/:id/invite-link`                  | member             | Open the party to RSVPs                                             |
 | `DELETE /api/parties/:id/invite-link`                | owner              | Close it                                                            |
 | `GET /api/parties/:id/invites`                       | member             | The RSVP funnel                                                     |
@@ -39,7 +39,7 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 | `POST /api/collaborate/:token`                       | session            | Join as an editor                                                   |
 | `POST /invite/:slug/open`                            | —                  | A guest opened the link. **Writes** — this is what "reached" counts |
 | `POST /invite/:slug/answer`                          | —                  | A guest's yes or no                                                 |
-| `GET /invite/:slug/cover/:token`                     | —                  | The photo, for guests, while the link is open                       |
+| `GET /invite/:slug/photos/:slot/:token`              | —                  | A photo, for guests, while the link is open                         |
 
 `/api/session` is the one `/api/*` route served without a session, because the
 free tier _is_ a logged-out browser. The exemption is named explicitly in
@@ -139,8 +139,9 @@ on disk.
 
 However much traffic arrives, the Worker keeps the bucket inside R2's free tier:
 at most 5 GB stored, 500 uploads and 30,000 photos served a day (`R2_BUDGET`
-in `src/lib/coverPhotos.ts`, ledger in migration 0007). Past a limit, uploads
-answer 503 or 507 and photos 503, and the app falls back to the emoji cover.
+in `src/lib/coverPhotos.ts`, ledger in migrations 0007 and 0008). Past a
+limit, uploads answer 503 or 507 and photos 503, and the pages fall back
+silently to the emoji cover.
 
 ## Issuing licences
 

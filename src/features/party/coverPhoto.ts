@@ -1,3 +1,4 @@
+import type { PhotoSlot } from '../../../shared/coverPhotos';
 import {
   COVER_PHOTO_MAX_BYTES,
   COVER_PHOTO_MAX_EDGE,
@@ -102,12 +103,20 @@ export async function shrinkCoverPhoto(file: Blob): Promise<Blob | null> {
   }
 }
 
-/** The photo as an organiser fetches it: behind their membership. */
-export function organiserPhotoUrl(remoteId: string, token: string): string {
-  return `/api/parties/${encodeURIComponent(remoteId)}/cover/${encodeURIComponent(token)}`;
+/** A photo as an organiser fetches it: behind their membership. */
+export function organiserPhotoUrl(
+  remoteId: string,
+  slot: PhotoSlot,
+  token: string,
+): string {
+  return `/api/parties/${encodeURIComponent(remoteId)}/photos/${slot}/${encodeURIComponent(token)}`;
 }
 
-/** The photo as a guest fetches it: behind the open invite link. */
-export function guestPhotoUrl(slug: string, token: string): string {
-  return `/invite/${encodeURIComponent(slug)}/cover/${encodeURIComponent(token)}`;
+/** A photo as a guest fetches it: behind the open invite link. */
+export function guestPhotoUrl(
+  slug: string,
+  slot: PhotoSlot,
+  token: string,
+): string {
+  return `/invite/${encodeURIComponent(slug)}/photos/${slot}/${encodeURIComponent(token)}`;
 }

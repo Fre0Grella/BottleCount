@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SharedPartyDTO } from '../../../../shared/collab';
+import type { PhotoSlot } from '../../../../shared/coverPhotos';
 import { COVER_PHOTO_MAX_BYTES } from '../../../../shared/coverPhotos';
 import type { InviteOpenDTO } from '../../../../shared/invites';
 import type { SessionDTO } from '../../../../shared/session';
@@ -51,11 +52,17 @@ beforeEach(async () => {
   party = await publishParty(repositories);
 });
 
+const photoPath = (slot: string) => `/api/parties/${party.id}/photos/${slot}`;
+
 async function upload(
   body: Uint8Array,
-  { as = 'user-1', bound = true } = {},
+  {
+    slot = 'poster',
+    as = 'user-1',
+    bound = true,
+  }: { slot?: string; as?: string; bound?: boolean } = {},
 ): Promise<Response> {
-  return request(`/api/parties/${party.id}/cover`, {
+  return request(photoPath(slot), {
     repositories,
     env: bound ? withBucket() : {},
     cookie: await sessionCookie(as),
@@ -64,22 +71,42 @@ async function upload(
   });
 }
 
-async function uploadedToken(body: Uint8Array): Promise<string> {
-  const res = await upload(body);
+async function uploadedToken(
+  body: Uint8Array,
+  slot: PhotoSlot = 'poster',
+): Promise<string> {
+  const res = await upload(body, { slot });
   expect(res.status).toBe(200);
   return ((await res.json()) as { token: string }).token;
 }
 
-async function storedPhoto(): Promise<string | undefined> {
+async function remove(slot: PhotoSlot): Promise<Response> {
+  return request(photoPath(slot), {
+    repositories,
+    env: withBucket(),
+    cookie: await sessionCookie('user-1'),
+    method: 'DELETE',
+  });
+}
+
+async function serve(slot: string, token: string): Promise<Response> {
+  return request(`${photoPath(slot)}/${token}`, {
+    repositories,
+    env: withBucket(),
+    cookie: await sessionCookie('user-1'),
+  });
+}
+
+async function storedPhotos(): Promise<Record<PhotoSlot, string> | undefined> {
   const found = await repositories.parties.findById(party.id);
-  return found.ok ? found.value.document?.coverPhoto : undefined;
+  return found.ok ? found.value.document?.photos : undefined;
 }
 
 describe('uploading', () => {
   it('stores the photo and points the document at it', async () => {
     const token = await uploadedToken(webp());
 
-    expect(await storedPhoto()).toBe(token);
+    expect(await storedPhotos()).toEqual({ banner: '', poster: token });
     expect(bucket.keys()).toEqual([`covers/${party.id}/${token}`]);
   });
 
@@ -87,13 +114,29 @@ describe('uploading', () => {
     expect((await upload(jpeg())).status).toBe(200);
   });
 
-  // One photo per party, by construction: that is the count limit.
-  it('replaces the previous photo rather than keeping both', async () => {
-    await uploadedToken(webp());
-    const second = await uploadedToken(webp());
+  // Two photos per party at most, by construction: one per slot.
+  it('keeps a banner and a poster side by side', async () => {
+    const banner = await uploadedToken(webp(), 'banner');
+    const poster = await uploadedToken(jpeg(), 'poster');
 
-    expect(bucket.keys()).toEqual([`covers/${party.id}/${second}`]);
-    expect(await storedPhoto()).toBe(second);
+    expect(await storedPhotos()).toEqual({ banner, poster });
+    expect(bucket.keys()).toHaveLength(2);
+  });
+
+  it('replaces only the photo in the same slot', async () => {
+    await uploadedToken(webp(), 'banner');
+    const poster = await uploadedToken(webp(), 'poster');
+    const banner = await uploadedToken(webp(), 'banner');
+
+    expect(bucket.keys().sort()).toEqual(
+      [`covers/${party.id}/${banner}`, `covers/${party.id}/${poster}`].sort(),
+    );
+    expect(await storedPhotos()).toEqual({ banner, poster });
+  });
+
+  it('is a 404 for a slot that does not exist', async () => {
+    expect((await upload(webp(), { slot: 'logo' })).status).toBe(404);
+    expect(bucket.keys()).toEqual([]);
   });
 
   it('refuses anything that is not a WebP or JPEG, whatever it claims', async () => {
@@ -130,11 +173,7 @@ describe('uploading', () => {
 describe('serving an organiser', () => {
   it('serves the photo as the image it is', async () => {
     const token = await uploadedToken(jpeg());
-    const res = await request(`/api/parties/${party.id}/cover/${token}`, {
-      repositories,
-      env: withBucket(),
-      cookie: await sessionCookie('user-1'),
-    });
+    const res = await serve('poster', token);
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('image/jpeg');
@@ -142,28 +181,31 @@ describe('serving an organiser', () => {
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(jpeg());
   });
 
-  it('is a 404 for a token that is not a photo of this party', async () => {
-    for (const token of ['aaaaaaaaaaaaaaaaaaaa', '..%2F..%2Fsecret']) {
-      const res = await request(`/api/parties/${party.id}/cover/${token}`, {
-        repositories,
-        env: withBucket(),
-        cookie: await sessionCookie('user-1'),
-      });
-      expect(res.status).toBe(404);
+  it('is a 404 for a token that is not the photo in that slot', async () => {
+    const banner = await uploadedToken(webp(), 'banner');
+    for (const [slot, token] of [
+      ['poster', banner],
+      ['logo', banner],
+      ['poster', 'aaaaaaaaaaaaaaaaaaaa'],
+      ['poster', '..%2F..%2Fsecret'],
+    ] as const) {
+      expect((await serve(slot, token)).status).toBe(404);
     }
   });
 });
 
 describe('guests', () => {
-  async function invitedParty(): Promise<{ slug: string; token: string }> {
+  async function invitedParty(): Promise<string> {
     repositories = repositoriesWith();
     const opened = await publishAndOpenInvites(repositories);
     party = opened.party;
-    return { slug: opened.slug, token: await uploadedToken(webp()) };
+    return opened.slug;
   }
 
-  it('see the photo on their invite card while the link is open', async () => {
-    const { slug, token } = await invitedParty();
+  it('see the banner and poster on their invite card while the link is open', async () => {
+    const slug = await invitedParty();
+    const banner = await uploadedToken(webp(), 'banner');
+    const poster = await uploadedToken(webp(), 'poster');
 
     const open = await request(`/invite/${slug}/open`, {
       repositories,
@@ -171,24 +213,33 @@ describe('guests', () => {
       method: 'POST',
       body: {},
     });
-    expect(((await open.json()) as InviteOpenDTO).party.coverPhoto).toBe(token);
-
-    const photo = await request(`/invite/${slug}/cover/${token}`, {
-      repositories,
-      env: withBucket(),
+    expect(((await open.json()) as InviteOpenDTO).party.photos).toEqual({
+      banner,
+      poster,
     });
-    expect(photo.status).toBe(200);
+
+    for (const [slot, token] of [
+      ['banner', banner],
+      ['poster', poster],
+    ] as const) {
+      const photo = await request(`/invite/${slug}/photos/${slot}/${token}`, {
+        repositories,
+        env: withBucket(),
+      });
+      expect(photo.status).toBe(200);
+    }
   });
 
-  it('lose it when the host closes the link', async () => {
-    const { slug, token } = await invitedParty();
+  it('lose them when the host closes the link', async () => {
+    const slug = await invitedParty();
+    const token = await uploadedToken(webp());
     await request(`/api/parties/${party.id}/invite-link`, {
       repositories,
       cookie: await sessionCookie('user-1'),
       method: 'DELETE',
     });
 
-    const photo = await request(`/invite/${slug}/cover/${token}`, {
+    const photo = await request(`/invite/${slug}/photos/poster/${token}`, {
       repositories,
       env: withBucket(),
     });
@@ -197,22 +248,18 @@ describe('guests', () => {
 });
 
 describe('deleting', () => {
-  it('removes the photo and clears the document', async () => {
-    await uploadedToken(webp());
-    const res = await request(`/api/parties/${party.id}/cover`, {
-      repositories,
-      env: withBucket(),
-      cookie: await sessionCookie('user-1'),
-      method: 'DELETE',
-    });
+  it('removes the slot photo and clears it in the document', async () => {
+    const banner = await uploadedToken(webp(), 'banner');
+    await uploadedToken(webp(), 'poster');
 
-    expect(res.status).toBe(200);
-    expect(bucket.keys()).toEqual([]);
-    expect(await storedPhoto()).toBe('');
+    expect((await remove('poster')).status).toBe(200);
+    expect(bucket.keys()).toEqual([`covers/${party.id}/${banner}`]);
+    expect(await storedPhotos()).toEqual({ banner, poster: '' });
   });
 
-  it('takes the photo with the party', async () => {
-    await uploadedToken(webp());
+  it('takes both photos with the party', async () => {
+    await uploadedToken(webp(), 'banner');
+    await uploadedToken(webp(), 'poster');
     const res = await request(`/api/parties/${party.id}`, {
       repositories,
       env: withBucket(),
@@ -242,6 +289,16 @@ describe('the free-tier budget', () => {
     repositories.coverPhotos as ReturnType<typeof fakeCoverPhotos>;
   const DAY = '2026-10-26';
 
+  /** Fills the bucket, as another party's photo, to `short` bytes under the cap. */
+  function fillTo(short: number): void {
+    ledger().rows.set('elsewhere:poster', {
+      partyId: 'elsewhere',
+      slot: 'poster',
+      token: 'x',
+      bytes: R2_BUDGET.storageBytes - short,
+    });
+  }
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(`${DAY}T12:00:00Z`));
@@ -250,31 +307,25 @@ describe('the free-tier budget', () => {
 
   it('keeps a ledger of what is stored, and empties it with the photo', async () => {
     const token = await uploadedToken(webp(1000));
-    expect(ledger().rows.get(party.id)).toEqual({
+    expect(ledger().rows.get(`${party.id}:poster`)).toEqual({
       partyId: party.id,
+      slot: 'poster',
       token,
       bytes: 1000,
     });
 
-    // Replacing counts the new photo only.
+    // Replacing counts the new photo only; the other slot counts on its own.
     await uploadedToken(webp(400));
-    expect(await ledger().totalBytes()).toEqual({ ok: true, value: 400 });
+    await uploadedToken(webp(100), 'banner');
+    expect(await ledger().totalBytes()).toEqual({ ok: true, value: 500 });
 
-    await request(`/api/parties/${party.id}/cover`, {
-      repositories,
-      env: withBucket(),
-      cookie: await sessionCookie('user-1'),
-      method: 'DELETE',
-    });
+    await remove('poster');
+    await remove('banner');
     expect(ledger().rows.size).toBe(0);
   });
 
   it('refuses an upload that would pass the storage cap', async () => {
-    ledger().rows.set('elsewhere', {
-      partyId: 'elsewhere',
-      token: 'x',
-      bytes: R2_BUDGET.storageBytes - 100,
-    });
+    fillTo(100);
 
     const res = await upload(webp(200));
     expect(res.status).toBe(507);
@@ -284,22 +335,20 @@ describe('the free-tier budget', () => {
 
   it('counts a replacement as the difference it makes, not on top', async () => {
     await uploadedToken(webp(1000));
-    ledger().rows.set('elsewhere', {
-      partyId: 'elsewhere',
-      token: 'x',
-      bytes: R2_BUDGET.storageBytes - 1000,
-    });
+    fillTo(1000);
 
     // Same size again: the total does not grow, so it fits.
     expect((await upload(webp(1000))).status).toBe(200);
     expect((await upload(webp(1001))).status).toBe(507);
+    // A second slot adds to the total: it replaces nothing.
+    expect((await upload(webp(12), { slot: 'banner' })).status).toBe(507);
   });
 
   it("stops uploads once the day's are spent, until the next day", async () => {
     ledger().usage.set(`${DAY}:write`, R2_BUDGET.writesPerDay - 1);
     expect((await upload(webp())).status).toBe(200);
 
-    const refused = await upload(webp());
+    const refused = await upload(webp(), { slot: 'banner' });
     expect(refused.status).toBe(503);
     expect(await refused.json()).toEqual({ error: 'cover_photo_budget' });
 
@@ -311,22 +360,14 @@ describe('the free-tier budget', () => {
     const token = await uploadedToken(webp());
     ledger().usage.set(`${DAY}:read`, R2_BUDGET.readsPerDay);
 
-    const res = await request(`/api/parties/${party.id}/cover/${token}`, {
-      repositories,
-      env: withBucket(),
-      cookie: await sessionCookie('user-1'),
-    });
+    const res = await serve('poster', token);
     expect(res.status).toBe(503);
     expect(res.headers.get('retry-after')).toBe('3600');
   });
 
   it('spends a read only on a photo it actually serves', async () => {
     await uploadedToken(webp());
-    await request(`/api/parties/${party.id}/cover/aaaaaaaaaaaaaaaaaaaa`, {
-      repositories,
-      env: withBucket(),
-      cookie: await sessionCookie('user-1'),
-    });
+    await serve('poster', 'aaaaaaaaaaaaaaaaaaaa');
     expect(ledger().usage.get(`${DAY}:read`)).toBeUndefined();
   });
 

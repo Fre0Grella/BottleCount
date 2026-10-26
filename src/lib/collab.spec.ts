@@ -2,6 +2,7 @@ import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import { applyDocument, documentOf } from './collab';
 import { emptyPaymentDetails } from '../../shared/payments';
+import { emptyPhotos } from '../../shared/coverPhotos';
 import { emptyDetails } from '../../shared/details';
 import type { Party } from './types';
 
@@ -12,7 +13,7 @@ function aParty(): Party {
     date: '2026-10-01',
     createdAt: '2026-09-01T00:00:00.000Z',
     cover: 0,
-    coverPhoto: '',
+    photos: emptyPhotos(),
     venue: { place: 'Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,

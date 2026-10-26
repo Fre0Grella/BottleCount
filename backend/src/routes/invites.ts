@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { answerContact, guestName } from '../../../shared/contact';
+import { emptyPhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
 import type { InviteOpenDTO, InvitePartyDTO } from '../../../shared/invites';
 import { isInviteAnswer } from '../../../shared/invites';
@@ -47,7 +48,7 @@ function toPartyDTO(
     name: party.name,
     date: party.date,
     cover: party.cover,
-    coverPhoto: party.document?.coverPhoto || null,
+    photos: party.document?.photos ?? emptyPhotos(),
     venue: party.venue,
     // Like payment, read from the stored document; a party published before
     // documents were stored has none to show.
@@ -185,16 +186,18 @@ invites.post('/:slug/answer', async (c) => {
 });
 
 /**
- * `GET /invite/:slug/cover/:token` — the party's photo or poster, for guests.
+ * `GET /invite/:slug/photos/:slot/:token` — the party's banner or poster,
+ * for guests.
  * Behind the same open-link check as the card itself, so closing the link
  * takes the photo down with it. Cached briefly, not for good: unlike an
  * organiser's copy, a guest's should stop working soon after that.
  */
-invites.get('/:slug/cover/:token', (c) =>
+invites.get('/:slug/photos/:slot/:token', (c) =>
   coverPhotoResponse(
     c.env.COVER_PHOTOS,
     c.var.repositories.coverPhotos,
     c.get('party').id,
+    c.req.param('slot'),
     c.req.param('token'),
     'private, max-age=3600',
   ),
