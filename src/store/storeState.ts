@@ -24,6 +24,9 @@ import type { Catalog, Party } from '../lib/types';
  * Everything the screens read. The sync fields (`members`, `syncPending`, the
  * funnel's) are the open party's session's, which reports into it.
  */
+/** The party workspace's tabs. `preview` shows the invite and a ticket as guests get them. */
+export type Tab = 'plan' | 'menu' | 'shop' | 'guests' | 'preview';
+
 export interface StoreState extends SessionStatus {
   ready: boolean;
   /**
@@ -35,7 +38,7 @@ export interface StoreState extends SessionStatus {
   sessionLoading: boolean;
   route: 'home' | 'party';
   activeId: number | null;
-  tab: 'plan' | 'menu' | 'shop' | 'guests';
+  tab: Tab;
   theme: 'dark' | 'light';
   device: Device;
   parties: Party[];

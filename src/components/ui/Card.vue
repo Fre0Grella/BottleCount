@@ -2,14 +2,15 @@
 /**
  * A panel on the page: surface, hairline border, the large radius.
  *
- * pad: sm 16px (Menu, Shopping), md 18px (Plan), lg 20px (Guests).
+ * pad: sm 16px (Menu, Shopping), md 18px (Plan), lg 20px (Guests), none for
+ * a card whose cover runs edge to edge (the guest invite and ticket).
  * `highlight` draws the border in the accent, for a setting that is on.
  * `as` sets the element, such as "section".
  */
 withDefaults(
   defineProps<{
     as?: string;
-    pad?: 'sm' | 'md' | 'lg';
+    pad?: 'none' | 'sm' | 'md' | 'lg';
     highlight?: boolean;
   }>(),
   { as: 'div', pad: 'md', highlight: false },

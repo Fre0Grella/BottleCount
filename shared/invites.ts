@@ -8,8 +8,11 @@
 
 import type { PartyDocument, Venue } from './collab';
 import type { PartyPhotos } from './coverPhotos';
+import { emptyPhotos } from './coverPhotos';
 import type { PartyDetails } from './details';
+import { emptyDetails } from './details';
 import type { InvitePaymentDTO } from './payments';
+import { isPaidParty } from './payments';
 
 // ── Status ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +74,40 @@ export interface InvitePartyDTO {
    * typed email is the only way.
    */
   googleSignIn: boolean;
+}
+
+/** The card fields a party carries outside its document, too (see `cardOf`). */
+type CardFields = Pick<
+  PartyDocument,
+  'name' | 'date' | 'cover' | 'venue' | 'allowForward'
+>;
+
+/**
+ * The invitation card, from a party and its document. The one derivation: the
+ * Worker builds what guests get with it, and the planner's preview builds what
+ * the host is shown with it, so the two cannot drift apart.
+ *
+ * `document` may be null on the Worker, for a party published before
+ * documents were stored; it then has no photos, details or price to show.
+ */
+export function invitePartyOf(
+  card: CardFields,
+  document: PartyDocument | null,
+  context: { slug: string; full: boolean; googleSignIn: boolean },
+): InvitePartyDTO {
+  return {
+    slug: context.slug,
+    name: card.name,
+    date: card.date,
+    cover: card.cover,
+    photos: document?.photos ?? emptyPhotos(),
+    venue: card.venue,
+    details: document?.details ?? emptyDetails(),
+    allowForward: card.allowForward,
+    full: context.full,
+    paid: isPaidParty(document),
+    googleSignIn: context.googleSignIn,
+  };
 }
 
 /** What `POST /invite/:slug/open` answers with. */
