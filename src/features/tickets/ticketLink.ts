@@ -1,3 +1,5 @@
+import { isCoverPhotoToken } from '../../../shared/coverPhotos';
+import type { TicketLinkDTO } from '../../../shared/ticketLinks';
 import type { TicketQRPayload } from '../../../shared/tickets';
 import { parseSignedTicket } from '../../../shared/tickets';
 import type { TicketDisplay } from '../../../shared/urls';
@@ -25,6 +27,8 @@ export interface OpenedTicket extends TicketDisplay {
   /** Exactly what goes in the QR, and what the door verifies. */
   signed: string;
   payload: TicketQRPayload;
+  /** The party's banner photo token; only a short link carries one. */
+  banner?: string;
 }
 
 /**
@@ -55,7 +59,7 @@ export function parseTicketHash(hash: string): OpenedTicket | null {
  */
 export function openTicket(
   signed: string,
-  display: TicketDisplay,
+  display: TicketDisplay & Pick<TicketLinkDTO, 'banner'>,
 ): OpenedTicket | null {
   const parsed = parseSignedTicket(signed);
   if (!parsed) return null;
@@ -69,5 +73,6 @@ export function openTicket(
     date: display.date,
     cover: Number.isInteger(cover) && cover >= 0 ? cover : 0,
     ...(display.time ? { time: display.time } : {}),
+    ...(isCoverPhotoToken(display.banner) ? { banner: display.banner } : {}),
   };
 }

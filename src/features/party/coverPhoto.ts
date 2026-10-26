@@ -143,3 +143,8 @@ export function guestPhotoUrl(
 ): string {
   return `/invite/${encodeURIComponent(slug)}/photos/${slot}/${encodeURIComponent(token)}`;
 }
+
+/** The banner as a ticket holder fetches it: behind their live ticket. */
+export function ticketBannerUrl(ticketSlug: string, token: string): string {
+  return `/ticket/${encodeURIComponent(ticketSlug)}/photos/banner/${encodeURIComponent(token)}`;
+}

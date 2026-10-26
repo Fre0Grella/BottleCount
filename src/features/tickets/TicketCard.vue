@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { coverOf } from '../party/covers';
+import { usePhotoLoads } from '../party/photoLoads';
 import { formatLocalDate } from '../../lib/dates';
 import Card from '../../components/ui/Card.vue';
 import Icon from '../../components/ui/Icon.vue';
@@ -11,8 +12,8 @@ import Icon from '../../components/ui/Icon.vue';
  * (the "Save to my phone" button).
  *
  * Shared by the guest's ticket page and the planner's preview, so what a host
- * previews is what a guest gets. The cover is always the party's emoji and
- * gradient, never a photo: ticket visuals are fixed branding (CONTEXT.md).
+ * previews is what a guest gets. The cover is the party's banner photo when
+ * it has one, over the emoji and gradient it falls back to.
  *
  * No store imports: the ticket page has none.
  */
@@ -23,6 +24,8 @@ const props = defineProps<{
   date: string;
   time: string;
   cover: number;
+  /** Where the banner photo is fetched from, or null for none. */
+  banner: string | null;
   guestName: string;
   code: string;
   /** The QR as a data URL, or null while it is being drawn. */
@@ -33,6 +36,10 @@ const props = defineProps<{
 const base = import.meta.env.BASE_URL as string;
 
 const coverStyle = computed(() => coverOf(props.cover));
+
+const photos = usePhotoLoads();
+const banner = computed(() => photos.usable(props.banner));
+const bannerShown = computed(() => photos.shown(banner.value));
 
 const dateLabel = computed(() =>
   formatLocalDate(props.date, {
@@ -45,8 +52,23 @@ const dateLabel = computed(() =>
 
 <template>
   <Card pad="none" class="ticket-card">
-    <div class="ticket-cover" :style="{ background: coverStyle.grad }">
-      <span class="ticket-emoji">{{ coverStyle.emoji }}</span>
+    <div
+      class="ticket-cover"
+      :class="{ 'ticket-cover--photo': bannerShown }"
+      :style="{ background: coverStyle.grad }"
+    >
+      <!-- The host's banner photo, cropped to the header like the invite's.
+         Invisible until it has loaded; on failure it just goes away. -->
+      <img
+        v-if="banner"
+        :src="banner"
+        alt=""
+        class="ticket-cover__photo"
+        @load="photos.onLoad(banner)"
+        @error="photos.onError(banner)"
+      />
+      <div v-if="bannerShown" class="ticket-cover__scrim" />
+      <span v-else class="ticket-emoji">{{ coverStyle.emoji }}</span>
       <h1 class="ticket-title">{{ party || 'Your ticket' }}</h1>
       <p v-if="dateLabel" class="ticket-when">
         {{ dateLabel }}<template v-if="time"> · {{ time }}</template>
@@ -94,8 +116,39 @@ const dateLabel = computed(() =>
 }
 
 .ticket-cover {
+  position: relative;
   padding: 28px 22px 22px;
   color: #fff;
+}
+/* With a banner, the header is tall enough to show it. */
+.ticket-cover--photo {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.ticket-cover > .ticket-title,
+.ticket-cover > .ticket-when {
+  position: relative;
+}
+/* The banner fills the header behind its text, cropped to fit, and fades in
+   once loaded. */
+.ticket-cover__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.ticket-cover--photo .ticket-cover__photo {
+  opacity: 1;
+}
+.ticket-cover__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
 }
 .ticket-emoji {
   font-size: 30px;

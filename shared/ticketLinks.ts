@@ -50,4 +50,10 @@ export interface TicketLinkDTO {
   date: string;
   cover: number;
   time?: string;
+  /**
+   * The party's banner photo token, when it has one. Fetched from
+   * `/ticket/<slug>/photos/banner/<token>`, which serves while the ticket is
+   * live.
+   */
+  banner?: string;
 }

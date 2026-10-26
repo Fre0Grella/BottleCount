@@ -4,6 +4,7 @@ import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { TicketLinkDTO } from '../../../../shared/ticketLinks';
 import { isTicketSlug } from '../../../../shared/ticketLinks';
 import type { Repositories } from '../../repositories/repositories';
+import { fakeCoverBucket } from '../support/fakeCoverBucket';
 import { resetFakeIds } from '../support/fakeInvites';
 import { aUser, fakeUsers } from '../support/fakeRepositories';
 import {
@@ -119,6 +120,15 @@ function open(ticketSlug: string): Promise<Response> {
   return request(`/ticket/${ticketSlug}`, { repositories });
 }
 
+/** A paid guest's ticket, stored for its short link. */
+async function aLiveLink(): Promise<{ guest: HostInviteDTO; link: string }> {
+  const guest = await aGuest();
+  const { slug: link } = (await (
+    await store(guest.id, signedFor(guest.ticketCode))
+  ).json()) as { slug: string };
+  return { guest, link };
+}
+
 describe('storing a ticket for its short link', () => {
   it('gives a paid guest a long random slug that serves their ticket', async () => {
     const guest = await aGuest();
@@ -180,14 +190,6 @@ describe('storing a ticket for its short link', () => {
 });
 
 describe('opening a short link', () => {
-  async function aLiveLink(): Promise<{ guest: HostInviteDTO; link: string }> {
-    const guest = await aGuest();
-    const { slug: link } = (await (
-      await store(guest.id, signedFor(guest.ticketCode))
-    ).json()) as { slug: string };
-    return { guest, link };
-  }
-
   it('shows nothing about the guest beyond the ticket itself', async () => {
     const { link } = await aLiveLink();
     const body = await (await open(link)).text();
@@ -230,5 +232,83 @@ describe('opening a short link', () => {
     );
     expect(new Set(bodies).size).toBe(1);
     expect(bodies[0]).toMatch(/^404 /);
+  });
+});
+
+describe('the banner on a ticket', () => {
+  /** A banner on Anna's party: the smallest header WebP is recognised by. */
+  async function aBanner(): Promise<{ env: object; token: string }> {
+    const bucket = fakeCoverBucket();
+    const env = { COVER_PHOTOS: bucket as unknown as R2Bucket };
+    const bytes = new Uint8Array(64);
+    bytes.set(
+      [...'RIFF'].map((ch) => ch.charCodeAt(0)),
+      0,
+    );
+    bytes.set(
+      [...'WEBP'].map((ch) => ch.charCodeAt(0)),
+      8,
+    );
+    const res = await request(`/api/parties/${partyId}/photos/banner`, {
+      repositories,
+      env,
+      cookie: await sessionCookie('user-1'),
+      method: 'PUT',
+      body: bytes,
+    });
+    expect(res.status).toBe(200);
+    return { env, token: ((await res.json()) as { token: string }).token };
+  }
+
+  const photo = (link: string, token: string, env: object) =>
+    request(`/ticket/${link}/photos/banner/${token}`, { repositories, env });
+
+  it('names the banner and serves it to whoever holds the ticket', async () => {
+    const { env, token } = await aBanner();
+    const { link } = await aLiveLink();
+
+    const dto = (await (await open(link)).json()) as TicketLinkDTO;
+    expect(dto.banner).toBe(token);
+    const res = await photo(link, token, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/webp');
+  });
+
+  it('still serves it once the invite link is closed', async () => {
+    const { env, token } = await aBanner();
+    const { link } = await aLiveLink();
+    await request(`/api/parties/${partyId}/invite-link`, {
+      repositories,
+      cookie: await sessionCookie('user-1'),
+      method: 'DELETE',
+    });
+    expect((await photo(link, token, env)).status).toBe(200);
+  });
+
+  it('stops serving it when the ticket is revoked', async () => {
+    const { env, token } = await aBanner();
+    const { guest, link } = await aLiveLink();
+    await markPaid(guest.id, 'DELETE');
+    expect((await photo(link, token, env)).status).toBe(404);
+  });
+
+  it('serves only the banner, and only the current one', async () => {
+    const { env, token } = await aBanner();
+    const { link } = await aLiveLink();
+    expect(
+      (
+        await request(`/ticket/${link}/photos/poster/${token}`, {
+          repositories,
+          env,
+        })
+      ).status,
+    ).toBe(404);
+    expect((await photo(link, 'aaaaaaaaaaaaaaaaaaaa', env)).status).toBe(404);
+  });
+
+  it('leaves the banner out of a party without one', async () => {
+    const { link } = await aLiveLink();
+    const dto = (await (await open(link)).json()) as TicketLinkDTO;
+    expect(dto).not.toHaveProperty('banner');
   });
 });
