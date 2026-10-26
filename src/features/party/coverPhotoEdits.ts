@@ -10,6 +10,7 @@ import {
   update,
 } from '../../store/storeState';
 import { shareActiveParty } from '../sharing/sharing';
+import type { CropRect } from './bannerCrop';
 import { organiserPhotoUrl, shrinkCoverPhoto } from './coverPhoto';
 
 /**
@@ -52,18 +53,20 @@ export function photoSrc(
 }
 
 /**
- * Shrinks `file`, uploads it into `slot` and points the party at it. Answers
- * an error to show, or null once it is on.
+ * Shrinks `file` (cropped to `crop`, for a banner the host framed), uploads it
+ * into `slot` and points the party at it. Answers an error to show, or null
+ * once it is on.
  */
 export async function setPartyPhoto(
   slot: PhotoSlot,
   file: Blob,
+  crop?: CropRect,
 ): Promise<string | null> {
   if (!can('coverPhotos')) {
     requestUpgrade('coverPhotos');
     return null;
   }
-  const photo = await shrinkCoverPhoto(file);
+  const photo = await shrinkCoverPhoto(file, crop);
   if (!photo) {
     return message(file.type.startsWith('image/') ? 'too_big' : 'not_an_image');
   }

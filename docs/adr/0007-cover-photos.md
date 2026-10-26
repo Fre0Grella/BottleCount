@@ -110,6 +110,11 @@ provider joins the stack.
   invite it sits in the body, shown whole (up to 75% of the screen height) and
   tappable for full size; on the Plan tab it is a contained thumbnail. Tickets
   keep the emoji cover, which is fixed branding (`CONTEXT.md`).
+- **The host frames the banner.** Picking a banner opens a frame of its 3:1
+  shape over the photo, dragged and zoomed to choose the part that shows; the
+  browser crops to exactly that before shrinking, so every page shows what was
+  framed (and the upload is smaller). The button says the size to aim for,
+  1500 × 500 px. Posters are never cropped.
 - **A refused photo is invisible.** A photo shows only once it has loaded.
   Until then, and for good if it is refused (today's reads spent) or fails,
   the page is exactly the one it would be without it: the gradient and emoji,

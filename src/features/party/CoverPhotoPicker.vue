@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import type { PhotoSlot } from '../../../shared/coverPhotos';
 import {
   BANNER_ASPECT,
@@ -12,6 +12,8 @@ import {
   removePartyPhoto,
   setPartyPhoto,
 } from './coverPhotoEdits';
+import type { CropRect } from './bannerCrop';
+import BannerCropModal from './BannerCropModal.vue';
 import Icon from '../../components/ui/Icon.vue';
 
 /**
@@ -76,7 +78,23 @@ async function onFile(e: Event): Promise<void> {
   const file = input.files?.[0];
   // Cleared so picking the same file again still fires `change`.
   input.value = '';
-  if (file) await run(() => setPartyPhoto(props.photo, file));
+  if (!file) return;
+  // A banner is framed first; a poster goes up whole.
+  if (props.photo === 'banner') framing.value = file;
+  else await run(() => setPartyPhoto(props.photo, file));
+}
+
+/**
+ * The banner photo being framed, while the crop modal is open. Shallow: a File
+ * wrapped in Vue's reactive proxy is refused by createImageBitmap and
+ * URL.createObjectURL.
+ */
+const framing = shallowRef<Blob | null>(null);
+
+async function onFramed(crop: CropRect): Promise<void> {
+  const file = framing.value;
+  framing.value = null;
+  if (file) await run(() => setPartyPhoto('banner', file, crop));
 }
 </script>
 
@@ -123,6 +141,13 @@ async function onFile(e: Event): Promise<void> {
       {{ bannerHint }}
     </p>
     <p v-if="error" class="photo__error" role="alert">{{ error }}</p>
+
+    <BannerCropModal
+      v-if="photo === 'banner'"
+      :file="framing"
+      @cancel="framing = null"
+      @confirm="onFramed"
+    />
   </div>
 </template>
 
