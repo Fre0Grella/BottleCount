@@ -23,8 +23,9 @@ import { featuresFor } from '../../../shared/tiers';
 import type { UserEnv } from '../appEnv';
 import { tierFor } from '../deployment';
 import {
+  COVER_REFUSALS,
   coverPhotoResponse,
-  deleteCoverPhotos,
+  deleteCoverPhoto,
   storeCoverPhoto,
 } from '../lib/coverPhotos';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
@@ -298,10 +299,17 @@ parties.delete('/:partyId', async (c) => {
 
   // Already gone is the state the caller wanted.
   const partyId = c.get('party').id;
-  await c.var.repositories.parties.deleteById(partyId);
   // The photo goes with the party (ADR 0007): nothing would ever serve it
-  // again, and it may show people.
-  if (c.env.COVER_PHOTOS) await deleteCoverPhotos(c.env.COVER_PHOTOS, partyId);
+  // again, and it may show people. First, while its ledger row still says
+  // which object it is; the party's deletion cascades the row away.
+  if (c.env.COVER_PHOTOS) {
+    await deleteCoverPhoto(
+      c.env.COVER_PHOTOS,
+      c.var.repositories.coverPhotos,
+      partyId,
+    );
+  }
+  await c.var.repositories.parties.deleteById(partyId);
   return c.json({ ok: true });
 });
 
@@ -332,7 +340,20 @@ parties.put('/:partyId/cover', async (c) => {
   const type = sniffCoverPhoto(bytes);
   if (!type) return c.json({ error: 'not_a_photo' }, 415);
 
-  const token = await storeCoverPhoto(bucket, party.id, bytes, type);
+  const stored = await storeCoverPhoto(
+    bucket,
+    c.var.repositories.coverPhotos,
+    party.id,
+    bytes,
+    type,
+  );
+  // The budget that keeps R2 free (ADR 0007): out of uploads for today, or
+  // out of room until photos are removed.
+  if ('refused' in stored) {
+    const status = stored.refused === COVER_REFUSALS.FULL ? 507 : 503;
+    return c.json({ error: stored.refused }, status);
+  }
+  const { token } = stored;
   const patched = await c.var.repositories.parties.patchDocument({
     partyId: party.id,
     patch: { coverPhoto: token },
@@ -343,7 +364,13 @@ parties.put('/:partyId/cover', async (c) => {
 /** `DELETE /api/parties/:partyId/cover` — back to the emoji cover. */
 parties.delete('/:partyId/cover', async (c) => {
   const party = c.get('party');
-  if (c.env.COVER_PHOTOS) await deleteCoverPhotos(c.env.COVER_PHOTOS, party.id);
+  if (c.env.COVER_PHOTOS) {
+    await deleteCoverPhoto(
+      c.env.COVER_PHOTOS,
+      c.var.repositories.coverPhotos,
+      party.id,
+    );
+  }
   if (!party.document) return c.json({ ok: true });
   const patched = await c.var.repositories.parties.patchDocument({
     partyId: party.id,
@@ -356,18 +383,15 @@ parties.delete('/:partyId/cover', async (c) => {
  * `GET /api/parties/:partyId/cover/:token` — the photo, for its organisers.
  * A token is never reused, so the bytes behind one never change.
  */
-parties.get('/:partyId/cover/:token', async (c) => {
-  const bucket = c.env.COVER_PHOTOS;
-  const photo =
-    bucket &&
-    (await coverPhotoResponse(
-      bucket,
-      c.get('party').id,
-      c.req.param('token'),
-      'private, max-age=31536000, immutable',
-    ));
-  return photo || c.json({ error: 'cover_photo_not_found' }, 404);
-});
+parties.get('/:partyId/cover/:token', (c) =>
+  coverPhotoResponse(
+    c.env.COVER_PHOTOS,
+    c.var.repositories.coverPhotos,
+    c.get('party').id,
+    c.req.param('token'),
+    'private, max-age=31536000, immutable',
+  ),
+);
 
 // ── The guest-facing invite link ────────────────────────────────────────────
 

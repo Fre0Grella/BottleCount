@@ -6,6 +6,10 @@ import type {
   LicenceRepository,
 } from '../../repositories/licenceRepository';
 import { LICENCE_ERRORS } from '../../repositories/licenceRepository';
+import type {
+  CoverPhotoRepository,
+  StoredCoverPhoto,
+} from '../../repositories/coverPhotoRepository';
 import type { Repositories } from '../../repositories/repositories';
 import { err, ok, type Result } from '../../repositories/result';
 import type {
@@ -108,11 +112,52 @@ export function fakeLicences(seed: LicenceKey[] = []): LicenceRepository {
   };
 }
 
+/**
+ * The R2 ledger in memory: `rows` like `cover_photos`, `usage` like
+ * `r2_usage` keyed `day:kind`.
+ */
+export function fakeCoverPhotos(): CoverPhotoRepository & {
+  rows: Map<string, StoredCoverPhoto>;
+  usage: Map<string, number>;
+} {
+  const rows = new Map<string, StoredCoverPhoto>();
+  const usage = new Map<string, number>();
+
+  return {
+    rows,
+    usage,
+    async find(partyId) {
+      return ok(rows.get(partyId) ?? null);
+    },
+    async totalBytes() {
+      let total = 0;
+      for (const photo of rows.values()) total += photo.bytes;
+      return ok(total);
+    },
+    async save(photo) {
+      rows.set(photo.partyId, { ...photo });
+      return ok(undefined);
+    },
+    async remove(partyId) {
+      rows.delete(partyId);
+      return ok(undefined);
+    },
+    async spend(kind, day, limit) {
+      const key = `${day}:${kind}`;
+      const spent = usage.get(key) ?? 0;
+      if (spent >= limit) return ok(false);
+      usage.set(key, spent + 1);
+      return ok(true);
+    },
+  };
+}
+
 export function fakeRepositories(
   users = fakeUsers(),
   licences = fakeLicences(),
   parties = fakeParties(),
   invites = fakeInvites(),
+  coverPhotos = fakeCoverPhotos(),
 ): Repositories {
   // Membership shares the party repository's map: `listForUser` must answer
   // from the same membership `roleFor` enforces, or a test could pass with a
@@ -128,6 +173,7 @@ export function fakeRepositories(
       if (invite.partyId === partyId) invites.rows.delete(id);
     }
     parties.memberships.delete(partyId);
+    coverPhotos.rows.delete(partyId);
     for (const [token, invite] of members.invites) {
       if (invite.partyId === partyId) members.invites.delete(token);
     }
@@ -139,7 +185,7 @@ export function fakeRepositories(
     return removed;
   };
 
-  return { users, licences, parties, invites, members };
+  return { users, licences, parties, invites, members, coverPhotos };
 }
 
 export function aUser(overrides: Partial<User> = {}): User {

@@ -1,3 +1,4 @@
+import type { CoverPhotoRepository } from './coverPhotoRepository';
 import type { InviteRepository } from './inviteRepository';
 import type { LicenceRepository } from './licenceRepository';
 import type { MemberRepository } from './memberRepository';
@@ -11,4 +12,5 @@ export interface Repositories {
   parties: PartyRepository;
   invites: InviteRepository;
   members: MemberRepository;
+  coverPhotos: CoverPhotoRepository;
 }

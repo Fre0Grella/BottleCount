@@ -190,17 +190,14 @@ invites.post('/:slug/answer', async (c) => {
  * takes the photo down with it. Cached briefly, not for good: unlike an
  * organiser's copy, a guest's should stop working soon after that.
  */
-invites.get('/:slug/cover/:token', async (c) => {
-  const bucket = c.env.COVER_PHOTOS;
-  const photo =
-    bucket &&
-    (await coverPhotoResponse(
-      bucket,
-      c.get('party').id,
-      c.req.param('token'),
-      'private, max-age=3600',
-    ));
-  return photo || c.json({ error: 'cover_photo_not_found' }, 404);
-});
+invites.get('/:slug/cover/:token', (c) =>
+  coverPhotoResponse(
+    c.env.COVER_PHOTOS,
+    c.var.repositories.coverPhotos,
+    c.get('party').id,
+    c.req.param('token'),
+    'private, max-age=3600',
+  ),
+);
 
 export default invites;

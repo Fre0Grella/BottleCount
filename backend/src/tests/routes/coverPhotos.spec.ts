@@ -1,12 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SharedPartyDTO } from '../../../../shared/collab';
 import { COVER_PHOTO_MAX_BYTES } from '../../../../shared/coverPhotos';
 import type { InviteOpenDTO } from '../../../../shared/invites';
 import type { SessionDTO } from '../../../../shared/session';
+import { R2_BUDGET } from '../../lib/coverPhotos';
 import type { Repositories } from '../../repositories/repositories';
 import { resetFakeIds } from '../support/fakeInvites';
 import { fakeCoverBucket } from '../support/fakeCoverBucket';
-import { aUser, fakeUsers } from '../support/fakeRepositories';
+import { aUser, fakeCoverPhotos, fakeUsers } from '../support/fakeRepositories';
 import { request, sessionCookie } from '../support/harness';
 import {
   publishAndOpenInvites,
@@ -233,5 +234,107 @@ describe('the session', () => {
 
     expect(await read(withBucket())).toBe(true);
     expect(await read({})).toBe(false);
+  });
+});
+
+describe('the free-tier budget', () => {
+  const ledger = () =>
+    repositories.coverPhotos as ReturnType<typeof fakeCoverPhotos>;
+  const DAY = '2026-10-26';
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${DAY}T12:00:00Z`));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps a ledger of what is stored, and empties it with the photo', async () => {
+    const token = await uploadedToken(webp(1000));
+    expect(ledger().rows.get(party.id)).toEqual({
+      partyId: party.id,
+      token,
+      bytes: 1000,
+    });
+
+    // Replacing counts the new photo only.
+    await uploadedToken(webp(400));
+    expect(await ledger().totalBytes()).toEqual({ ok: true, value: 400 });
+
+    await request(`/api/parties/${party.id}/cover`, {
+      repositories,
+      env: withBucket(),
+      cookie: await sessionCookie('user-1'),
+      method: 'DELETE',
+    });
+    expect(ledger().rows.size).toBe(0);
+  });
+
+  it('refuses an upload that would pass the storage cap', async () => {
+    ledger().rows.set('elsewhere', {
+      partyId: 'elsewhere',
+      token: 'x',
+      bytes: R2_BUDGET.storageBytes - 100,
+    });
+
+    const res = await upload(webp(200));
+    expect(res.status).toBe(507);
+    expect(await res.json()).toEqual({ error: 'cover_photo_storage_full' });
+    expect(bucket.keys()).toEqual([]);
+  });
+
+  it('counts a replacement as the difference it makes, not on top', async () => {
+    await uploadedToken(webp(1000));
+    ledger().rows.set('elsewhere', {
+      partyId: 'elsewhere',
+      token: 'x',
+      bytes: R2_BUDGET.storageBytes - 1000,
+    });
+
+    // Same size again: the total does not grow, so it fits.
+    expect((await upload(webp(1000))).status).toBe(200);
+    expect((await upload(webp(1001))).status).toBe(507);
+  });
+
+  it("stops uploads once the day's are spent, until the next day", async () => {
+    ledger().usage.set(`${DAY}:write`, R2_BUDGET.writesPerDay - 1);
+    expect((await upload(webp())).status).toBe(200);
+
+    const refused = await upload(webp());
+    expect(refused.status).toBe(503);
+    expect(await refused.json()).toEqual({ error: 'cover_photo_budget' });
+
+    vi.setSystemTime(new Date('2026-10-27T00:00:01Z'));
+    expect((await upload(webp())).status).toBe(200);
+  });
+
+  it("stops serving once the day's reads are spent", async () => {
+    const token = await uploadedToken(webp());
+    ledger().usage.set(`${DAY}:read`, R2_BUDGET.readsPerDay);
+
+    const res = await request(`/api/parties/${party.id}/cover/${token}`, {
+      repositories,
+      env: withBucket(),
+      cookie: await sessionCookie('user-1'),
+    });
+    expect(res.status).toBe(503);
+    expect(res.headers.get('retry-after')).toBe('3600');
+  });
+
+  it('spends a read only on a photo it actually serves', async () => {
+    await uploadedToken(webp());
+    await request(`/api/parties/${party.id}/cover/aaaaaaaaaaaaaaaaaaaa`, {
+      repositories,
+      env: withBucket(),
+      cookie: await sessionCookie('user-1'),
+    });
+    expect(ledger().usage.get(`${DAY}:read`)).toBeUndefined();
+  });
+
+  // The limits themselves: 31 days of them, the most one bill can hold,
+  // against R2's monthly free allowance.
+  it('stays inside the free tier whichever 31 days are billed', () => {
+    expect(R2_BUDGET.storageBytes).toBeLessThanOrEqual(10e9 / 2);
+    expect(R2_BUDGET.writesPerDay * 31).toBeLessThan(1_000_000 / 10);
+    expect(R2_BUDGET.readsPerDay * 31).toBeLessThan(10_000_000 / 10);
   });
 });

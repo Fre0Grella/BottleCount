@@ -24,6 +24,10 @@ const MESSAGES: Record<string, string> = {
   not_a_photo: 'Only photos and posters can be uploaded.',
   cover_photo_too_large: 'That image is still too large after shrinking.',
   cover_photos_unavailable: "This server doesn't store photos.",
+  // The budget that keeps photo storage free (ADR 0007).
+  cover_photo_budget: 'Photo uploads are paused for today. Try again tomorrow.',
+  cover_photo_storage_full:
+    'Photo storage is full for now. Your party keeps its emoji cover.',
   network_error: "Couldn't reach the server. Try again in a moment.",
 };
 
