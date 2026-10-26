@@ -134,8 +134,8 @@ then add to the environment in `wrangler.jsonc`:
 "r2_buckets": [{ "binding": "COVER_PHOTOS", "bucket_name": "bottlecount-covers" }],
 ```
 
-The `local` environment has it already; `wrangler dev` simulates the bucket on
-disk.
+`local` and `production` have it already; `wrangler dev` simulates the bucket
+on disk.
 
 However much traffic arrives, the Worker keeps the bucket inside R2's free tier:
 at most 5 GB stored, 500 uploads and 30,000 photos served a day (`R2_BUDGET`
