@@ -12,6 +12,7 @@ function aParty(): Party {
     date: '2026-10-01',
     createdAt: '2026-09-01T00:00:00.000Z',
     cover: 0,
+    coverPhoto: '',
     venue: { place: 'Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,

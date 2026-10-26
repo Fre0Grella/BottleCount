@@ -18,6 +18,12 @@
           "database_id": "00000000-0000-0000-0000-000000000000",
         },
       ],
+      // Party photos and posters (ADR 0007). Simulated on disk by `wrangler
+      // dev`. The other environments leave it out until their bucket exists:
+      // a binding to a missing bucket fails the deploy (backend/README.md).
+      "r2_buckets": [
+        { "binding": "COVER_PHOTOS", "bucket_name": "bottlecount-covers" },
+      ],
       // Guards the two unauthenticated invite endpoints. They are the only
       // routes on the Worker that write without an account behind them, and
       // each open() creates a row, so an unthrottled loop could inflate a

@@ -21,6 +21,9 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 | `GET /api/parties/:id`                               | member             | The full document, members and role                                 |
 | `PATCH /api/parties/:id`                             | member             | One organiser's edit, as a merge patch                              |
 | `DELETE /api/parties/:id`                            | owner              | Delete it for everyone                                              |
+| `PUT /api/parties/:id/cover`                         | member, Pro party  | Set the party's photo or poster (raw WebP/JPEG bytes)               |
+| `DELETE /api/parties/:id/cover`                      | member             | Remove it                                                           |
+| `GET /api/parties/:id/cover/:token`                  | member             | The photo, for organisers                                           |
 | `POST /api/parties/:id/invite-link`                  | member             | Open the party to RSVPs                                             |
 | `DELETE /api/parties/:id/invite-link`                | owner              | Close it                                                            |
 | `GET /api/parties/:id/invites`                       | member             | The RSVP funnel                                                     |
@@ -36,6 +39,7 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 | `POST /api/collaborate/:token`                       | session            | Join as an editor                                                   |
 | `POST /invite/:slug/open`                            | —                  | A guest opened the link. **Writes** — this is what "reached" counts |
 | `POST /invite/:slug/answer`                          | —                  | A guest's yes or no                                                 |
+| `GET /invite/:slug/cover/:token`                     | —                  | The photo, for guests, while the link is open                       |
 
 `/api/session` is the one `/api/*` route served without a session, because the
 free tier _is_ a logged-out browser. The exemption is named explicitly in
@@ -111,6 +115,27 @@ the Pages Function proxies it back here.
 
 Afterwards, pushes to `main` deploy through
 `.github/workflows/deploy-cloudflare.yml`.
+
+### Cover photos (optional)
+
+Party photos and posters live in an R2 bucket bound as `COVER_PHOTOS`
+([ADR 0007](../docs/adr/0007-cover-photos.md)). Without the binding the Worker
+answers 501 to uploads and `/api/session` reports `coverPhotos: false`, so the
+app does not offer them. To turn them on, create the bucket **before** adding
+the binding, or the next deploy fails on a bucket that does not exist:
+
+```bash
+npx wrangler r2 bucket create bottlecount-covers
+```
+
+then add to the environment in `wrangler.jsonc`:
+
+```jsonc
+"r2_buckets": [{ "binding": "COVER_PHOTOS", "bucket_name": "bottlecount-covers" }],
+```
+
+The `local` environment has it already; `wrangler dev` simulates the bucket on
+disk.
 
 ## Issuing licences
 

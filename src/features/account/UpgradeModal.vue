@@ -36,6 +36,10 @@ const COPY: Record<Feature, { title: string; body: string }> = {
     title: 'Shared door scanning is a Pro feature',
     body: 'Two phones on the door need to agree on who has already walked in. That agreement is server-side; one phone on its own works on every plan.',
   },
+  coverPhotos: {
+    title: 'Cover photos are a Pro feature',
+    body: 'Your guests see the photo on their invite, so it has to be stored on a server rather than in this browser — which is what the hosted plan is.',
+  },
 };
 
 const feature = computed(() => store.state.upgradeFor);

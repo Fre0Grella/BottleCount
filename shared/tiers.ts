@@ -39,6 +39,8 @@ export const FEATURES = [
   'cloudSync',
   /** Several phones on the door sharing one check-in state. */
   'doorScannerSync',
+  /** A photo of the host's own as the party's cover (ADR 0007). */
+  'coverPhotos',
 ] as const;
 
 export type Feature = (typeof FEATURES)[number];
@@ -65,6 +67,7 @@ const BY_TIER: Readonly<Record<Tier, FeatureSet>> = Object.freeze({
     coOrganizers: false,
     cloudSync: false,
     doorScannerSync: false,
+    coverPhotos: false,
   }),
   pro: Object.freeze({
     inviteLink: true,
@@ -72,6 +75,7 @@ const BY_TIER: Readonly<Record<Tier, FeatureSet>> = Object.freeze({
     coOrganizers: true,
     cloudSync: true,
     doorScannerSync: true,
+    coverPhotos: true,
   }),
 });
 

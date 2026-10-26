@@ -19,6 +19,7 @@ export const ANONYMOUS_SESSION: SessionDTO = Object.freeze({
   selfHosted: false,
   backendAvailable: false,
   devSignIn: false,
+  coverPhotos: false,
 });
 
 function isSessionDTO(value: unknown): value is SessionDTO {

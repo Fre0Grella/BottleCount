@@ -27,6 +27,12 @@ export type Bindings = {
   INVITE_RATE_LIMITER?: RateLimiter;
   /** Guards the short ticket links, generously — see routes/tickets.ts. */
   TICKET_RATE_LIMITER?: RateLimiter;
+  /**
+   * Party cover photos (ADR 0007). Optional: a Worker without a bucket bound
+   * simply does not offer them. Read through `deployment()` and
+   * `lib/coverPhotos.ts`.
+   */
+  COVER_PHOTOS?: R2Bucket;
 };
 
 /** Everything the `*`-middleware puts on the context for routes to read. */

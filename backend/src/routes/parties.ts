@@ -11,6 +11,10 @@ import type {
   SharedPartyDTO,
 } from '../../../shared/collab';
 import { guestName, optionalContact } from '../../../shared/contact';
+import {
+  COVER_PHOTO_MAX_BYTES,
+  sniffCoverPhoto,
+} from '../../../shared/coverPhotos';
 import type { HostInviteDTO, PublishedPartyDTO } from '../../../shared/invites';
 import { INVITE_STATUSES } from '../../../shared/invites';
 import type { InviteStatus } from '../../../shared/invites';
@@ -18,6 +22,11 @@ import { signedTicketCode } from '../../../shared/ticketLinks';
 import { featuresFor } from '../../../shared/tiers';
 import type { UserEnv } from '../appEnv';
 import { tierFor } from '../deployment';
+import {
+  coverPhotoResponse,
+  deleteCoverPhotos,
+  storeCoverPhoto,
+} from '../lib/coverPhotos';
 import { INVITE_ERRORS } from '../repositories/inviteRepository';
 import type {
   Invite,
@@ -27,7 +36,7 @@ import type { PartyMember } from '../repositories/memberRepository';
 import { PARTY_ERRORS } from '../repositories/partyRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
 import type { Repositories } from '../repositories/repositories';
-import { fail, readBody, respond, text } from './http';
+import { fail, readBody, readBytes, respond, text } from './http';
 import { findPartyInvite, requireUser } from './middleware';
 import { parseDocument, parsePatch } from './partyInput';
 import { ticketIsLive } from './tickets';
@@ -288,8 +297,76 @@ parties.delete('/:partyId', async (c) => {
   if (!ownerOnly(c)) return c.json({ error: 'owner_only' }, 403);
 
   // Already gone is the state the caller wanted.
-  await c.var.repositories.parties.deleteById(c.get('party').id);
+  const partyId = c.get('party').id;
+  await c.var.repositories.parties.deleteById(partyId);
+  // The photo goes with the party (ADR 0007): nothing would ever serve it
+  // again, and it may show people.
+  if (c.env.COVER_PHOTOS) await deleteCoverPhotos(c.env.COVER_PHOTOS, partyId);
   return c.json({ ok: true });
+});
+
+// ── The cover photo (ADR 0007) ──────────────────────────────────────────────
+
+/**
+ * `PUT /api/parties/:partyId/cover` — the raw bytes of a photo or poster the
+ * browser has already shrunk and re-encoded. Any member may set it, on a party
+ * whose owner has the feature, like everything else about a Pro party.
+ *
+ * The document is pointed at the new photo here rather than left to the
+ * client's next patch, so the photo and the document that names it change
+ * together; the previous photo is deleted on the way.
+ */
+parties.put('/:partyId/cover', async (c) => {
+  const bucket = c.env.COVER_PHOTOS;
+  if (!bucket) return c.json({ error: 'cover_photos_unavailable' }, 501);
+
+  const party = c.get('party');
+  const tier = await tierFor(c.var.repositories, c.env, party.ownerId);
+  if (!featuresFor(tier).coverPhotos) {
+    return c.json({ error: 'upgrade_required', feature: 'coverPhotos' }, 403);
+  }
+  if (!party.document) return fail(c, PARTY_ERRORS.NO_DOCUMENT);
+
+  const bytes = await readBytes(c, COVER_PHOTO_MAX_BYTES);
+  if (!bytes) return c.json({ error: 'cover_photo_too_large' }, 413);
+  const type = sniffCoverPhoto(bytes);
+  if (!type) return c.json({ error: 'not_a_photo' }, 415);
+
+  const token = await storeCoverPhoto(bucket, party.id, bytes, type);
+  const patched = await c.var.repositories.parties.patchDocument({
+    partyId: party.id,
+    patch: { coverPhoto: token },
+  });
+  return respond(c, patched, (value) => ({ token, version: value.version }));
+});
+
+/** `DELETE /api/parties/:partyId/cover` — back to the emoji cover. */
+parties.delete('/:partyId/cover', async (c) => {
+  const party = c.get('party');
+  if (c.env.COVER_PHOTOS) await deleteCoverPhotos(c.env.COVER_PHOTOS, party.id);
+  if (!party.document) return c.json({ ok: true });
+  const patched = await c.var.repositories.parties.patchDocument({
+    partyId: party.id,
+    patch: { coverPhoto: '' },
+  });
+  return respond(c, patched, (value) => ({ version: value.version }));
+});
+
+/**
+ * `GET /api/parties/:partyId/cover/:token` — the photo, for its organisers.
+ * A token is never reused, so the bytes behind one never change.
+ */
+parties.get('/:partyId/cover/:token', async (c) => {
+  const bucket = c.env.COVER_PHOTOS;
+  const photo =
+    bucket &&
+    (await coverPhotoResponse(
+      bucket,
+      c.get('party').id,
+      c.req.param('token'),
+      'private, max-age=31536000, immutable',
+    ));
+  return photo || c.json({ error: 'cover_photo_not_found' }, 404);
 });
 
 // ── The guest-facing invite link ────────────────────────────────────────────

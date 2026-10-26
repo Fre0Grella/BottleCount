@@ -6,6 +6,7 @@ import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
 import { coverOf } from '../features/party/covers';
+import { guestPhotoUrl } from '../features/party/coverPhoto';
 import { mapsLink } from '../features/party/venue';
 import { infoLines } from '../features/party/partyDetails';
 import { formatLocalDate } from '../lib/dates';
@@ -65,6 +66,16 @@ function slugFromPath(): string {
 const slug = ref('');
 
 const cover = computed(() => coverOf(data.value?.party.cover));
+
+/**
+ * The host's photo or poster, or null. One that fails to load (the host just
+ * replaced it, say) falls back to the emoji cover rather than a broken image.
+ */
+const posterFailed = ref(false);
+const poster = computed(() => {
+  const token = data.value?.party.coverPhoto;
+  return token && !posterFailed.value ? guestPhotoUrl(slug.value, token) : null;
+});
 
 const dateLabel = computed(() =>
   formatLocalDate(data.value?.party.date, {
@@ -317,7 +328,28 @@ function copy(text: string, key: string): void {
 
     <!-- The invitation itself -->
     <div v-else-if="data" class="invite-card">
-      <div class="invite-cover" :style="{ background: cover?.grad }">
+      <!-- The host's own photo or poster, whole: a poster's text is the
+           point of it, so it is never cropped. Tapping opens it full size. -->
+      <template v-if="poster">
+        <a
+          class="invite-poster"
+          :href="poster"
+          target="_blank"
+          rel="noopener"
+          aria-label="Open the party poster full size"
+        >
+          <img
+            :src="poster"
+            :alt="`Poster for ${data.party.name}`"
+            @error="posterFailed = true"
+          />
+        </a>
+        <div class="invite-headline">
+          <h1 class="invite-title">{{ data.party.name }}</h1>
+          <p class="invite-when">{{ whenLabel }}</p>
+        </div>
+      </template>
+      <div v-else class="invite-cover" :style="{ background: cover?.grad }">
         <span class="invite-emoji">{{ cover?.emoji }}</span>
         <h1 class="invite-title">{{ data.party.name }}</h1>
         <p class="invite-when">{{ whenLabel }}</p>
@@ -777,6 +809,25 @@ function copy(text: string, key: string): void {
   padding: 28px 22px 22px;
   color: #fff;
 }
+.invite-poster {
+  display: flex;
+  justify-content: center;
+  background: #000;
+}
+
+/* As tall as it is, up to most of a phone's screen; never cropped. */
+.invite-poster img {
+  display: block;
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+}
+
+.invite-headline {
+  padding: 18px 22px 0;
+  color: var(--text);
+}
+
 .invite-emoji {
   font-size: 30px;
   display: block;

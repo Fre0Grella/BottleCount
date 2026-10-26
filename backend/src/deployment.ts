@@ -21,12 +21,18 @@ export interface Deployment {
   devSignIn: boolean;
   /** Whether a guest can be offered "Continue with Google" at all (#22). */
   guestGoogle: boolean;
+  /** Whether an R2 bucket is bound for cover photos (ADR 0007). */
+  coverPhotos: boolean;
 }
 
 export function deployment(
   env: Pick<
     Partial<Bindings>,
-    'SELF_HOSTED' | 'ENVIRONMENT' | 'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET'
+    | 'SELF_HOSTED'
+    | 'ENVIRONMENT'
+    | 'GOOGLE_CLIENT_ID'
+    | 'GOOGLE_CLIENT_SECRET'
+    | 'COVER_PHOTOS'
   >,
 ): Deployment {
   const selfHosted = env.SELF_HOSTED === 'true';
@@ -35,6 +41,7 @@ export function deployment(
     devSignIn: selfHosted || env.ENVIRONMENT === 'local',
     guestGoogle:
       !!env.GOOGLE_CLIENT_ID?.trim() && !!env.GOOGLE_CLIENT_SECRET?.trim(),
+    coverPhotos: !!env.COVER_PHOTOS,
   };
 }
 
