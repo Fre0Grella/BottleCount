@@ -1,6 +1,7 @@
 import type { FeatureSet } from '../../shared/tiers';
 import type { InviteStatus } from '../../shared/invites';
 import type { PaymentDetails } from '../../shared/payments';
+import type { Venue } from '../../shared/collab';
 import type {
   Catalog,
   Cocktail,
@@ -92,13 +93,7 @@ export interface CalculationResult {
   break_even: number | null;
 }
 
-// ── Venue & Invites ────────────────────────────────────────────────────────
-
-interface Venue {
-  place: string;
-  city: string;
-  time: string;
-}
+// ── Invites ────────────────────────────────────────────────────────────────
 
 export interface Invite {
   /**

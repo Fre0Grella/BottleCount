@@ -3,7 +3,7 @@ import type {
   InviteOpenDTO,
   PublishedPartyDTO,
 } from '../../../../shared/invites';
-import type { SharedPartyDTO } from '../../../../shared/collab';
+import type { SharedPartyDTO, Venue } from '../../../../shared/collab';
 import type { PaymentDetails } from '../../../../shared/payments';
 import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { Repositories } from '../../repositories/repositories';
@@ -22,12 +22,14 @@ async function aPublishedParty(
     maxCapacity?: number | null;
     allowForward?: boolean;
     payment?: Partial<PaymentDetails>;
+    venue?: Venue;
   } = {},
 ): Promise<{ repositories: Repositories; party: PublishedPartyDTO }> {
   const repositories = repositoriesWith();
   const document = aDocument({
     allowForward: overrides.allowForward ?? true,
     payment: { ...emptyPaymentDetails(), ...overrides.payment },
+    venue: overrides.venue ?? aDocument().venue,
     settings: {
       ...aDocument().settings,
       max_capacity: overrides.maxCapacity ?? null,
@@ -172,6 +174,18 @@ describe('opening an invite link', () => {
     expect(opened.name).toBeNull();
     expect(opened.depth).toBe(0);
     expect(opened.party.name).toBe('Rooftop');
+  });
+
+  it('shows the venue with its map pin, for "Open in Maps"', async () => {
+    const venue = {
+      place: 'Terrazza',
+      city: 'Milano',
+      time: '21:00',
+      pin: { lat: 45.46, lng: 9.19, address: 'Piazza Diaz 7, Milano' },
+    };
+    const { repositories, party } = await aPublishedParty({ venue });
+
+    expect((await open(repositories, party.slug)).party.venue).toEqual(venue);
   });
 
   it('does not hand out a forward token before confirming', async () => {

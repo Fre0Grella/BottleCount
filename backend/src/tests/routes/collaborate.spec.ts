@@ -216,6 +216,27 @@ describe('what an editor may do', () => {
     expect(stored.ok && stored.value.document?.name).toBe('Rooftop II');
   });
 
+  // The pin is nested in the venue, so it travels by merge patch like any field
+  // there: the owner picks it, the co-organiser opens the party and has it.
+  it('sees the venue pin the owner picked on the map', async () => {
+    const pin = { lat: 45.46, lng: 9.19, address: 'Piazza Diaz 7, Milano' };
+    const patched = await request(`/api/parties/${party.id}`, {
+      repositories,
+      cookie: await sessionCookie('user-1'),
+      method: 'PATCH',
+      body: { baseVersion: party.version, patch: { venue: { pin } } },
+    });
+    expect(patched.status).toBe(200);
+
+    const res = await request(`/api/parties/${party.id}`, {
+      repositories,
+      cookie: await sessionCookie('user-2'),
+    });
+    expect(res.status).toBe(200);
+    const shared = (await res.json()) as SharedPartyDTO;
+    expect(shared.document.venue).toMatchObject({ place: 'The Roof', pin });
+  });
+
   it('reads the funnel', async () => {
     const res = await request(`/api/parties/${party.id}/invites`, {
       repositories,

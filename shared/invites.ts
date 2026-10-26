@@ -6,7 +6,7 @@
  * still reads is a bug that typechecks on both sides independently.
  */
 
-import type { PartyDocument } from './collab';
+import type { PartyDocument, Venue } from './collab';
 import type { InvitePaymentDTO } from './payments';
 
 // ── Status ──────────────────────────────────────────────────────────────────
@@ -43,7 +43,8 @@ export interface InvitePartyDTO {
   /** ISO date, `YYYY-MM-DD`. */
   date: string;
   cover: number;
-  venue: { place: string; city: string; time: string };
+  /** With its map pin when the host picked one, for "Open in Maps". */
+  venue: Venue;
   /** Whether a confirmed guest gets a forward link of their own. */
   allowForward: boolean;
   /** True when a capacity cap is set and confirmed guests have reached it. */
