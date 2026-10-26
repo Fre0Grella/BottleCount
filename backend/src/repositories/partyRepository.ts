@@ -1,4 +1,4 @@
-import type { PartyDocument, PartyRole } from '../../../shared/collab';
+import type { PartyDocument, PartyRole, Venue } from '../../../shared/collab';
 import { normaliseDocument } from '../../../shared/collab';
 import type { MergePatch } from '../../../shared/patch';
 import type { PublishPartyRequest } from '../../../shared/invites';
@@ -12,7 +12,7 @@ export interface PublishedParty {
   name: string;
   date: string;
   cover: number;
-  venue: { place: string; city: string; time: string };
+  venue: Venue;
   allowForward: boolean;
   maxCapacity: number | null;
   rootToken: string;

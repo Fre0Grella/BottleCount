@@ -35,6 +35,7 @@ import Slider from '../../components/ui/Slider.vue';
 import Stepper from '../../components/ui/Stepper.vue';
 import Toggle from '../../components/ui/Toggle.vue';
 import PaymentSettings from '../payments/PaymentSettings.vue';
+import VenuePicker from './VenuePicker.vue';
 
 const store = useStore();
 
@@ -221,6 +222,8 @@ const pnl = computed(() =>
         <IconTile icon="mapPin" />
         <div class="card-head__title">Where &amp; when</div>
       </div>
+
+      <VenuePicker :venue="p.venue" />
 
       <!-- 2-col grid (1-col on phone) -->
       <div class="cols where" :class="{ 'cols--one': isPhone }">

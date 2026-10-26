@@ -36,6 +36,30 @@ export function isPartyRole(value: unknown): value is PartyRole {
 // ── The synced document ─────────────────────────────────────────────────────
 
 /**
+ * Where the venue is on a map, when the host picked it from the search rather
+ * than only typing it. One object so the coordinates and the address they came
+ * with are set and cleared together.
+ */
+export interface VenuePin {
+  lat: number;
+  lng: number;
+  /** The address the search gave, for display. May be ''. */
+  address: string;
+}
+
+/**
+ * Where and when. `place` and `city` are what the host typed (or the search
+ * filled in) and always work, offline included; `pin` is absent until a venue
+ * is picked on the map.
+ */
+export interface Venue {
+  place: string;
+  city: string;
+  time: string;
+  pin?: VenuePin;
+}
+
+/**
  * The part of a party that is shared.
  *
  * Everything an organiser plans with, and nothing else. Two deliberate
@@ -52,7 +76,7 @@ export interface PartyDocument {
   name: string;
   date: string;
   cover: number;
-  venue: { place: string; city: string; time: string };
+  venue: Venue;
   settings: {
     guests: number;
     ticket_price: number;
@@ -116,6 +140,37 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function within(value: unknown, limit: number): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= limit
+  );
+}
+
+/** A pin with real coordinates, or undefined: half a pin is no pin. */
+function normalisePin(value: unknown): VenuePin | undefined {
+  const pin = record(value);
+  if (!within(pin['lat'], 90) || !within(pin['lng'], 180)) return undefined;
+  return {
+    lat: pin['lat'],
+    lng: pin['lng'],
+    address: str(pin['address'], 200),
+  };
+}
+
+/** The venue, its pin left off entirely when there is none. */
+function normaliseVenue(value: unknown): Venue {
+  const venue = record(value);
+  const pin = normalisePin(venue['pin']);
+  return {
+    place: str(venue['place'], 120),
+    city: str(venue['city'], 80),
+    time: str(venue['time'], 10),
+    ...(pin && { pin }),
+  };
+}
+
 /**
  * Any value, made into a document the rest of the code can rely on.
  *
@@ -132,18 +187,13 @@ function record(value: unknown): Record<string, unknown> {
  */
 export function normaliseDocument(value: unknown): PartyDocument {
   const d = record(value);
-  const venue = record(d['venue']);
   const settings = record(d['settings']);
 
   return {
     name: str(d['name'], 80).trim(),
     date: str(d['date'], 10),
     cover: Math.max(0, Math.min(5, Math.trunc(num(d['cover'], 0)))),
-    venue: {
-      place: str(venue['place'], 120),
-      city: str(venue['city'], 80),
-      time: str(venue['time'], 10),
-    },
+    venue: normaliseVenue(d['venue']),
     settings: {
       guests: num(settings['guests'], 0),
       ticket_price: num(settings['ticket_price'], 0),

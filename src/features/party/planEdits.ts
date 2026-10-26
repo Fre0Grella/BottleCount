@@ -1,5 +1,5 @@
 import { update } from '../../store/storeState';
-import type { Party } from '../../lib/types';
+import type { VenueHit } from './venue';
 import {
   amountFromInput,
   clampHeadcount,
@@ -24,9 +24,38 @@ export function setCover(index: number): void {
   });
 }
 
-export function setVenue(field: keyof Party['venue'], value: string): void {
+export function setVenue(
+  field: 'place' | 'city' | 'time',
+  value: string,
+): void {
   update((p) => {
     p.venue[field] = value;
+  });
+}
+
+/** A venue picked from the map search: its name, its city and its pin. */
+export function pickVenue(hit: VenueHit): void {
+  update((p) => {
+    p.venue.place = hit.place;
+    p.venue.city = hit.city;
+    p.venue.pin = { ...hit.pin };
+  });
+}
+
+/**
+ * The pin dragged to the exact spot. The address stays the one the search
+ * gave: a few metres along the street is still that address.
+ */
+export function movePin(lat: number, lng: number): void {
+  update((p) => {
+    if (p.venue.pin) p.venue.pin = { ...p.venue.pin, lat, lng };
+  });
+}
+
+/** Back to a typed-in venue. The name and city stay. */
+export function clearPin(): void {
+  update((p) => {
+    delete p.venue.pin;
   });
 }
 

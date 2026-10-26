@@ -2,7 +2,7 @@
 import LegalPage from '../layouts/LegalPage.astro';
 ---
 
-<LegalPage title="Privacy Policy" updated="October 21, 2026">
+<LegalPage title="Privacy Policy" updated="October 26, 2026">
   <p>
     This Privacy Policy explains how BottleCount ("the app", "we", "us") uses
     your data when you use the BottleCount web application.
@@ -75,10 +75,11 @@ import LegalPage from '../layouts/LegalPage.astro';
   </p>
   <p>
     People holding the invite link see far less: only what an invitation shows —
-    the party's name, date, venue and cover image — and, once they say they are
-    coming, the ways to be paid you added (a PayPal.me username, a Satispay or
-    Revolut link, or a bank account holder and IBAN). Your menu, shopping list,
-    costs and budget are never shown to them.
+    the party's name, date, venue (with its place on the map, if you picked one)
+    and cover image — and, once they say they are coming, the ways to be paid
+    you added (a PayPal.me username, a Satispay or Revolut link, or a bank
+    account holder and IBAN). Your menu, shopping list, costs and budget are
+    never shown to them.
   </p>
   <p>
     We then store one record per person who opens that link: the name they type,
@@ -127,6 +128,15 @@ import LegalPage from '../layouts/LegalPage.astro';
     Cloudflare, Inc. hosts the application and the database. Google LLC provides
     sign-in. Both act as processors on our behalf; neither receives your data
     for their own purposes from us.
+  </p>
+  <p>
+    Finding a venue on the map is the one place your browser talks to someone
+    else directly, and only while you use it. What you type into the map search
+    goes to Photon, komoot GmbH's place search, and the map itself is loaded
+    from the OpenStreetMap Foundation's tile servers; both see your IP address
+    and the request, as any website you open does. Typing the venue in by hand
+    contacts neither. Your guests' invite page loads nothing from either: its
+    "Open in Maps" link opens Google Maps only when a guest taps it.
   </p>
 
   <h2>7. Retention and deletion</h2>

@@ -6,6 +6,7 @@ import { formatIban, paymentReference } from '../../shared/payments';
 import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
 import { coverOf } from '../features/party/covers';
+import { mapsLink } from '../features/party/venue';
 import { formatLocalDate } from '../lib/dates';
 import { formatEuro, venueWhere } from '../lib/display';
 import {
@@ -73,6 +74,10 @@ const dateLabel = computed(() =>
 );
 
 const whereLabel = computed(() => venueWhere(data.value?.party.venue));
+
+/** Only when the host picked the venue on the map; a typed one has no pin. */
+const pin = computed(() => data.value?.party.venue.pin ?? null);
+const mapsHref = computed(() => (pin.value ? mapsLink(pin.value) : null));
 
 const isConfirmed = computed(() => data.value?.status === 'confirmed');
 /** Guests pay for this party, so saying yes needs somewhere to send the ticket. */
@@ -305,10 +310,24 @@ function copy(text: string, key: string): void {
       </div>
 
       <div class="invite-body">
-        <p v-if="whereLabel" class="invite-where">
+        <div v-if="whereLabel || mapsHref" class="invite-where">
           <Icon name="mapPin" :size="14" />
-          {{ whereLabel }}
-        </p>
+          <div class="invite-where__text">
+            <span v-if="whereLabel">{{ whereLabel }}</span>
+            <span v-if="pin?.address" class="invite-where__address">
+              {{ pin.address }}
+            </span>
+            <a
+              v-if="mapsHref"
+              class="invite-where__maps"
+              :href="mapsHref"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in Maps
+            </a>
+          </div>
+        </div>
 
         <!-- Already answered -->
         <template v-if="phase === 'answered'">
@@ -758,11 +777,41 @@ function copy(text: string, key: string): void {
 }
 .invite-where {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   margin: 0;
   font-size: 13px;
   color: var(--dim);
+}
+
+/* Lines the pin up with the first line of text, not the middle of three. */
+.invite-where > .bc-icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.invite-where__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.invite-where__address {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.invite-where__maps {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.invite-where__maps:hover {
+  text-decoration: underline;
 }
 
 /* The label wraps its input but lays out as two rows of the column. */

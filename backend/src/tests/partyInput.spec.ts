@@ -86,6 +86,42 @@ describe('normaliseDocument', () => {
     }
   });
 
+  describe('venue pin', () => {
+    const venue = { place: 'Roof', city: 'Milan', time: '21:00' };
+    const pinned = (pin: unknown) =>
+      normaliseDocument({ ...aDocument(), venue: { ...venue, pin } }).venue;
+
+    // A co-organiser and the invite page both read it from here.
+    it('keeps a picked pin', () => {
+      const pin = { lat: 45.46, lng: 9.19, address: 'Via Roma 1, Milan' };
+      expect(pinned(pin)).toEqual({ ...venue, pin });
+    });
+
+    it('leaves the pin off a venue that was only typed', () => {
+      expect(pinned(undefined)).toEqual(venue);
+    });
+
+    it('drops a pin whose coordinates are missing or off the globe', () => {
+      for (const pin of [
+        { lat: 45 },
+        { lat: '45', lng: '9' },
+        { lat: 91, lng: 9 },
+        { lat: 45, lng: -181 },
+        { lat: Number.NaN, lng: 9 },
+        'Milan',
+      ]) {
+        expect(pinned(pin)).not.toHaveProperty('pin');
+      }
+    });
+
+    it('bounds the address, which a guest page shows', () => {
+      const address = 'x'.repeat(500);
+      expect(pinned({ lat: 1, lng: 2, address })?.pin?.address).toHaveLength(
+        200,
+      );
+    });
+  });
+
   it('drops fields the document does not own', () => {
     expect(
       normaliseDocument({ ...aDocument(), owner: 'x' }),
