@@ -7,8 +7,9 @@ import { answerInvite, openInvite } from '../lib/api/guests';
 import { isNotFound } from '../lib/api/request';
 import { coverOf } from '../features/party/covers';
 import { mapsLink } from '../features/party/venue';
+import { infoLines } from '../features/party/partyDetails';
 import { formatLocalDate } from '../lib/dates';
-import { formatEuro, venueWhere } from '../lib/display';
+import { formatEuro, timeSpan, venueWhere } from '../lib/display';
 import {
   answerBody,
   answerOutcome,
@@ -73,7 +74,20 @@ const dateLabel = computed(() =>
   }),
 );
 
+/** `Saturday 14 June · 21:00 – 03:00`, leaving out whatever the host left blank. */
+const whenLabel = computed(() => {
+  const venue = data.value?.party.venue;
+  return [dateLabel.value, timeSpan(venue?.time, venue?.endTime)]
+    .filter(Boolean)
+    .join(' · ');
+});
+
 const whereLabel = computed(() => venueWhere(data.value?.party.venue));
+
+const description = computed(
+  () => data.value?.party.details?.description.trim() ?? '',
+);
+const info = computed(() => infoLines(data.value?.party.details));
 
 /** Only when the host picked the venue on the map; a typed one has no pin. */
 const pin = computed(() => data.value?.party.venue.pin ?? null);
@@ -306,7 +320,7 @@ function copy(text: string, key: string): void {
       <div class="invite-cover" :style="{ background: cover?.grad }">
         <span class="invite-emoji">{{ cover?.emoji }}</span>
         <h1 class="invite-title">{{ data.party.name }}</h1>
-        <p class="invite-when">{{ dateLabel }} · {{ data.party.venue.time }}</p>
+        <p class="invite-when">{{ whenLabel }}</p>
       </div>
 
       <div class="invite-body">
@@ -328,6 +342,18 @@ function copy(text: string, key: string): void {
             </a>
           </div>
         </div>
+
+        <p v-if="description" class="invite-description">{{ description }}</p>
+
+        <dl v-if="info.length" class="invite-info">
+          <div v-for="line in info" :key="line.kind" class="invite-info__row">
+            <dt>
+              <Icon :name="line.icon" :size="14" />
+              {{ line.label }}
+            </dt>
+            <dd>{{ line.text }}</dd>
+          </div>
+        </dl>
 
         <!-- Already answered -->
         <template v-if="phase === 'answered'">
@@ -812,6 +838,47 @@ function copy(text: string, key: string): void {
 
 .invite-where__maps:hover {
   text-decoration: underline;
+}
+
+/* The host's own line breaks, kept; never markup. */
+.invite-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.invite-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--rs);
+  background: var(--surface2);
+}
+
+.invite-info__row {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5em) 1fr;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.invite-info dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+.invite-info dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 /* The label wraps its input but lays out as two rows of the column. */

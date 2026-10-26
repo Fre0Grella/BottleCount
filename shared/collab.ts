@@ -1,5 +1,7 @@
 import type { Catalog } from './catalog';
 import { normaliseCatalog } from './catalog';
+import type { PartyDetails } from './details';
+import { normaliseDetails } from './details';
 import type { FeatureSet } from './tiers';
 import type { MergePatch } from './patch';
 import type { PaymentDetails } from './payments';
@@ -55,7 +57,10 @@ export interface VenuePin {
 export interface Venue {
   place: string;
   city: string;
+  /** When it starts, `HH:MM`. */
   time: string;
+  /** When it ends, `HH:MM`. Absent for an open-ended party. */
+  endTime?: string;
   pin?: VenuePin;
 }
 
@@ -107,6 +112,8 @@ export interface PartyDocument {
   barManaged: boolean;
   /** Where guests pay the host. Public to confirmed guests; see `payments.ts`. */
   payment: PaymentDetails;
+  /** The description and practical info. Public to the link; see `details.ts`. */
+  details: PartyDetails;
 }
 
 /** The fields of a local `Party` that belong in the shared document. */
@@ -124,6 +131,7 @@ export const DOCUMENT_FIELDS = [
   'includeSnacks',
   'barManaged',
   'payment',
+  'details',
 ] as const satisfies readonly (keyof PartyDocument)[];
 
 function str(value: unknown, max: number): string {
@@ -159,14 +167,16 @@ function normalisePin(value: unknown): VenuePin | undefined {
   };
 }
 
-/** The venue, its pin left off entirely when there is none. */
+/** The venue, its end time and pin left off entirely when there are none. */
 function normaliseVenue(value: unknown): Venue {
   const venue = record(value);
+  const endTime = str(venue['endTime'], 10);
   const pin = normalisePin(venue['pin']);
   return {
     place: str(venue['place'], 120),
     city: str(venue['city'], 80),
     time: str(venue['time'], 10),
+    ...(endTime && { endTime }),
     ...(pin && { pin }),
   };
 }
@@ -221,6 +231,7 @@ export function normaliseDocument(value: unknown): PartyDocument {
     // These end up on a page every confirmed guest opens, so an identifier that
     // does not validate is dropped rather than stored.
     payment: sanitisePaymentDetails(d['payment']),
+    details: normaliseDetails(d['details']),
   };
 }
 

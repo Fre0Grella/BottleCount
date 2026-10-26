@@ -1,5 +1,6 @@
 import { update } from '../../store/storeState';
 import type { VenueHit } from './venue';
+import type { InfoKind } from '../../../shared/details';
 import {
   amountFromInput,
   clampHeadcount,
@@ -25,11 +26,13 @@ export function setCover(index: number): void {
 }
 
 export function setVenue(
-  field: 'place' | 'city' | 'time',
+  field: 'place' | 'city' | 'time' | 'endTime',
   value: string,
 ): void {
   update((p) => {
-    p.venue[field] = value;
+    // A cleared end time is no end time, as the document stores it.
+    if (field === 'endTime' && !value) delete p.venue.endTime;
+    else p.venue[field] = value;
   });
 }
 
@@ -56,6 +59,20 @@ export function movePin(lat: number, lng: number): void {
 export function clearPin(): void {
   update((p) => {
     delete p.venue.pin;
+  });
+}
+
+/** The description guests read on the invite page. */
+export function setDescription(text: string): void {
+  update((p) => {
+    p.details.description = text;
+  });
+}
+
+/** One line of practical info; '' takes it off the invite page. */
+export function setInfo(kind: InfoKind, text: string): void {
+  update((p) => {
+    p.details.info[kind] = text;
   });
 }
 

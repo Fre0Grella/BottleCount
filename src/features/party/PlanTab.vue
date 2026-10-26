@@ -36,6 +36,7 @@ import Stepper from '../../components/ui/Stepper.vue';
 import Toggle from '../../components/ui/Toggle.vue';
 import PaymentSettings from '../payments/PaymentSettings.vue';
 import VenuePicker from './VenuePicker.vue';
+import PartyDetailsCard from './PartyDetailsCard.vue';
 
 const store = useStore();
 
@@ -67,6 +68,7 @@ const venueWhere = computed(() => {
 
 const WHERE_FIELDS: {
   label: string;
+  optional?: string;
   icon: IconName;
   type: 'text' | 'date' | 'time';
   placeholder?: string;
@@ -102,6 +104,14 @@ const WHERE_FIELDS: {
     type: 'time',
     value: (party) => party.venue.time,
     set: (v) => setVenue('time', v),
+  },
+  {
+    label: 'End time',
+    optional: '(optional)',
+    icon: 'clock',
+    type: 'time',
+    value: (party) => party.venue.endTime ?? '',
+    set: (v) => setVenue('endTime', v),
   },
 ];
 
@@ -232,6 +242,7 @@ const pnl = computed(() =>
           :key="f.label"
           v-slot="{ id }"
           :label="f.label"
+          :optional="f.optional"
           :icon="f.icon"
           size="sm"
         >
@@ -245,6 +256,9 @@ const pnl = computed(() =>
         </Field>
       </div>
     </Card>
+
+    <!-- ── 2b. For your guests ──────────────────────────────────────── -->
+    <PartyDetailsCard :details="p.details" :phone="isPhone" />
 
     <!-- ── 3. Who's coming ───────────────────────────────────────────── -->
     <Card>

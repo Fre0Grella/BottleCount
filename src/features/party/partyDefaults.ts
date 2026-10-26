@@ -1,4 +1,5 @@
 import { emptyCatalog } from '../../../shared/catalog';
+import { emptyDetails } from '../../../shared/details';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import settingsData from '../../data/settings.json';
 import { localIsoDate } from '../../lib/dates';
@@ -39,6 +40,7 @@ export function newParty(now: Date = new Date()): Party {
     includeSnacks: true,
     barManaged: true,
     payment: emptyPaymentDetails(),
+    details: emptyDetails(),
     invites: [],
     publication: null,
   };

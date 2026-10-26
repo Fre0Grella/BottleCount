@@ -39,6 +39,16 @@ export function venueWhere(
   return [venue?.place, venue?.city].filter(Boolean).join(', ');
 }
 
+/**
+ * When a party runs: `21:00`, `21:00 – 03:00`, or `until 03:00` with no start.
+ * '' for neither.
+ */
+export function timeSpan(start: string | undefined, end?: string): string {
+  if (start && end) return `${start} – ${end}`;
+  if (end) return `until ${end}`;
+  return start ?? '';
+}
+
 /** How many `--seg-N` colours the theme defines. */
 const SEG_COUNT = 5;
 
