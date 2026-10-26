@@ -12,9 +12,10 @@ import {
   type OpenedTicket,
 } from '../features/tickets/ticketLink';
 import { ticketSlugFromPath } from '../../shared/urls';
-import { formatLocalDate, shortDate } from '../lib/dates';
+import { shortDate } from '../lib/dates';
 import { safeLocal } from '../lib/safeStorage';
 import Icon from '../components/ui/Icon.vue';
+import TicketCard from '../features/tickets/TicketCard.vue';
 
 /**
  * A guest's ticket, opened from the link the host sent them.
@@ -39,14 +40,6 @@ const saving = ref(false);
 const base = import.meta.env.BASE_URL as string;
 
 const cover = computed(() => coverOf(ticket.value?.cover));
-
-const dateLabel = computed(() =>
-  formatLocalDate(ticket.value?.date, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }),
-);
 
 const expired = computed(() => {
   const at = ticket.value?.payload.expiresAt;
@@ -174,56 +167,28 @@ async function saveImage(): Promise<void> {
       <p>Opening your ticket…</p>
     </div>
 
-    <div v-else class="ticket-card">
-      <div class="ticket-cover" :style="{ background: cover.grad }">
-        <span class="ticket-emoji">{{ cover.emoji }}</span>
-        <h1 class="ticket-title">{{ ticket.party || 'Your ticket' }}</h1>
-        <p v-if="dateLabel" class="ticket-when">
-          {{ dateLabel
-          }}<template v-if="ticket.time"> · {{ ticket.time }}</template>
-        </p>
-      </div>
-
-      <div class="ticket-body">
-        <div class="ticket-qr" :class="{ 'ticket-qr--expired': expired }">
-          <img
-            v-if="qr"
-            :src="qr"
-            :alt="`Entry QR code for ${ticket.payload.guestName}`"
-            width="260"
-            height="260"
-          />
-        </div>
-
-        <div class="ticket-guest">{{ ticket.payload.guestName }}</div>
-        <div class="ticket-code" aria-label="Ticket code">
-          {{ ticket.payload.code }}
-        </div>
-
-        <p v-if="expired" class="ticket-note ticket-note--warn" role="status">
-          <Icon name="info" :size="14" />
-          This ticket has expired.
-        </p>
-        <p v-else class="ticket-note">
-          Show this at the door. Turn your screen brightness up — and if the QR
-          won't scan, read out the code.
-        </p>
-
-        <button
-          class="ticket-btn"
-          type="button"
-          :disabled="!qr || saving"
-          @click="saveImage"
-        >
-          <Icon name="download" :size="15" />
-          {{ saving ? 'Saving…' : 'Save to my phone' }}
-        </button>
-      </div>
-
-      <p class="ticket-foot">
-        <a :href="base">Planned with BottleCount</a>
-      </p>
-    </div>
+    <!-- Shared with the planner's preview, so a host sees what a guest gets. -->
+    <TicketCard
+      v-else
+      :party="ticket.party"
+      :date="ticket.date"
+      :time="ticket.time ?? ''"
+      :cover="ticket.cover"
+      :guest-name="ticket.payload.guestName"
+      :code="ticket.payload.code"
+      :qr="qr"
+      :expired="expired"
+    >
+      <button
+        class="ticket-btn"
+        type="button"
+        :disabled="!qr || saving"
+        @click="saveImage"
+      >
+        <Icon name="download" :size="15" />
+        {{ saving ? 'Saving…' : 'Save to my phone' }}
+      </button>
+    </TicketCard>
   </div>
 </template>
 
@@ -270,96 +235,6 @@ async function saveImage(): Promise<void> {
   animation: bcPulse 1.4s ease-in-out infinite;
 }
 
-.ticket-card {
-  width: 100%;
-  max-width: 420px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  overflow: hidden;
-}
-
-.ticket-cover {
-  padding: 28px 22px 22px;
-  color: #fff;
-}
-.ticket-emoji {
-  font-size: 30px;
-  display: block;
-  margin-bottom: 10px;
-}
-.ticket-title {
-  font-family: var(--font-disp);
-  font-size: 26px;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.ticket-when {
-  margin: 6px 0 0;
-  font-size: 13px;
-  opacity: 0.92;
-}
-
-.ticket-body {
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-}
-
-/* Always white: a QR needs its light background whatever the Theme. */
-.ticket-qr {
-  width: min(100%, 280px);
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  border-radius: 16px;
-  background: #ffffff;
-}
-.ticket-qr img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.ticket-qr--expired {
-  opacity: 0.35;
-}
-
-.ticket-guest {
-  margin-top: 6px;
-  font-family: var(--font-disp);
-  font-weight: 700;
-  font-size: 20px;
-  overflow-wrap: anywhere;
-}
-.ticket-code {
-  font-family: ui-monospace, monospace;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--accent);
-}
-
-.ticket-note {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--dim);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.ticket-note--warn {
-  color: var(--bad);
-  font-weight: 600;
-}
-
 .ticket-btn {
   margin-top: 6px;
   cursor: pointer;
@@ -385,16 +260,5 @@ async function saveImage(): Promise<void> {
 .ticket-secondary {
   color: var(--dim);
   font-size: 13px;
-}
-
-.ticket-foot {
-  margin: 0;
-  padding: 0 22px 18px;
-  text-align: center;
-  font-size: 11px;
-}
-.ticket-foot a {
-  color: var(--faint);
-  text-decoration: none;
 }
 </style>

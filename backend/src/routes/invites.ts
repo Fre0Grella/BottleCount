@@ -2,10 +2,8 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { answerContact, guestName } from '../../../shared/contact';
-import { emptyPhotos } from '../../../shared/coverPhotos';
-import { emptyDetails } from '../../../shared/details';
 import type { InviteOpenDTO, InvitePartyDTO } from '../../../shared/invites';
-import { isInviteAnswer } from '../../../shared/invites';
+import { invitePartyOf, isInviteAnswer } from '../../../shared/invites';
 import type { InvitePaymentDTO } from '../../../shared/payments';
 import { invitePayment, isPaidParty } from '../../../shared/payments';
 import type { AppEnv } from '../appEnv';
@@ -43,21 +41,12 @@ function toPartyDTO(
   full: boolean,
   env: Env['Bindings'],
 ): InvitePartyDTO {
-  return {
+  // The shared derivation, which the planner's preview uses too.
+  return invitePartyOf(party, party.document, {
     slug: party.slug,
-    name: party.name,
-    date: party.date,
-    cover: party.cover,
-    photos: party.document?.photos ?? emptyPhotos(),
-    venue: party.venue,
-    // Like payment, read from the stored document; a party published before
-    // documents were stored has none to show.
-    details: party.document?.details ?? emptyDetails(),
-    allowForward: party.allowForward,
     full,
-    paid: partyIsPaid(party),
     googleSignIn: deployment(env).guestGoogle,
-  };
+  });
 }
 
 /**

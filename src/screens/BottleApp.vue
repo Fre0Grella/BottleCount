@@ -12,6 +12,7 @@ import PlanTab from '../features/party/PlanTab.vue';
 import MenuTab from '../features/menu/MenuTab.vue';
 import ShoppingTab from '../features/menu/ShoppingTab.vue';
 import GuestsTab from '../features/guests/GuestsTab.vue';
+import PreviewTab from '../features/sharing/PreviewTab.vue';
 import AddBottleModal from '../features/menu/AddBottleModal.vue';
 import CocktailBuilderModal from '../features/menu/CocktailBuilderModal.vue';
 import ManageIngredientsModal from '../features/menu/ManageIngredientsModal.vue';
@@ -54,6 +55,7 @@ const tabs = computed(() => {
     { key: 'menu' as const, label: 'Menu', icon: 'glass' as const },
     { key: 'shop' as const, label: 'Shopping', icon: 'cart' as const },
     { key: 'guests' as const, label: 'Guests', icon: 'users' as const },
+    { key: 'preview' as const, label: 'Preview', icon: 'eye' as const },
   ]
     .filter((t) => planningDrinks.value || !barTabs.has(t.key))
     .map((t) => ({ ...t, active: active === t.key }));
@@ -116,7 +118,7 @@ const tabs = computed(() => {
               @click="store.setTab(t.key)"
             >
               <Icon :name="t.icon" :size="14" />
-              {{ t.label }}
+              <span>{{ t.label }}</span>
             </button>
           </div>
 
@@ -126,6 +128,7 @@ const tabs = computed(() => {
             <MenuTab v-else-if="shownTab === 'menu'" />
             <ShoppingTab v-else-if="shownTab === 'shop'" />
             <GuestsTab v-else-if="shownTab === 'guests'" />
+            <PreviewTab v-else-if="shownTab === 'preview'" />
           </div>
 
           <AppFooter />
@@ -228,13 +231,23 @@ const tabs = computed(() => {
   font-size: 13px;
   padding: 8px 18px;
 }
+/* Five tabs share a phone's width, so each stacks its icon over its label. */
 .app-tab--phone {
   flex: 1;
+  min-width: 0;
+  flex-direction: column;
   border: 1px solid var(--border);
   justify-content: center;
-  gap: 5px;
-  font-size: 12px;
-  padding: 7px 4px;
+  gap: 2px;
+  font-size: 11px;
+  padding: 6px 2px;
+  border-radius: 14px;
+}
+.app-tab--phone span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .app-tab--active {
   background: var(--accent);

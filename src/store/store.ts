@@ -21,6 +21,7 @@ import {
   session,
   state,
   update,
+  type Tab,
 } from './storeState';
 import { currentTheme, toggleTheme as switchTheme } from '../lib/theme';
 import { findInvite } from '../features/tickets/ticket';
@@ -177,7 +178,7 @@ async function deleteParty(id: number): Promise<void> {
   if (idx !== -1) state.parties.splice(idx, 1);
 }
 
-function setTab(tab: 'plan' | 'menu' | 'shop' | 'guests'): void {
+function setTab(tab: Tab): void {
   state.tab = tab;
 }
 

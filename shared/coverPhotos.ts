@@ -49,6 +49,15 @@ export const COVER_PHOTO_MAX_BYTES = 750_000;
  */
 export const COVER_PHOTO_MAX_EDGE = 2000;
 
+/**
+ * The banner's shape, width over height: wide enough for the header behind a
+ * party's name on a laptop, tall enough to read as a photo on a phone.
+ */
+export const BANNER_ASPECT = 3;
+
+/** The banner size the host is told to aim for: sharp at 3x on a phone. */
+export const BANNER_RECOMMENDED_WIDTH = 1500;
+
 export type CoverPhotoType = 'image/webp' | 'image/jpeg';
 
 /**

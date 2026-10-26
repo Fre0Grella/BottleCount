@@ -520,11 +520,15 @@ const pnl = computed(() =>
 
 .hero__cover {
   position: relative;
-  height: 190px;
+  /* At least the old fixed height, and taller when the photo controls need
+     it, so nothing spills out of the card. */
+  min-height: 190px;
+  box-sizing: border-box;
   padding: 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 14px;
 }
 
 /* Cropped to fill, under the scrim, like any header photo. */
@@ -554,6 +558,7 @@ const pnl = computed(() =>
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
 }
 
 .hero__emoji {
@@ -569,10 +574,14 @@ const pnl = computed(() =>
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hero__covers {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 999px;
@@ -591,17 +600,20 @@ const pnl = computed(() =>
   border-color: #fff;
 }
 
-/* The name and venue sit on the cover photo, white in both Themes. */
+/* The name and venue sit on the cover photo, white in both Themes. On a
+   narrow phone the poster controls wrap under them instead of squeezing. */
 .hero__bottom {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 10px 12px;
   color: #fff;
 }
 
 .hero__text {
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 0;
 }
 

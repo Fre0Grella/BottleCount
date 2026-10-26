@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { PhotoSlot } from '../../../shared/coverPhotos';
+import {
+  BANNER_ASPECT,
+  BANNER_RECOMMENDED_WIDTH,
+} from '../../../shared/coverPhotos';
 import { useStore } from '../../store/store';
 import {
   photoSrc,
@@ -32,6 +36,11 @@ const party = computed(() => store.activeParty());
 
 const offered = computed(photosOffered);
 const src = computed(() => photoSrc(party.value, props.photo));
+/** What a banner should be, in the units hosts' photo apps show. */
+const bannerHint = `Best at ${BANNER_RECOMMENDED_WIDTH} × ${Math.round(
+  BANNER_RECOMMENDED_WIDTH / BANNER_ASPECT,
+)} px or larger`;
+
 /** The banner needs no thumbnail: the cover behind these buttons is it. */
 const thumbnail = computed(() => props.photo === 'poster');
 
@@ -110,6 +119,9 @@ async function onFile(e: Event): Promise<void> {
       aria-hidden="true"
       @change="onFile"
     />
+    <p v-if="photo === 'banner' && !error" class="photo__hint">
+      {{ bannerHint }}
+    </p>
     <p v-if="error" class="photo__error" role="alert">{{ error }}</p>
   </div>
 </template>
@@ -117,16 +129,20 @@ async function onFile(e: Event): Promise<void> {
 <style scoped>
 .photo {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 6px;
+  max-width: 100%;
 }
 
-/* Contained, not cropped: a poster's text stays whole. */
+/* Beside its buttons rather than above them, so the cover stays short.
+   Contained, not cropped: a poster's text stays whole. */
 .photo__thumb {
   display: flex;
-  width: 72px;
-  height: 72px;
+  flex: none;
+  width: 52px;
+  height: 52px;
   border-radius: 10px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.35);
@@ -142,6 +158,11 @@ async function onFile(e: Event): Promise<void> {
 .photo__actions {
   display: flex;
   gap: 6px;
+}
+
+.photo__btn,
+.photo__actions {
+  flex: none;
 }
 
 /* On the cover, white in both Themes, like the cover picker beside it. */
@@ -169,9 +190,20 @@ async function onFile(e: Event): Promise<void> {
   display: none;
 }
 
-.photo__error {
+/* Small, under the buttons, white on the cover like they are. */
+.photo__hint {
+  flex-basis: 100%;
   margin: 0;
-  max-width: 220px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: right;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.photo__error {
+  flex-basis: 100%;
+  box-sizing: border-box;
+  margin: 0;
   padding: 6px 9px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.55);
