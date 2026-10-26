@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyPaymentDetails } from '../../../shared/payments';
+import { emptyDetails } from '../../../shared/details';
 import { fakeWorker, sent } from '../../lib/api/testing';
 import { documentOf } from '../../lib/collab';
 import { PartySync, type SyncCallbacks } from './sync';
@@ -30,6 +31,7 @@ function aParty(): Party {
     includeSnacks: true,
     barManaged: true,
     payment: emptyPaymentDetails(),
+    details: emptyDetails(),
     invites: [],
   };
 }

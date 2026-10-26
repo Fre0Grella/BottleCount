@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import type { PartyDocument, SharedPartyDTO } from '../../../../shared/collab';
 import { emptyPaymentDetails } from '../../../../shared/payments';
+import { emptyDetails } from '../../../../shared/details';
 import type { Repositories } from '../../repositories/repositories';
 import { fakeInvites, fakeParties } from './fakeInvites';
 import {
@@ -37,6 +38,7 @@ export function aDocument(
     includeSnacks: true,
     barManaged: true,
     payment: emptyPaymentDetails(),
+    details: emptyDetails(),
     ...overrides,
   };
 }

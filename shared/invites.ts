@@ -7,6 +7,7 @@
  */
 
 import type { PartyDocument, Venue } from './collab';
+import type { PartyDetails } from './details';
 import type { InvitePaymentDTO } from './payments';
 
 // ── Status ──────────────────────────────────────────────────────────────────
@@ -45,6 +46,8 @@ export interface InvitePartyDTO {
   cover: number;
   /** With its map pin when the host picked one, for "Open in Maps". */
   venue: Venue;
+  /** The description and practical info the host wrote for guests. */
+  details: PartyDetails;
   /** Whether a confirmed guest gets a forward link of their own. */
   allowForward: boolean;
   /** True when a capacity cap is set and confirmed guests have reached it. */

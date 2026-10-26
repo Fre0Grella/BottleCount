@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { answerContact, guestName } from '../../../shared/contact';
+import { emptyDetails } from '../../../shared/details';
 import type { InviteOpenDTO, InvitePartyDTO } from '../../../shared/invites';
 import { isInviteAnswer } from '../../../shared/invites';
 import type { InvitePaymentDTO } from '../../../shared/payments';
@@ -46,6 +47,9 @@ function toPartyDTO(
     date: party.date,
     cover: party.cover,
     venue: party.venue,
+    // Like payment, read from the stored document; a party published before
+    // documents were stored has none to show.
+    details: party.document?.details ?? emptyDetails(),
     allowForward: party.allowForward,
     full,
     paid: partyIsPaid(party),

@@ -2,6 +2,7 @@ import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import { applyDocument, documentOf } from './collab';
 import { emptyPaymentDetails } from '../../shared/payments';
+import { emptyDetails } from '../../shared/details';
 import type { Party } from './types';
 
 function aParty(): Party {
@@ -29,6 +30,7 @@ function aParty(): Party {
     includeSnacks: true,
     barManaged: true,
     payment: emptyPaymentDetails(),
+    details: emptyDetails(),
     invites: [],
   };
 }
@@ -81,6 +83,18 @@ describe('applyDocument', () => {
     applyDocument(party, stale as never);
 
     expect(party.payment).toEqual(emptyPaymentDetails());
+  });
+
+  it('gives empty details when the server copy predates them', () => {
+    // Same failure as payment: with no `details` the Plan tab's description
+    // and practical info would have nothing to write into.
+    const party = aParty();
+    const stale = documentOf(party) as unknown as Record<string, unknown>;
+    delete stale['details'];
+
+    applyDocument(party, stale as never);
+
+    expect(party.details).toEqual(emptyDetails());
   });
 
   it('fills in a payment the server only has part of', () => {

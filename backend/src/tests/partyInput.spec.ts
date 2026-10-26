@@ -97,6 +97,15 @@ describe('normaliseDocument', () => {
       expect(pinned(pin)).toEqual({ ...venue, pin });
     });
 
+    it('keeps an end time, and leaves it off when there is none', () => {
+      const ends = (endTime: unknown) =>
+        normaliseDocument({ ...aDocument(), venue: { ...venue, endTime } })
+          .venue;
+      expect(ends('03:00')).toEqual({ ...venue, endTime: '03:00' });
+      expect(ends('')).toEqual(venue);
+      expect(ends(7)).toEqual(venue);
+    });
+
     it('leaves the pin off a venue that was only typed', () => {
       expect(pinned(undefined)).toEqual(venue);
     });

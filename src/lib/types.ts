@@ -2,6 +2,7 @@ import type { FeatureSet } from '../../shared/tiers';
 import type { InviteStatus } from '../../shared/invites';
 import type { PaymentDetails } from '../../shared/payments';
 import type { Venue } from '../../shared/collab';
+import type { PartyDetails } from '../../shared/details';
 import type {
   Catalog,
   Cocktail,
@@ -161,6 +162,8 @@ export interface Party {
    */
   barManaged: boolean;
   payment: PaymentDetails;
+  /** What guests read on the invite page beyond the card; see shared/details.ts. */
+  details: PartyDetails;
   invites: Invite[];
   /**
    * Set once the host turns the invite link on. Holds what the browser needs to

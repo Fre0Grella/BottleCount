@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatEuro, formatEuroRange, segColor, venueWhere } from './display';
+import {
+  formatEuro,
+  formatEuroRange,
+  segColor,
+  timeSpan,
+  venueWhere,
+} from './display';
 
 describe('formatEuro', () => {
   it('rounds to whole euros by default', () => {
@@ -52,5 +58,14 @@ describe('segColor', () => {
     expect(segColor(0)).toBe('var(--seg-0)');
     expect(segColor(4)).toBe('var(--seg-4)');
     expect(segColor(7)).toBe('var(--seg-2)');
+  });
+});
+
+describe('timeSpan', () => {
+  it('shows a start, a range, or only an end', () => {
+    expect(timeSpan('21:00')).toBe('21:00');
+    expect(timeSpan('21:00', '03:00')).toBe('21:00 – 03:00');
+    expect(timeSpan('', '03:00')).toBe('until 03:00');
+    expect(timeSpan(undefined, undefined)).toBe('');
   });
 });

@@ -3,6 +3,7 @@ import { reactive, toRaw } from 'vue';
 import type { SharedPartyDTO } from '../../../shared/collab';
 import type { HostInviteDTO } from '../../../shared/invites';
 import { emptyPaymentDetails } from '../../../shared/payments';
+import { emptyDetails } from '../../../shared/details';
 import { fetchFunnel } from '../../lib/api/guests';
 import { fetchParty, patchParty } from '../../lib/api/parties';
 import type { ApiResult } from '../../lib/api/request';
@@ -53,6 +54,7 @@ function aParty(id: number, remoteId: string | null): Party {
     includeSnacks: true,
     barManaged: true,
     payment: emptyPaymentDetails(),
+    details: emptyDetails(),
     invites: [],
     publication: remoteId
       ? {

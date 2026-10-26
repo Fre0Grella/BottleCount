@@ -4,6 +4,8 @@ import type {
   PublishedPartyDTO,
 } from '../../../../shared/invites';
 import type { SharedPartyDTO, Venue } from '../../../../shared/collab';
+import type { PartyDetails } from '../../../../shared/details';
+import { emptyDetails } from '../../../../shared/details';
 import type { PaymentDetails } from '../../../../shared/payments';
 import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { Repositories } from '../../repositories/repositories';
@@ -23,6 +25,7 @@ async function aPublishedParty(
     allowForward?: boolean;
     payment?: Partial<PaymentDetails>;
     venue?: Venue;
+    details?: PartyDetails;
   } = {},
 ): Promise<{ repositories: Repositories; party: PublishedPartyDTO }> {
   const repositories = repositoriesWith();
@@ -30,6 +33,7 @@ async function aPublishedParty(
     allowForward: overrides.allowForward ?? true,
     payment: { ...emptyPaymentDetails(), ...overrides.payment },
     venue: overrides.venue ?? aDocument().venue,
+    details: overrides.details ?? aDocument().details,
     settings: {
       ...aDocument().settings,
       max_capacity: overrides.maxCapacity ?? null,
@@ -186,6 +190,19 @@ describe('opening an invite link', () => {
     const { repositories, party } = await aPublishedParty({ venue });
 
     expect((await open(repositories, party.slug)).party.venue).toEqual(venue);
+  });
+
+  // Public by design (ADR 0002): the Plan tab says so next to the fields.
+  it('shows the description and practical info the host wrote', async () => {
+    const details = {
+      description: 'Sunset on the roof.',
+      info: { ...emptyDetails().info, dress_code: 'All white' },
+    };
+    const { repositories, party } = await aPublishedParty({ details });
+
+    expect((await open(repositories, party.slug)).party.details).toEqual(
+      details,
+    );
   });
 
   it('does not hand out a forward token before confirming', async () => {

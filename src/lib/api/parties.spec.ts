@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyPaymentDetails } from '../../../shared/payments';
+import { emptyDetails } from '../../../shared/details';
 import type { Party } from '../types';
 import {
   acceptCollaboratorInvite,
@@ -43,6 +44,7 @@ function aParty(): Party {
     includeSnacks: true,
     barManaged: true,
     payment: emptyPaymentDetails(),
+    details: emptyDetails(),
     invites: [
       {
         id: 1,
