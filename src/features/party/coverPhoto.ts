@@ -1,4 +1,5 @@
 import type { PhotoSlot } from '../../../shared/coverPhotos';
+import type { CropRect } from './bannerCrop';
 import {
   COVER_PHOTO_MAX_BYTES,
   COVER_PHOTO_MAX_EDGE,
@@ -65,13 +66,17 @@ function toBlob(
 }
 
 /**
- * The photo the host picked, ready to upload: at most
+ * The photo the host picked, cropped to `crop` when there is one (the part
+ * of a banner they framed), ready to upload: at most
  * {@link COVER_PHOTO_MAX_EDGE} on its longest side, under
  * {@link COVER_PHOTO_MAX_BYTES}, as WebP — or JPEG where the browser cannot
  * encode WebP (Safari). Null when the file is not an image the browser can
  * read.
  */
-export async function shrinkCoverPhoto(file: Blob): Promise<Blob | null> {
+export async function shrinkCoverPhoto(
+  file: Blob,
+  crop?: CropRect,
+): Promise<Blob | null> {
   let bitmap: ImageBitmap;
   try {
     // Honours the EXIF orientation, so a phone photo is upright once the
@@ -81,9 +86,17 @@ export async function shrinkCoverPhoto(file: Blob): Promise<Blob | null> {
     return null;
   }
 
+  // The part the host framed (a banner), or the whole image (a poster).
+  const area = crop ?? {
+    x: 0,
+    y: 0,
+    width: bitmap.width,
+    height: bitmap.height,
+  };
+
   try {
     return await smallestFit(async (edge, quality) => {
-      const { width, height } = fitWithin(bitmap.width, bitmap.height, edge);
+      const { width, height } = fitWithin(area.width, area.height, edge);
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -92,7 +105,17 @@ export async function shrinkCoverPhoto(file: Blob): Promise<Blob | null> {
       // JPEG has no transparency, and a transparent PNG would turn black.
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(bitmap, 0, 0, width, height);
+      ctx.drawImage(
+        bitmap,
+        area.x,
+        area.y,
+        area.width,
+        area.height,
+        0,
+        0,
+        width,
+        height,
+      );
 
       const webp = await toBlob(canvas, 'image/webp', quality);
       if (webp?.type === 'image/webp') return webp;
