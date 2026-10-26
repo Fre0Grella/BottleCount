@@ -1,8 +1,7 @@
 import type { CoverBucket } from '../../lib/coverPhotos';
 
 /**
- * An R2 bucket in a Map: just the four calls the cover photos make, with the
- * semantics they rely on (prefix listing, multi-key delete).
+ * An R2 bucket in a Map: just the three calls the cover photos make.
  */
 export function fakeCoverBucket(): CoverBucket & {
   keys(): string[];
@@ -34,17 +33,6 @@ export function fakeCoverBucket(): CoverBucket & {
       for (const key of Array.isArray(keys) ? keys : [keys]) {
         objects.delete(key);
       }
-    },
-
-    async list(options?: R2ListOptions) {
-      const prefix = options?.prefix ?? '';
-      return {
-        objects: [...objects.keys()]
-          .filter((k) => k.startsWith(prefix))
-          .map((key) => ({ key })),
-        truncated: false,
-        delimitedPrefixes: [],
-      } as unknown as R2Objects;
     },
   } as CoverBucket & { keys(): string[] };
 }

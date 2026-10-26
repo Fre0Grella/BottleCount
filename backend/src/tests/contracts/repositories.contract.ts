@@ -706,6 +706,53 @@ export function repositoryContract(name: string, target: ContractTarget): void {
 
     // ── Members ────────────────────────────────────────────────────────────
 
+    describe('cover photo ledger', () => {
+      let party: PublishedParty;
+
+      beforeEach(async () => {
+        party = await publish((await signIn('host@example.com')).id);
+      });
+
+      it('records one photo per party, the latest replacing the last', async () => {
+        const photos = repos.coverPhotos;
+        expect(value(await photos.find(party.id))).toBeNull();
+
+        await photos.save({ partyId: party.id, token: 'one', bytes: 300 });
+        await photos.save({ partyId: party.id, token: 'two', bytes: 200 });
+
+        expect(value(await photos.find(party.id))).toEqual({
+          partyId: party.id,
+          token: 'two',
+          bytes: 200,
+        });
+        expect(value(await photos.totalBytes())).toBe(200);
+      });
+
+      it('forgets a removed photo, and a deleted party', async () => {
+        const photos = repos.coverPhotos;
+        await photos.save({ partyId: party.id, token: 'one', bytes: 300 });
+        await photos.remove(party.id);
+        expect(value(await photos.find(party.id))).toBeNull();
+
+        await photos.save({ partyId: party.id, token: 'two', bytes: 300 });
+        await repos.parties.deleteById(party.id);
+        expect(value(await photos.totalBytes())).toBe(0);
+      });
+
+      it('spends a day budget exactly up to its limit, per day and kind', async () => {
+        const spend = async (kind: 'write' | 'read', day: string) =>
+          value(await repos.coverPhotos.spend(kind, day, 2));
+
+        expect(await spend('write', '2026-10-26')).toBe(true);
+        expect(await spend('write', '2026-10-26')).toBe(true);
+        expect(await spend('write', '2026-10-26')).toBe(false);
+        expect(await spend('write', '2026-10-26')).toBe(false);
+
+        expect(await spend('read', '2026-10-26')).toBe(true);
+        expect(await spend('write', '2026-10-27')).toBe(true);
+      });
+    });
+
     describe('members', () => {
       let owner: User;
       let friend: User;

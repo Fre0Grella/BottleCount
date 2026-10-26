@@ -20,6 +20,10 @@ const party = computed(() => store.activeParty());
 const offered = computed(photosOffered);
 const src = computed(() => photoSrc(party.value));
 
+/** The photo this thumbnail failed to load, so a new one gets its chance. */
+const failed = ref<string | null>(null);
+const shown = computed(() => (src.value !== failed.value ? src.value : null));
+
 const fileInput = ref<HTMLInputElement | null>(null);
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -51,14 +55,14 @@ async function onFile(e: Event): Promise<void> {
 <template>
   <div v-if="offered" class="photo">
     <a
-      v-if="src"
-      :href="src"
+      v-if="shown"
+      :href="shown"
       target="_blank"
       rel="noopener"
       class="photo__thumb"
       aria-label="Open the party photo"
     >
-      <img :src="src" alt="" />
+      <img :src="shown" alt="" @error="failed = shown" />
     </a>
 
     <div class="photo__actions">

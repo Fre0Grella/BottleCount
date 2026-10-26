@@ -1,7 +1,7 @@
 # ADR 0007 — Cover photos and posters
 
 Status: accepted
-Date: 2026-10-26
+Date: 2026-10-26 (amended the same day: the free-tier budget)
 Follows: [ADR 0001](0001-cloudflare-tiers.md), [ADR 0002](0002-invite-links-and-the-funnel.md), [ADR 0003](0003-co-organisers.md)
 
 ## Context
@@ -68,10 +68,37 @@ provider joins the stack.
   already authorised, so a document cannot point at another party's image. A
   token is never reused, so organisers may cache their copy for good.
 - **Deletion.** Replacing, removing (`DELETE /api/parties/:id/cover`) and
-  deleting the party (`DELETE /api/parties/:id`) each clear the party's prefix.
+  deleting the party (`DELETE /api/parties/:id`) each delete the party's
+  object. Deletes are free in R2.
 - **The document follows the bytes.** `PUT /api/parties/:id/cover` stores the
   image and patches the document's `coverPhoto` in the same request, so
   co-organisers get the new image through the existing sync.
+- **A hard budget keeps R2 free.** R2 has no spending cap of its own, and the
+  owner must never be billed for it, so the Worker enforces one
+  (`R2_BUDGET` in `backend/src/lib/coverPhotos.ts`). Each limit is spent from a
+  D1 ledger before the R2 operation it pays for, and the operation is refused
+  once the limit is reached:
+
+  | Free allowance (monthly) | Budget                   | Worst bill (any 31 days) |
+  | ------------------------ | ------------------------ | ------------------------ |
+  | 10 GB stored             | 5 GB stored, at any time | 5 GB                     |
+  | 1M Class A (writes)      | 500 uploads a day        | 15,500                   |
+  | 10M Class B (reads)      | 30,000 photos served/day | 930,000                  |
+
+  The limits are **daily** because Cloudflare bills from the account's billing
+  date, not the calendar month: a monthly counter could let two full months land
+  in one bill, while 31 days of a daily one cannot pass the table. Over a limit,
+  an upload answers 503 (today's uploads) or 507 (storage full), and a photo
+  answers 503, which both pages show as the emoji cover.
+
+  The ledger (`cover_photos`, migration 0007) records each party's current
+  photo and its size. That gives the storage total as a `SUM`, so nothing ever
+  lists the bucket (R2 bills a listing as a write). It also says which token is
+  current, so a replaced photo is never served. A row is written before its
+  object and removed after it, so the ledger can over-count for a moment but
+  never under-counts. Each read is one D1 row written (`r2_usage`), which keeps
+  the read budget under a third of D1's own free 100,000 writes a day.
+
 - **Display.** The image is never cropped. On the invite page it replaces the
   gradient banner, shown whole (up to 75% of the screen height) and tappable for
   full size, with the name and date below it as text. On the Plan tab it is a
@@ -81,10 +108,10 @@ provider joins the stack.
 
 - **The bucket is optional.** The Worker reads `COVER_PHOTOS` through
   `deployment()`; without it, uploads answer 501 and `/api/session` reports
-  `coverPhotos: false`, so the app does not offer them. Only the `local`
-  environment binds it in `wrangler.jsonc`. Production and preview get the
-  binding once their bucket exists (`wrangler r2 bucket create`), because a
-  binding to a missing bucket fails the deploy (`backend/README.md`).
+  `coverPhotos: false`, so the app does not offer them. Each environment gets
+  the binding only once its bucket exists (`wrangler r2 bucket create`),
+  because a binding to a missing bucket fails the deploy
+  (`backend/README.md`).
 - **Self-hosters** get photos by creating a bucket and adding the binding;
   `SELF_HOSTED` already grants them `pro`.
 - **Two organisers uploading at the same moment** can leave the document naming
@@ -93,7 +120,15 @@ provider joins the stack.
 - **A refunded owner's party keeps its image** until someone removes it, as it
   keeps its other Pro-era state. A new image needs Pro again.
 - **Account deletion** (by email, ADR 0001) has to delete each owned party
-  through the same route, or clear its `covers/<partyId>/` prefix by hand.
+  through the same route, or clear its `covers/<partyId>/` prefix and ledger
+  row by hand.
+- **A busy day can switch photos off until midnight UTC.** One Pro host can
+  spend the day's uploads for everyone, and a party whose invite goes viral can
+  spend the day's reads. Both cost nothing and recover the next day; staying
+  free is the requirement, not uptime. Raising a limit is a one-line change,
+  which the table above has to justify.
+- **`r2_usage` grows by two rows a day.** That is about 730 rows a year, not
+  worth pruning.
 - **Home cards, tickets and the join page keep the emoji covers.** Ticket images
   are fixed branding drawn on a canvas (`CONTEXT.md`), and the other two do not
   carry the photo token.

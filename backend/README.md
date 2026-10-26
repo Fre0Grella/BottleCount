@@ -137,6 +137,11 @@ then add to the environment in `wrangler.jsonc`:
 The `local` environment has it already; `wrangler dev` simulates the bucket on
 disk.
 
+However much traffic arrives, the Worker keeps the bucket inside R2's free tier:
+at most 5 GB stored, 500 uploads and 30,000 photos served a day (`R2_BUDGET`
+in `src/lib/coverPhotos.ts`, ledger in migration 0007). Past a limit, uploads
+answer 503 or 507 and photos 503, and the app falls back to the emoji cover.
+
 ## Issuing licences
 
 Until a checkout provider is wired up, fulfilment is manual:

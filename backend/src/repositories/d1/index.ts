@@ -1,4 +1,5 @@
 import type { Repositories } from '../repositories';
+import { CoverPhotoRepositoryD1 } from './coverPhotoRepositoryD1';
 import { InviteRepositoryD1 } from './inviteRepositoryD1';
 import { LicenceRepositoryD1 } from './licenceRepositoryD1';
 import { MemberRepositoryD1 } from './memberRepositoryD1';
@@ -12,5 +13,6 @@ export function d1Repositories(db: D1Database): Repositories {
     parties: new PartyRepositoryD1(db),
     invites: new InviteRepositoryD1(db),
     members: new MemberRepositoryD1(db),
+    coverPhotos: new CoverPhotoRepositoryD1(db),
   };
 }
