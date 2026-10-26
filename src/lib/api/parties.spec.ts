@@ -11,6 +11,7 @@ import {
   previewCollaboratorInvite,
   removeMember,
   storeParty,
+  uploadCoverPhoto,
 } from './parties';
 import { isNotFound } from './request';
 import { fakeWorker, sent } from './testing';
@@ -26,6 +27,7 @@ function aParty(): Party {
     date: '2026-10-01',
     createdAt: '2026-09-01T00:00:00.000Z',
     cover: 0,
+    coverPhoto: '',
     venue: { place: 'Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,
@@ -97,6 +99,24 @@ describe('api/parties', () => {
       method: 'DELETE',
       path: '/api/parties/p1',
     });
+  });
+
+  // Raw bytes under the photo's own type: the Worker reads the header, and a
+  // JSON-encoded blob would be neither.
+  it('sends a cover photo as it is, not as JSON', async () => {
+    const fake = fakeWorker({ json: { token: 't' } });
+    const photo = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' });
+
+    expect(await uploadCoverPhoto('p1', photo)).toEqual({
+      ok: true,
+      value: { token: 't' },
+    });
+    const [path, init] = fake.mock.calls[0] as [string, RequestInit];
+    expect([init.method, path]).toEqual(['PUT', '/api/parties/p1/cover']);
+    expect(init.body).toBe(photo);
+    expect((init.headers as Record<string, string>)['content-type']).toBe(
+      'image/webp',
+    );
   });
 
   it('names the co-organiser routes', async () => {

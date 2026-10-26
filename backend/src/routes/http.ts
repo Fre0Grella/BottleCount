@@ -63,6 +63,46 @@ export async function readBody(c: Context): Promise<Record<string, unknown>> {
     : {};
 }
 
+/**
+ * The raw request body, or null when it is empty or longer than `max` bytes.
+ *
+ * Read a chunk at a time and abandoned at the limit, so a client that lies
+ * about its length, or sends none, still cannot make the Worker hold more than
+ * `max` bytes.
+ */
+export async function readBytes(
+  c: Context,
+  max: number,
+): Promise<Uint8Array | null> {
+  const declared = Number(c.req.header('content-length'));
+  if (declared > max) return null;
+  const stream = c.req.raw.body;
+  if (!stream) return null;
+
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const reader = stream.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  if (size === 0) return null;
+
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return bytes;
+}
+
 /** A string field, or '' when it is missing or is not a string. */
 export function text(fields: Record<string, unknown>, key: string): string {
   const value = fields[key];

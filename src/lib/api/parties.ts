@@ -50,6 +50,20 @@ export function deleteRemoteParty(id: string): Promise<ApiResult<void>> {
   return request(partyPath(id), { method: 'DELETE' });
 }
 
+// ── The cover photo ─────────────────────────────────────────────────────────
+
+/** Uploads a photo the browser has already shrunk; answers its token. */
+export function uploadCoverPhoto(
+  id: string,
+  photo: Blob,
+): Promise<ApiResult<{ token: string }>> {
+  return request(`${partyPath(id)}/cover`, { method: 'PUT', body: photo });
+}
+
+export function deleteCoverPhoto(id: string): Promise<ApiResult<unknown>> {
+  return request(`${partyPath(id)}/cover`, { method: 'DELETE' });
+}
+
 // ── The guest-facing link ───────────────────────────────────────────────────
 
 export function openInviteLink(

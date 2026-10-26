@@ -33,7 +33,10 @@ export type ApiResult<T> =
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  /** Sent as JSON. Leave out for a request with no body. */
+  /**
+   * Sent as JSON, or as it is when it is a `Blob` (a cover photo), under the
+   * blob's own type. Leave out for a request with no body.
+   */
   body?: unknown;
 }
 
@@ -53,6 +56,8 @@ export async function request<T>(
   path: string,
   { method = 'GET', body }: RequestOptions = {},
 ): Promise<ApiResult<T>> {
+  const raw = body instanceof Blob;
+  const contentType = raw ? body.type : 'application/json';
   let res: Response;
   let text: string;
   try {
@@ -61,9 +66,11 @@ export async function request<T>(
       credentials: 'include',
       headers: {
         accept: 'application/json',
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(body === undefined ? {} : { 'content-type': contentType }),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined
+        ? {}
+        : { body: raw ? body : JSON.stringify(body) }),
     });
     text = await res.text();
   } catch {

@@ -44,6 +44,11 @@ export interface InvitePartyDTO {
   /** ISO date, `YYYY-MM-DD`. */
   date: string;
   cover: number;
+  /**
+   * The cover photo's token, or null. Fetched from `/invite/<slug>/cover/<token>`,
+   * which serves only while the link is open.
+   */
+  coverPhoto: string | null;
   /** With its map pin when the host picked one, for "Open in Maps". */
   venue: Venue;
   /** The description and practical info the host wrote for guests. */

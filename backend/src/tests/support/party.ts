@@ -20,6 +20,7 @@ export function aDocument(
     name: 'Rooftop',
     date: '2026-10-02',
     cover: 1,
+    coverPhoto: '',
     venue: { place: 'The Roof', city: 'Milan', time: '21:00' },
     settings: {
       guests: 40,

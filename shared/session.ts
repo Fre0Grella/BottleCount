@@ -32,6 +32,11 @@ export interface SessionDTO {
    * to a Google client that may not be registered.
    */
   devSignIn: boolean;
+  /**
+   * Whether this deployment can store cover photos: it has an R2 bucket bound
+   * (ADR 0007). Pro alone is not enough on a Worker without one.
+   */
+  coverPhotos: boolean;
 }
 
 export type { Feature, FeatureSet, Tier };

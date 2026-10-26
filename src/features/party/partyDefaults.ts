@@ -22,6 +22,7 @@ export function newParty(now: Date = new Date()): Party {
     date: localIsoDate(now),
     createdAt: now.toISOString(),
     cover: 0,
+    coverPhoto: '',
     venue: { place: '', city: '', time: '21:00' },
     settings: {
       guests: 40,

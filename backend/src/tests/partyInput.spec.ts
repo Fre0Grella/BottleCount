@@ -86,6 +86,22 @@ describe('normaliseDocument', () => {
     }
   });
 
+  describe('cover photo', () => {
+    const photo = (coverPhoto: unknown) =>
+      normaliseDocument({ ...aDocument(), coverPhoto }).coverPhoto;
+
+    it('keeps a token the Worker gave out', () => {
+      expect(photo('abcdefghjkmnpqrstuvw')).toBe('abcdefghjkmnpqrstuvw');
+    });
+
+    // The token becomes part of an R2 key and a URL: nothing else gets in.
+    it('drops anything that is not a token', () => {
+      for (const value of ['../other-party/x', 'short', 42, null, undefined]) {
+        expect(photo(value)).toBe('');
+      }
+    });
+  });
+
   describe('venue pin', () => {
     const venue = { place: 'Roof', city: 'Milan', time: '21:00' };
     const pinned = (pin: unknown) =>

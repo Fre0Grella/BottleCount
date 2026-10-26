@@ -41,6 +41,7 @@ export interface RequestOptions {
   env?: Partial<Bindings>;
   cookie?: string;
   method?: string;
+  /** Sent as JSON, or as it is when it is raw bytes (a cover photo). */
   body?: unknown;
   /** Extra request headers, e.g. `origin` for the CORS tests. */
   headers?: Record<string, string>;
@@ -60,14 +61,21 @@ export async function request(
   const app = createApp({ repositories });
   const headers: Record<string, string> = { ...extraHeaders };
   if (cookie) headers['cookie'] = cookie;
-  if (body !== undefined) headers['content-type'] = 'application/json';
+  const raw = body instanceof Uint8Array;
+  if (body !== undefined) {
+    headers['content-type'] = raw
+      ? 'application/octet-stream'
+      : 'application/json';
+  }
 
   return app.request(
     `http://localhost${path}`,
     {
       method,
       headers,
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined
+        ? {}
+        : { body: raw ? (body as BodyInit) : JSON.stringify(body) }),
     },
     testEnv(env),
   );

@@ -145,6 +145,8 @@ export interface Party {
   date: string;
   createdAt: string;
   cover: number; // 0..5 index into COVERS (covers.ts)
+  /** The party's own photo over the cover, or ''. See shared/coverPhotos.ts. */
+  coverPhoto: string;
   venue: Venue;
   settings: PartySettings; // existing interface
   menu: PartyMenu; // existing type (Record<string, CategoryEntry>)

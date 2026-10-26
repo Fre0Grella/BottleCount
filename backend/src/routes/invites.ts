@@ -9,6 +9,7 @@ import type { InvitePaymentDTO } from '../../../shared/payments';
 import { invitePayment, isPaidParty } from '../../../shared/payments';
 import type { AppEnv } from '../appEnv';
 import { deployment } from '../deployment';
+import { coverPhotoResponse } from '../lib/coverPhotos';
 import type { Invite } from '../repositories/inviteRepository';
 import type { PublishedParty } from '../repositories/partyRepository';
 import { fail, readBody, text } from './http';
@@ -46,6 +47,7 @@ function toPartyDTO(
     name: party.name,
     date: party.date,
     cover: party.cover,
+    coverPhoto: party.document?.coverPhoto || null,
     venue: party.venue,
     // Like payment, read from the stored document; a party published before
     // documents were stored has none to show.
@@ -180,6 +182,25 @@ invites.post('/:slug/answer', async (c) => {
   // full party is a 409.
   if (!answered.ok) return fail(c, answered.error);
   return c.json(await inviteOpenDTO(c, answered.value));
+});
+
+/**
+ * `GET /invite/:slug/cover/:token` — the party's photo or poster, for guests.
+ * Behind the same open-link check as the card itself, so closing the link
+ * takes the photo down with it. Cached briefly, not for good: unlike an
+ * organiser's copy, a guest's should stop working soon after that.
+ */
+invites.get('/:slug/cover/:token', async (c) => {
+  const bucket = c.env.COVER_PHOTOS;
+  const photo =
+    bucket &&
+    (await coverPhotoResponse(
+      bucket,
+      c.get('party').id,
+      c.req.param('token'),
+      'private, max-age=3600',
+    ));
+  return photo || c.json({ error: 'cover_photo_not_found' }, 404);
 });
 
 export default invites;

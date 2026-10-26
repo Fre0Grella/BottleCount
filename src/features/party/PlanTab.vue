@@ -37,6 +37,7 @@ import Toggle from '../../components/ui/Toggle.vue';
 import PaymentSettings from '../payments/PaymentSettings.vue';
 import VenuePicker from './VenuePicker.vue';
 import PartyDetailsCard from './PartyDetailsCard.vue';
+import CoverPhotoPicker from './CoverPhotoPicker.vue';
 
 const store = useStore();
 
@@ -207,21 +208,24 @@ const pnl = computed(() =>
           </div>
         </div>
 
-        <!-- bottom row: party name + venue line -->
+        <!-- bottom row: party name + venue line, and the photo or poster -->
         <div class="hero__bottom">
-          <input
-            :value="p.name"
-            placeholder="Party name"
-            aria-label="Party name"
-            class="hero__name"
-            @input="renameParty(typed($event))"
-          />
-          <div class="hero__where">
-            <span class="hero__pin">
-              <Icon name="mapPin" :size="13" />
-            </span>
-            {{ venueWhere }}
+          <div class="hero__text">
+            <input
+              :value="p.name"
+              placeholder="Party name"
+              aria-label="Party name"
+              class="hero__name"
+              @input="renameParty(typed($event))"
+            />
+            <div class="hero__where">
+              <span class="hero__pin">
+                <Icon name="mapPin" :size="13" />
+              </span>
+              {{ venueWhere }}
+            </div>
           </div>
+          <CoverPhotoPicker />
         </div>
       </div>
     </div>
@@ -534,7 +538,15 @@ const pnl = computed(() =>
 /* The name and venue sit on the cover photo, white in both Themes. */
 .hero__bottom {
   position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
   color: #fff;
+}
+
+.hero__text {
+  flex: 1;
+  min-width: 0;
 }
 
 .hero__name {
