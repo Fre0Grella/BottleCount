@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   funnelBar,
   funnelGroups,
+  guestListOrder,
   initial,
   isNameless,
   percentOf,
@@ -165,5 +166,20 @@ describe('avatars and names', () => {
   it('names a referrer by their first name', () => {
     expect(referrerFirst(' Marco Bianchi')).toBe('Marco');
     expect(referrerFirst(null)).toBe('');
+  });
+});
+
+describe('guestListOrder', () => {
+  it('sinks the people who only opened the link, keeping everyone’s order', () => {
+    const list = [
+      guest({ id: 1, name: '', status: 'opened' }),
+      guest({ id: 2, name: 'Bea' }),
+      guest({ id: 3, name: '  ', status: 'opened' }),
+      guest({ id: 4, name: 'Carlo', status: 'declined' }),
+      // Answered once, then reset by the host: they still said who they are.
+      guest({ id: 5, name: 'Dario', status: 'opened' }),
+    ];
+
+    expect(guestListOrder(list).map((i) => i.id)).toEqual([2, 4, 5, 1, 3]);
   });
 });

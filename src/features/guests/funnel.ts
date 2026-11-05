@@ -135,6 +135,19 @@ export function isNameless(inv: Pick<Invite, 'name'>): boolean {
   return inv.name.trim() === '';
 }
 
+/**
+ * The guest list in the order the host reads it: everyone who has told the
+ * host who they are first, as they were, then the people who only opened the
+ * link. Those are most of the rows on a busy link and none of the ones the
+ * host acts on, so they sink to the bottom rather than push the guests down.
+ */
+export function guestListOrder<T extends Pick<Invite, 'name' | 'status'>>(
+  invites: readonly T[],
+): T[] {
+  const lurking = (i: T) => i.status === 'opened' && isNameless(i);
+  return [...invites.filter((i) => !lurking(i)), ...invites.filter(lurking)];
+}
+
 /** "via Marco" for a guest Marco Bianchi forwarded the invite to. */
 export function referrerFirst(referrer: string | null): string {
   if (!referrer) return '';

@@ -18,6 +18,7 @@ import {
   rememberInviteId,
   rememberedContact,
   rememberedInviteId,
+  splitName,
 } from '../features/guests/rsvp';
 import BrandMark from '../components/ui/BrandMark.vue';
 import Icon from '../components/ui/Icon.vue';
@@ -40,7 +41,8 @@ const data = ref<InviteOpenDTO | null>(null);
  * met with a form before deciding, then only the details that answer needs.
  */
 const choice = ref<InviteAnswer | null>(null);
-const name = ref('');
+const firstName = ref('');
+const lastName = ref('');
 const email = ref('');
 const phone = ref('');
 const submitting = ref(false);
@@ -105,11 +107,21 @@ function takeGoogleResult(): void {
   const profile = google.profile;
   if (!profile) return;
   if (profile.email) email.value = profile.email;
-  if (profile.name && !name.value.trim()) name.value = profile.name;
+  if (profile.name && !firstName.value.trim() && !lastName.value.trim()) {
+    firstName.value = profile.name.first;
+    lastName.value = profile.name.last;
+  }
   fromGoogle.value = !!profile.email;
 }
 
 const isDeclined = computed(() => data.value?.status === 'declined');
+
+/**
+ * A yes to a party guests pay for is not a place yet: the ticket only comes
+ * once the host sees the money. Said as the next step, so nobody reads "on
+ * the list" and forgets to pay.
+ */
+const mustPay = computed(() => isConfirmed.value && payment.value !== null);
 
 /** Their own link to forward, once they have said yes and if the host allows it. */
 const forwardLink = computed(() => {
@@ -169,7 +181,9 @@ onMounted(async () => {
 
   data.value = result.value;
   rememberInviteId(slug.value, result.value.inviteId);
-  name.value = result.value.name ?? '';
+  const known = splitName(result.value.name);
+  firstName.value = known.first;
+  lastName.value = known.last;
   const contact = rememberedContact(slug.value);
   email.value = contact.email;
   phone.value = contact.phone;
@@ -180,7 +194,8 @@ onMounted(async () => {
 async function respond(answer: InviteAnswer): Promise<void> {
   if (submitting.value || !data.value) return;
   const body = answerBody(answer, {
-    name: name.value,
+    first: firstName.value,
+    last: lastName.value,
     email: email.value,
     phone: phone.value,
     paidParty: isPaid.value,
@@ -293,7 +308,17 @@ function copy(text: string, key: string): void {
     >
       <!-- Already answered -->
       <template v-if="phase === 'answered'">
-        <div v-if="isConfirmed" class="invite-verdict invite-verdict--yes">
+        <div v-if="mustPay" class="invite-verdict invite-verdict--yes">
+          <Icon name="ticket" :size="18" />
+          <div>
+            <strong>One more step, {{ splitName(data.name).first }}.</strong>
+            <span>
+              Pay below to secure your ticket. The host sends it as soon as your
+              payment arrives.
+            </span>
+          </div>
+        </div>
+        <div v-else-if="isConfirmed" class="invite-verdict invite-verdict--yes">
           <Icon name="check" :size="18" />
           <div>
             <strong>You're on the list, {{ data.name }}.</strong>
@@ -471,18 +496,32 @@ function copy(text: string, key: string): void {
           }}
         </p>
 
-        <label class="invite-field" for="invite-name">
-          <span class="invite-label">Your name</span>
-          <input
-            id="invite-name"
-            v-model="name"
-            class="invite-input"
-            placeholder="How the host knows you"
-            autocomplete="name"
-            maxlength="60"
-            @keyup.enter="submitChoice"
-          />
-        </label>
+        <div class="invite-name">
+          <label class="invite-field" for="invite-first-name">
+            <span class="invite-label">Name</span>
+            <input
+              id="invite-first-name"
+              v-model="firstName"
+              class="invite-input"
+              placeholder="Giulia"
+              autocomplete="given-name"
+              maxlength="40"
+              @keyup.enter="submitChoice"
+            />
+          </label>
+          <label class="invite-field" for="invite-last-name">
+            <span class="invite-label">Surname</span>
+            <input
+              id="invite-last-name"
+              v-model="lastName"
+              class="invite-input"
+              placeholder="Rossi"
+              autocomplete="family-name"
+              maxlength="40"
+              @keyup.enter="submitChoice"
+            />
+          </label>
+        </div>
 
         <!-- A yes to a paid party: somewhere to send the ticket once they've paid. -->
         <template v-if="asksContact">
@@ -513,7 +552,11 @@ function copy(text: string, key: string): void {
             Continue with Google
           </button>
           <p v-if="fromGoogle" class="invite-contact-note">
-            Filled in from Google. Check it, then confirm.
+            {{
+              lastName.trim()
+                ? 'Filled in from Google. Check it, then confirm.'
+                : 'Filled in from Google, which has no surname for you. Add yours, then confirm.'
+            }}
           </p>
           <p class="invite-contact-note">
             An email, a phone number, or both — at least one.
@@ -698,6 +741,21 @@ function copy(text: string, key: string): void {
   letter-spacing: 0.06em;
   color: var(--faint);
   margin-bottom: -8px;
+}
+/* Name and surname side by side: each field is its own small column there. */
+.invite-name {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.invite-name .invite-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.invite-name .invite-label {
+  margin-bottom: 0;
 }
 .invite-input {
   font-family: var(--font-body);

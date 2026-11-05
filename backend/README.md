@@ -29,6 +29,7 @@ See [ADR 0001](../docs/adr/0001-cloudflare-tiers.md) for why any of this exists.
 | `GET /api/parties/:id/invites`                       | member             | The RSVP funnel                                                     |
 | `POST /api/parties/:id/invites`                      | member             | Add a guest by hand (`source: manual`)                              |
 | `PATCH /api/parties/:id/invites/:inviteId`           | member             | Override a guest's answer                                           |
+| `DELETE /api/parties/:id/invites/:inviteId`          | member             | Take a guest off the list                                           |
 | `POST /api/parties/:id/invites/:inviteId/check-in`   | member             | They walked in. 409 if already scanned                              |
 | `DELETE /api/parties/:id/invites/:inviteId/check-in` | member             | Undo a check-in                                                     |
 | `GET /api/parties/:id/members`                       | member             | Who is on the party                                                 |

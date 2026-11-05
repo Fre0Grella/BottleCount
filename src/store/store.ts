@@ -390,6 +390,7 @@ export const store = {
   setInviteStatus: guests.setInviteStatus,
   setInviteContact: guests.setInviteContact,
   setInvitePaid: guests.setInvitePaid,
+  removeInvite: guests.removeInvite,
   checkInGuest: guests.checkInGuest,
   undoCheckIn: guests.undoCheckIn,
   // shopping

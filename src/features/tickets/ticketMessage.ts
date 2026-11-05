@@ -23,13 +23,14 @@ export function ticketMessage(
   guestName: string,
   link: string,
 ): string {
-  return `🎫 ${guestName}, you're on the list for ${party.name} (${shortDate(party.date)}). Your ticket — show the QR at the door: ${link}`;
+  // Plain ASCII, like every prefilled message (see `inviteMessage.ts`).
+  return `\\(^o^)/ ${guestName}, you're on the list for ${party.name} (${shortDate(party.date)})! Here's your ticket, show the QR at the door: ${link}`;
 }
 
 export function ticketEmailSubject(
   party: Pick<Party, 'name'> | null | undefined,
 ): string {
-  return `Your ticket — ${party?.name ?? 'the party'}`;
+  return `Your ticket for ${party?.name ?? 'the party'}`;
 }
 
 /**
