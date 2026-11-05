@@ -4,6 +4,8 @@ import { createMiddleware } from 'hono/factory';
 import { answerContact, guestName } from '../../../shared/contact';
 import type { InviteOpenDTO, InvitePartyDTO } from '../../../shared/invites';
 import { invitePartyOf, isInviteAnswer } from '../../../shared/invites';
+import type { GroupChatDTO } from '../../../shared/groupChat';
+import { groupChatFor } from '../../../shared/groupChat';
 import type { InvitePaymentDTO } from '../../../shared/payments';
 import { invitePayment, isPaidParty } from '../../../shared/payments';
 import type { AppEnv } from '../appEnv';
@@ -71,6 +73,15 @@ function paymentFor(
   );
 }
 
+/** The group chat to join, for a guest who has said yes. */
+function groupChatOf(
+  invite: Invite,
+  party: PublishedParty,
+): GroupChatDTO | null {
+  if (invite.status !== 'confirmed') return null;
+  return groupChatFor(party.document?.groupChat);
+}
+
 async function isFull(
   c: Context<Env>,
   party: PublishedParty,
@@ -94,6 +105,7 @@ async function inviteOpenDTO(
     name: invite.name,
     depth: invite.depth,
     payment: paymentFor(invite, party),
+    groupChat: groupChatOf(invite, party),
   };
 }
 

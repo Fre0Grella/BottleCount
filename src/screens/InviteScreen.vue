@@ -24,6 +24,7 @@ import BrandMark from '../components/ui/BrandMark.vue';
 import Icon from '../components/ui/Icon.vue';
 import ShareChannels from '../features/sharing/ShareChannels.vue';
 import InviteCard from '../features/guests/InviteCard.vue';
+import GroupChatButton from '../features/party/GroupChatButton.vue';
 
 /**
  * The page a guest lands on. It is the only screen in the app with no account
@@ -433,6 +434,12 @@ function copy(text: string, key: string): void {
             The money goes straight to the host, who marks you as paid once it
             arrives.
           </p>
+        </div>
+
+        <!-- The party's group chat. The server only sends it once they
+             have said yes. -->
+        <div v-if="isConfirmed && data.groupChat" class="invite-group">
+          <GroupChatButton :chat="data.groupChat" />
         </div>
 
         <!-- Their own link to pass on. Only appears once confirmed. -->
@@ -876,6 +883,10 @@ function copy(text: string, key: string): void {
   line-height: 1.55;
 }
 
+.invite-group {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
 .invite-pay {
   border-top: 1px solid var(--border);
   padding-top: 14px;

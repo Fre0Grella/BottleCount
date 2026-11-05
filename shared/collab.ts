@@ -4,6 +4,8 @@ import type { PartyPhotos } from './coverPhotos';
 import { normalisePhotos } from './coverPhotos';
 import type { PartyDetails } from './details';
 import { normaliseDetails } from './details';
+import type { GroupChat } from './groupChat';
+import { normaliseGroupChat } from './groupChat';
 import type { FeatureSet } from './tiers';
 import type { MergePatch } from './patch';
 import type { PaymentDetails } from './payments';
@@ -121,6 +123,8 @@ export interface PartyDocument {
   payment: PaymentDetails;
   /** The description and practical info. Public to the link; see `details.ts`. */
   details: PartyDetails;
+  /** The group chat's link and button text. Confirmed guests only; see `groupChat.ts`. */
+  groupChat: GroupChat;
 }
 
 /** The fields of a local `Party` that belong in the shared document. */
@@ -140,6 +144,7 @@ export const DOCUMENT_FIELDS = [
   'barManaged',
   'payment',
   'details',
+  'groupChat',
 ] as const satisfies readonly (keyof PartyDocument)[];
 
 function str(value: unknown, max: number): string {
@@ -241,6 +246,7 @@ export function normaliseDocument(value: unknown): PartyDocument {
     // does not validate is dropped rather than stored.
     payment: sanitisePaymentDetails(d['payment']),
     details: normaliseDetails(d['details']),
+    groupChat: normaliseGroupChat(d['groupChat']),
   };
 }
 

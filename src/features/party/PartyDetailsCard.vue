@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PartyDetails } from '../../../shared/details';
+import type { GroupChat } from '../../../shared/groupChat';
 import { DESCRIPTION_MAX, INFO_KINDS, INFO_MAX } from '../../../shared/details';
 import { INFO_FIELDS } from './partyDetails';
 import { setDescription, setInfo } from './planEdits';
@@ -7,13 +8,14 @@ import Card from '../../components/ui/Card.vue';
 import Field from '../../components/ui/Field.vue';
 import Icon from '../../components/ui/Icon.vue';
 import IconTile from '../../components/ui/IconTile.vue';
+import GroupChatFields from './GroupChatFields.vue';
 
 /**
  * What guests read on the invite page beyond the name, date and venue: a
- * description and a few practical lines. All optional; an empty one is not
- * shown.
+ * description and a few practical lines, then the group chat for those who
+ * say yes. All optional; an empty one is not shown.
  */
-defineProps<{ details: PartyDetails; phone: boolean }>();
+defineProps<{ details: PartyDetails; groupChat: GroupChat; phone: boolean }>();
 
 /** What an input event's field now holds. */
 function typed(e: Event): string {
@@ -71,6 +73,8 @@ function typed(e: Event): string {
         />
       </Field>
     </div>
+
+    <GroupChatFields :chat="groupChat" :phone="phone" />
   </Card>
 </template>
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import { emptyPhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
+import { emptyGroupChat } from '../../../shared/groupChat';
 import { fakeWorker, sent } from '../../lib/api/testing';
 import { documentOf } from '../../lib/collab';
 import { PartySync, type SyncCallbacks } from './sync';
@@ -34,6 +35,7 @@ function aParty(): Party {
     barManaged: true,
     payment: emptyPaymentDetails(),
     details: emptyDetails(),
+    groupChat: emptyGroupChat(),
     invites: [],
   };
 }

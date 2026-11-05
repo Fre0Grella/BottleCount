@@ -3,6 +3,7 @@ import type { PartyDocument, SharedPartyDTO } from '../../../../shared/collab';
 import { emptyPaymentDetails } from '../../../../shared/payments';
 import { emptyPhotos } from '../../../../shared/coverPhotos';
 import { emptyDetails } from '../../../../shared/details';
+import { emptyGroupChat } from '../../../../shared/groupChat';
 import type { Repositories } from '../../repositories/repositories';
 import { fakeInvites, fakeParties } from './fakeInvites';
 import {
@@ -41,6 +42,7 @@ export function aDocument(
     barManaged: true,
     payment: emptyPaymentDetails(),
     details: emptyDetails(),
+    groupChat: emptyGroupChat(),
     ...overrides,
   };
 }

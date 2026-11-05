@@ -5,6 +5,7 @@ import type { HostInviteDTO } from '../../../shared/invites';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import { emptyPhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
+import { emptyGroupChat } from '../../../shared/groupChat';
 import { fetchFunnel } from '../../lib/api/guests';
 import { fetchParty, patchParty } from '../../lib/api/parties';
 import type { ApiResult } from '../../lib/api/request';
@@ -57,6 +58,7 @@ function aParty(id: number, remoteId: string | null): Party {
     barManaged: true,
     payment: emptyPaymentDetails(),
     details: emptyDetails(),
+    groupChat: emptyGroupChat(),
     invites: [],
     publication: remoteId
       ? {
