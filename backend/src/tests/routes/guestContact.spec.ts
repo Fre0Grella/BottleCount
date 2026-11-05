@@ -436,3 +436,37 @@ describe('marking a guest as paid', () => {
     expect(await back.text()).not.toMatch(/paid_?at/i);
   });
 });
+
+describe('removing a guest', () => {
+  function remove(inviteId: string, as: string | null): Promise<Response> {
+    const path = `/api/parties/${partyId}/invites/${inviteId}`;
+    if (as === null) return request(path, { repositories, method: 'DELETE' });
+    return sessionCookie(as).then((cookie) =>
+      request(path, { repositories, cookie, method: 'DELETE' }),
+    );
+  }
+
+  it('takes them off every organiser’s list', async () => {
+    const { opened } = await rsvp({ name: 'Test', answer: 'declined' });
+
+    const res = await remove(opened.inviteId, 'user-2');
+
+    expect(res.status).toBe(200);
+    expect(await guestList('user-1')).toEqual([]);
+  });
+
+  it('answers 404 for a guest already gone', async () => {
+    const { opened } = await rsvp({ name: 'Test', answer: 'declined' });
+    await remove(opened.inviteId, 'user-1');
+
+    expect((await remove(opened.inviteId, 'user-1')).status).toBe(404);
+  });
+
+  it('is only for the party’s organisers', async () => {
+    const { opened } = await rsvp({ name: 'Giulia', answer: 'declined' });
+
+    expect((await remove(opened.inviteId, 'user-3')).status).toBe(404);
+    expect((await remove(opened.inviteId, null)).status).toBe(401);
+    expect(await guestList()).toHaveLength(1);
+  });
+});

@@ -26,6 +26,8 @@ const PROFILE = {
   email: 'Giulia.Rossi@Gmail.com',
   email_verified: true,
   name: 'Giulia Rossi',
+  given_name: 'Giulia',
+  family_name: 'Rossi',
 };
 
 function stubGoogle(profile: Record<string, unknown> = PROFILE): void {
@@ -111,6 +113,8 @@ describe('a guest continuing with Google', () => {
     ) as { name: string; email: string };
     expect(decoded).toEqual({
       name: 'Giulia Rossi',
+      first: 'Giulia',
+      last: 'Rossi',
       email: 'giulia.rossi@gmail.com',
     });
     expect(await storedEmail()).toBe('giulia.rossi@gmail.com');
@@ -124,6 +128,19 @@ describe('a guest continuing with Google', () => {
 
     expect(users.rows.size).toBe(before);
     expect(res.headers.get('set-cookie') ?? '').not.toContain('session_token');
+  });
+
+  it('sends no surname for an account that has none', async () => {
+    const { family_name: _none, ...noSurname } = PROFILE;
+    stubGoogle({ ...noSurname, name: 'Giulia' });
+    const { state, cookie } = await start();
+
+    const location = (await callback(state, cookie)).headers.get('location')!;
+    const fragment = location.split('#google=')[1]!;
+
+    expect(
+      JSON.parse(atob(fragment.replace(/-/g, '+').replace(/_/g, '/'))),
+    ).toMatchObject({ name: 'Giulia', first: 'Giulia', last: '' });
   });
 
   it('refuses an email Google has not verified', async () => {

@@ -6,6 +6,7 @@ import ModalShell from '../../components/ui/ModalShell.vue';
 import Icon from '../../components/ui/Icon.vue';
 import Toggle from '../../components/ui/Toggle.vue';
 import ShareChannels from './ShareChannels.vue';
+import { inviteMessage } from './inviteMessage';
 import { inviteUrl, linkLabel } from '../../../shared/urls';
 import { shortDate } from '../../lib/dates';
 import { venueWhere as whereOf } from '../../lib/display';
@@ -69,12 +70,11 @@ const shareHint = computed(() =>
     : 'Only people you invite directly can RSVP.',
 );
 
-/** The words that travel with the link in a message or an email. */
+/** The words that travel with the link — see `inviteMessage.ts`. */
 const message = computed(() => {
   const p = party.value;
   if (!p) return inviteLink.value;
-  const where = venueWhere.value === 'TBD' ? '' : ` at ${venueWhere.value}`;
-  return `You're invited to ${p.name} — ${partyDateShort.value}${where}. Let me know if you're coming: ${inviteLink.value}`;
+  return inviteMessage(p, whereOf(p.venue), inviteLink.value);
 });
 
 const qrFileName = computed(

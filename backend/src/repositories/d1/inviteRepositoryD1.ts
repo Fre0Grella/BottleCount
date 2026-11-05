@@ -457,6 +457,21 @@ export class InviteRepositoryD1 implements InviteRepository {
     return row ? ok(toInvite(row)) : err(INVITE_ERRORS.NOT_FOUND);
   }
 
+  async remove({
+    inviteId,
+    partyId,
+  }: {
+    inviteId: string;
+    partyId: string;
+  }): Promise<Result<void>> {
+    const row = await this.db
+      .prepare(`DELETE FROM invites WHERE id = ? AND party_id = ? RETURNING id`)
+      .bind(inviteId, partyId)
+      .first<{ id: string }>();
+
+    return row ? ok(undefined) : err(INVITE_ERRORS.NOT_FOUND);
+  }
+
   async listForParty(partyId: string): Promise<Result<InviteWithReferrer[]>> {
     // Oldest first: the host's client matches these onto rows it already has by
     // id, and a stable order keeps newly opened invites appending at the end

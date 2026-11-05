@@ -487,6 +487,25 @@ export function fakeInvites(seed: Invite[] = []): InviteRepository & {
       return ok(updated);
     },
 
+    async remove({
+      inviteId,
+      partyId,
+    }: {
+      inviteId: string;
+      partyId: string;
+    }): Promise<Result<void>> {
+      const row = rows.get(inviteId);
+      if (!row || row.partyId !== partyId) return err(INVITE_ERRORS.NOT_FOUND);
+      rows.delete(inviteId);
+      // The column's ON DELETE SET NULL: who they brought stays, unreferred.
+      for (const [id, other] of rows) {
+        if (other.referrerId === inviteId) {
+          rows.set(id, { ...other, referrerId: null });
+        }
+      }
+      return ok(undefined);
+    },
+
     async listForParty(partyId: string): Promise<Result<InviteWithReferrer[]>> {
       const list = [...rows.values()]
         .filter((i) => i.partyId === partyId)

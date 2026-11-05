@@ -48,6 +48,14 @@ export function addRemoteGuest(
   });
 }
 
+/** Takes a guest off the list on every organiser's phone. */
+export function removeRemoteGuest(
+  partyId: string,
+  inviteId: string,
+): Promise<ApiResult<void>> {
+  return request(invitePath(partyId, inviteId), { method: 'DELETE' });
+}
+
 /** Sets where to send a guest's ticket. Replaces both fields. */
 export function setRemoteContact(
   partyId: string,

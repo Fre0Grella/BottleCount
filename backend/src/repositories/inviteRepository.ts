@@ -166,4 +166,11 @@ export interface InviteRepository {
     inviteId: string;
     partyId: string;
   }): Promise<Result<Invite>>;
+
+  /**
+   * Takes a guest off the list for good: a test RSVP, a duplicate, someone
+   * who should not be there. Guests they brought stay, at their depth, with no
+   * referrer — the column's `ON DELETE SET NULL`.
+   */
+  remove(args: { inviteId: string; partyId: string }): Promise<Result<void>>;
 }

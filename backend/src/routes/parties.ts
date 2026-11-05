@@ -603,6 +603,20 @@ parties.patch('/:partyId/invites/:inviteId', async (c) => {
   return respond(c, updated, (row) => ({ ok: true, status: row.status }));
 });
 
+/**
+ * `DELETE /api/parties/:partyId/invites/:inviteId` — take a guest off the
+ * list: a test RSVP, a duplicate. Any organiser, like every other edit to the
+ * list. Their ticket link stops working with them; whoever they brought stays.
+ */
+parties.delete('/:partyId/invites/:inviteId', async (c) => {
+  const invite = c.get('invite');
+  const removed = await c.var.repositories.invites.remove({
+    inviteId: invite.id,
+    partyId: invite.partyId,
+  });
+  return respond(c, removed, () => ({ ok: true }));
+});
+
 // ── Co-organisers ───────────────────────────────────────────────────────────
 
 /** `GET /api/parties/:partyId/members` — who is on this party. */

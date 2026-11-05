@@ -4,6 +4,7 @@ import {
   addRemoteGuest,
   checkInRemote,
   earlierCheckIn,
+  removeRemoteGuest,
   setRemoteContact,
   setRemoteInviteStatus,
   setRemotePaid,
@@ -185,6 +186,32 @@ export async function setInviteContact(
   if (!result.value) return 'save_failed';
   const { email, phone } = result.value;
   editInvite(id, (i) => setContact(i, email, phone));
+  return null;
+}
+
+/**
+ * Takes a guest off the list for good — a test RSVP, a duplicate.
+ *
+ * On a shared party the server goes first, like a contact edit: a row removed
+ * here but not there would come straight back with the next refresh. A guest
+ * the server no longer has counts as removed. Returns the server's error, or
+ * null.
+ */
+export async function removeInvite(id: number): Promise<string | null> {
+  const found = withInvite(id);
+  if (!found) return null;
+
+  const partyRemoteId = found.party.publication?.remoteId;
+  const { remoteId } = found.invite;
+  if (partyRemoteId && remoteId) {
+    const result = await removeRemoteGuest(partyRemoteId, remoteId);
+    if (!result.ok && errorCode(result.error) !== 'invite_not_found') {
+      return errorCode(result.error);
+    }
+  }
+  update((p) => {
+    p.invites = p.invites.filter((i) => i.id !== id);
+  });
   return null;
 }
 

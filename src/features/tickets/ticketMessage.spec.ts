@@ -30,13 +30,19 @@ describe('ticketMessage', () => {
         'https://x/t/#t=abc',
       ),
     ).toBe(
-      "🎫 Giulia, you're on the list for Rooftop (14 Nov). Your ticket — show the QR at the door: https://x/t/#t=abc",
+      "\\(^o^)/ Giulia, you're on the list for Rooftop (14 Nov)! Here's your ticket, show the QR at the door: https://x/t/#t=abc",
     );
+  });
+
+  it('is plain ASCII, subject included, so it reads right on any phone', () => {
+    const party = { name: 'Rooftop', date: '2026-11-14' };
+    expect(ticketMessage(party, 'Giulia', 'L')).toMatch(/^[\x20-\x7E]*$/);
+    expect(ticketEmailSubject(party)).toMatch(/^[\x20-\x7E]*$/);
   });
 
   it('has a subject for the mail app', () => {
     expect(ticketEmailSubject({ name: 'Rooftop' })).toBe(
-      'Your ticket — Rooftop',
+      'Your ticket for Rooftop',
     );
   });
 });

@@ -561,10 +561,31 @@ export function repositoryContract(name: string, target: ContractTarget): void {
           await repos.invites.checkIn({ ...elsewhere, at: '2026-01-01' }),
         ).toEqual(notFound);
         expect(await repos.invites.undoCheckIn(elsewhere)).toEqual(notFound);
+        expect(await repos.invites.remove(elsewhere)).toEqual(notFound);
         expect(
           await repos.invites.setTicket({ ...elsewhere, signed: 's' }),
         ).toEqual(notFound);
         expect(await repos.invites.findById('nope')).toEqual(notFound);
+      });
+
+      it('removes a guest, keeping who they brought', async () => {
+        const guest = await openInvite(party.id);
+        const friend = await openInvite(party.id, guest.forwardToken);
+        const at = { inviteId: guest.id, partyId: party.id };
+        const notFound = { ok: false, error: INVITE_ERRORS.NOT_FOUND };
+
+        expect((await repos.invites.remove(at)).ok).toBe(true);
+        expect(await repos.invites.findById(guest.id)).toEqual(notFound);
+        // Gone already is still gone.
+        expect(await repos.invites.remove(at)).toEqual(notFound);
+
+        const left = value(await repos.invites.listForParty(party.id));
+        expect(left.map((i) => i.id)).toEqual([friend.id]);
+        expect(left[0]).toMatchObject({
+          depth: 1,
+          referrerId: null,
+          referrerName: null,
+        });
       });
 
       it('lets the host override an answer, capacity or not', async () => {

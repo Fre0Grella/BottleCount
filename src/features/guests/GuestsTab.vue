@@ -5,6 +5,7 @@ import { ticketState } from '../../../shared/tickets';
 import {
   funnelBar,
   funnelGroups,
+  guestListOrder,
   initial,
   isNameless,
   referrerFirst,
@@ -34,8 +35,9 @@ const party = computed(() => store.activeParty());
 const invites = computed(() => party.value?.invites ?? []);
 const filteredInvites = computed(() => {
   const q = guestSearch.value.trim().toLowerCase();
-  if (!q) return invites.value;
-  return invites.value.filter((i) => i.name.toLowerCase().includes(q));
+  const listed = guestListOrder(invites.value);
+  if (!q) return listed;
+  return listed.filter((i) => i.name.toLowerCase().includes(q));
 });
 
 const groups = computed(() => funnelGroups(invites.value));
@@ -54,6 +56,29 @@ function unpaid(inv: Invite): boolean {
 
 function markPaid(inv: Invite): void {
   void togglePaid(store, party.value, inv);
+}
+
+/**
+ * Removing a guest takes two taps on the same row: the first arms it, the
+ * second removes. No dialog, and a stray tap on a busy list costs nothing.
+ */
+const armedRemove = ref<number | null>(null);
+const removeFailed = ref<number | null>(null);
+
+async function removeGuest(inv: Invite): Promise<void> {
+  if (armedRemove.value !== inv.id) {
+    armedRemove.value = inv.id;
+    removeFailed.value = null;
+    return;
+  }
+  armedRemove.value = null;
+  const failed = await store.removeInvite(inv.id);
+  removeFailed.value = failed ? inv.id : null;
+}
+
+/** Tapping anywhere else takes the arming back. */
+function disarmRemove(inv: Invite): void {
+  if (armedRemove.value === inv.id) armedRemove.value = null;
 }
 
 const venueFee = computed(() => {
@@ -490,16 +515,30 @@ const lastSyncedLabel = computed(() => {
             >
               No email or phone yet
             </div>
-            <button
-              v-if="inv.source === 'manual'"
-              type="button"
-              class="contact-edit"
-              @click="store.openGuestContact(inv.id)"
-            >
-              {{
-                inv.email || inv.phone ? 'Edit contact' : 'Add email or phone'
-              }}
-            </button>
+            <div class="row-tools">
+              <button
+                v-if="inv.source === 'manual'"
+                type="button"
+                class="contact-edit"
+                @click="store.openGuestContact(inv.id)"
+              >
+                {{
+                  inv.email || inv.phone ? 'Edit contact' : 'Add email or phone'
+                }}
+              </button>
+              <button
+                type="button"
+                class="remove"
+                :class="{ 'remove--armed': armedRemove === inv.id }"
+                @click="removeGuest(inv)"
+                @blur="disarmRemove(inv)"
+              >
+                {{ armedRemove === inv.id ? 'Tap again to remove' : 'Remove' }}
+              </button>
+              <span v-if="removeFailed === inv.id" class="remove-failed">
+                Couldn't remove. Try again.
+              </span>
+            </div>
           </div>
 
           <!-- action buttons; on a phone only their icons show -->
@@ -1008,6 +1047,29 @@ const lastSyncedLabel = computed(() => {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent);
+}
+.row-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+.remove {
+  cursor: pointer;
+  padding: 0;
+  margin-top: 2px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--faint);
+}
+.remove--armed {
+  color: var(--bad);
+}
+.remove-failed {
+  font-size: 11px;
+  color: var(--bad);
 }
 .actions {
   display: flex;

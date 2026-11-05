@@ -150,6 +150,13 @@ interface GoogleProfile {
   email?: string;
   email_verified?: boolean;
   name?: string;
+  /**
+   * The name split as the guest gave it to Google, so "Anna Maria Rossi" fills
+   * Anna Maria / Rossi rather than a guess. Google does not require a surname:
+   * `family_name` is absent for an account that has none.
+   */
+  given_name?: string;
+  family_name?: string;
 }
 
 async function profileFor(
@@ -220,10 +227,12 @@ guestGoogle.get('/guest-google/callback', async (c) => {
   });
 
   const name = guestName(profile?.name ?? '');
+  const first = guestName(profile?.given_name ?? '');
+  const last = guestName(profile?.family_name ?? '');
   return backToInvite(
     c,
     state.slug,
-    `google=${encodeFragment({ name, email })}`,
+    `google=${encodeFragment({ name, first, last, email })}`,
   );
 });
 

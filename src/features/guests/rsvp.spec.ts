@@ -6,12 +6,14 @@ import {
   answerOutcome,
   forwardMessage,
   forwardQrFileName,
+  joinName,
   needsContact,
   readGoogleReturn,
   rememberContact,
   rememberInviteId,
   rememberedContact,
   rememberedInviteId,
+  splitName,
 } from './rsvp';
 
 function memoryStorage(): Storage {
@@ -88,7 +90,19 @@ describe('readGoogleReturn', () => {
   it('reads the profile, including non-ASCII names', () => {
     const hash = `#google=${base64url({ name: 'Łukasz Żak', email: 'l@gmail.com' })}`;
     expect(readGoogleReturn(hash)).toEqual({
-      profile: { name: 'Łukasz Żak', email: 'l@gmail.com' },
+      profile: { name: { first: 'Łukasz', last: 'Żak' }, email: 'l@gmail.com' },
+    });
+  });
+
+  it('takes Google’s own first name and surname, which may be missing', () => {
+    const split = `#google=${base64url({ name: 'Anna Maria Rossi', first: 'Anna Maria', last: 'Rossi' })}`;
+    const noSurname = `#google=${base64url({ name: 'Giulia', first: 'Giulia', last: '' })}`;
+
+    expect(readGoogleReturn(split)).toEqual({
+      profile: { name: { first: 'Anna Maria', last: 'Rossi' } },
+    });
+    expect(readGoogleReturn(noSurname)).toEqual({
+      profile: { name: { first: 'Giulia', last: '' } },
     });
   });
 
@@ -118,22 +132,31 @@ describe('readGoogleReturn', () => {
 });
 
 describe('answerBody', () => {
-  const form = { name: ' Giulia ', email: '', phone: '', paidParty: false };
+  const form = {
+    first: ' Giulia ',
+    last: ' Rossi',
+    email: '',
+    phone: '',
+    paidParty: false,
+  };
 
-  it('wants a name first', () => {
-    expect(answerBody('confirmed', { ...form, name: '  ' })).toEqual({
+  it('wants a name and a surname first', () => {
+    expect(answerBody('confirmed', { ...form, first: '  ' })).toEqual({
       error: 'Pop your name in first.',
+    });
+    expect(answerBody('declined', { ...form, last: '' })).toEqual({
+      error: 'Add your surname too.',
     });
   });
 
   it('sends only the name for a decline or a free party', () => {
     expect(answerBody('confirmed', form)).toEqual({
-      name: 'Giulia',
+      name: 'Giulia Rossi',
       answer: 'confirmed',
     });
     expect(
       answerBody('declined', { ...form, paidParty: true, email: 'x' }),
-    ).toEqual({ name: 'Giulia', answer: 'declined' });
+    ).toEqual({ name: 'Giulia Rossi', answer: 'declined' });
   });
 
   it('asks a yes to a paid party where to send the ticket', () => {
@@ -150,14 +173,14 @@ describe('answerBody', () => {
     expect(
       answerBody('confirmed', { ...paid, email: 'G@Example.com' }),
     ).toEqual({
-      name: 'Giulia',
+      name: 'Giulia Rossi',
       answer: 'confirmed',
       email: 'g@example.com',
       phone: '',
     });
     expect(answerBody('confirmed', { ...paid, phone: '333 123 4567' })).toEqual(
       {
-        name: 'Giulia',
+        name: 'Giulia Rossi',
         answer: 'confirmed',
         email: '',
         phone: '+393331234567',
@@ -237,13 +260,37 @@ describe('passing it on', () => {
   it('words the message from the guest, with the place when there is one', () => {
     const party = { name: 'Rooftop', date: '2026-11-14' };
     expect(forwardMessage(party, 'Milano', 'https://x/i/a')).toMatch(
-      /^I'm going to Rooftop on .+ at Milano — come along! RSVP here: https:\/\/x\/i\/a$/,
+      /^I'm going to Rooftop on .+ at Milano, come along! \\\(\^o\^\)\/ RSVP here: https:\/\/x\/i\/a$/,
     );
+    expect(forwardMessage(party, 'Milano', 'L')).toMatch(/^[\x20-\x7E]*$/);
     expect(forwardMessage(party, '', 'L')).not.toContain(' at ');
   });
 
   it('names the QR file after the party', () => {
     expect(forwardQrFileName('Anna’s 30th!')).toBe('anna-s-30th--invite.png');
     expect(forwardQrFileName(undefined)).toBe('party-invite.png');
+  });
+});
+
+describe('the name, as two fields', () => {
+  it('joins them into one, spaces tidied', () => {
+    expect(joinName({ first: ' Maria ', last: 'De   Luca ' })).toBe(
+      'Maria De Luca',
+    );
+  });
+
+  it('caps the joined name like the server does', () => {
+    expect(
+      joinName({ first: 'A'.repeat(40), last: 'B'.repeat(40) }),
+    ).toHaveLength(60);
+  });
+
+  it('splits a stored name back: first word, then the rest', () => {
+    expect(splitName('Maria De Luca')).toEqual({
+      first: 'Maria',
+      last: 'De Luca',
+    });
+    expect(splitName('Giulia')).toEqual({ first: 'Giulia', last: '' });
+    expect(splitName(null)).toEqual({ first: '', last: '' });
   });
 });

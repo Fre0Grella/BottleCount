@@ -1,4 +1,4 @@
-import { requireContact } from '../../../shared/contact';
+import { guestName, requireContact } from '../../../shared/contact';
 import type { InviteAnswer, InviteOpenDTO } from '../../../shared/invites';
 import type { ApiResult } from '../../lib/api/request';
 import { formatLocalDate } from '../../lib/dates';
@@ -63,7 +63,7 @@ export function rememberContact(slug: string, contact: ContactDraft): void {
  */
 export type GoogleReturn =
   | { error: string }
-  | { profile: { name?: string; email?: string } | null };
+  | { profile: { name?: NameDraft; email?: string } | null };
 
 /**
  * Reads the Worker's `#google=<base64url JSON>` or `#google_error=<why>` off a
@@ -89,10 +89,22 @@ export function readGoogleReturn(hash: string): GoogleReturn | null {
     const bytes = Uint8Array.from(atob(padded), (ch) => ch.charCodeAt(0));
     const raw = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
     if (!raw || typeof raw !== 'object') return { profile: null };
-    const { name, email } = raw as Record<string, unknown>;
+    const { name, first, last, email } = raw as Record<string, unknown>;
+    // Google's own split when it gave one; the full name split by word
+    // otherwise (a fragment from before the split was sent). Google does not
+    // require a surname, so `last` may well be empty.
+    const draft =
+      typeof first === 'string' && first.trim()
+        ? {
+            first: first.trim(),
+            last: typeof last === 'string' ? last.trim() : '',
+          }
+        : typeof name === 'string' && name.trim()
+          ? splitName(name)
+          : null;
     return {
       profile: {
-        ...(typeof name === 'string' ? { name } : {}),
+        ...(draft ? { name: draft } : {}),
         ...(typeof email === 'string' ? { email } : {}),
       },
     };
@@ -118,6 +130,30 @@ export function needsContact(
   return answer === 'confirmed' && paidParty;
 }
 
+/**
+ * A guest's name, asked as a first name and a surname so the host gets both —
+ * "Giulia" alone is three people on a busy list. The server stores one name;
+ * the two fields are only how it is asked.
+ */
+export interface NameDraft {
+  first: string;
+  last: string;
+}
+
+/** One name from the two fields, spaces tidied. */
+export function joinName(draft: NameDraft): string {
+  return guestName(`${draft.first} ${draft.last}`.replace(/\s+/g, ' ').trim());
+}
+
+/**
+ * The two fields back from one stored name (or Google's): the first word, then
+ * the rest — "Maria De Luca" is Maria and De Luca.
+ */
+export function splitName(full: string | null | undefined): NameDraft {
+  const words = (full ?? '').trim().split(/\s+/).filter(Boolean);
+  return { first: words[0] ?? '', last: words.slice(1).join(' ') };
+}
+
 export interface AnswerBody {
   name: string;
   answer: InviteAnswer;
@@ -132,10 +168,11 @@ export interface AnswerBody {
  */
 export function answerBody(
   answer: InviteAnswer,
-  form: { name: string; email: string; phone: string; paidParty: boolean },
+  form: NameDraft & { email: string; phone: string; paidParty: boolean },
 ): AnswerBody | { error: string | null } {
-  const name = form.name.trim();
-  if (!name) return { error: 'Pop your name in first.' };
+  if (!form.first.trim()) return { error: 'Pop your name in first.' };
+  if (!form.last.trim()) return { error: 'Add your surname too.' };
+  const name = joinName(form);
   if (!needsContact(answer, form.paidParty)) return { name, answer };
   const contact = requireContact(form.email, form.phone);
   if ('error' in contact)
@@ -209,7 +246,8 @@ export function forwardMessage(
     month: 'short',
   });
   const at = where ? ` at ${where}` : '';
-  return `I'm going to ${party.name} on ${day}${at} — come along! RSVP here: ${link}`;
+  // Plain ASCII, like every prefilled message (see `inviteMessage.ts`).
+  return `I'm going to ${party.name} on ${day}${at}, come along! \\(^o^)/ RSVP here: ${link}`;
 }
 
 /** The forward QR's download name: the party's name as a file name. */
