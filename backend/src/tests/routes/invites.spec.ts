@@ -6,6 +6,7 @@ import type {
 import type { SharedPartyDTO, Venue } from '../../../../shared/collab';
 import type { PartyDetails } from '../../../../shared/details';
 import { emptyDetails } from '../../../../shared/details';
+import type { GroupChat } from '../../../../shared/groupChat';
 import type { PaymentDetails } from '../../../../shared/payments';
 import { emptyPaymentDetails } from '../../../../shared/payments';
 import type { Repositories } from '../../repositories/repositories';
@@ -26,6 +27,7 @@ async function aPublishedParty(
     payment?: Partial<PaymentDetails>;
     venue?: Venue;
     details?: PartyDetails;
+    groupChat?: GroupChat;
   } = {},
 ): Promise<{ repositories: Repositories; party: PublishedPartyDTO }> {
   const repositories = repositoriesWith();
@@ -34,6 +36,7 @@ async function aPublishedParty(
     payment: { ...emptyPaymentDetails(), ...overrides.payment },
     venue: overrides.venue ?? aDocument().venue,
     details: overrides.details ?? aDocument().details,
+    groupChat: overrides.groupChat ?? aDocument().groupChat,
     settings: {
       ...aDocument().settings,
       max_capacity: overrides.maxCapacity ?? null,
@@ -583,5 +586,58 @@ describe('paying the host', () => {
     expect(dto.payment?.satispayUrl).toBeNull();
     expect(dto.payment?.revolutUrl).toBeNull();
     expect(dto.payment?.paypalUrl).toBe('https://paypal.me/marcog/15EUR');
+  });
+});
+
+describe('the group chat', () => {
+  const WHATSAPP = { url: 'chat.whatsapp.com/AbC123', label: '' };
+
+  async function answered(
+    repositories: Repositories,
+    slug: string,
+    reply: 'confirmed' | 'declined',
+  ): Promise<InviteOpenDTO> {
+    const opened = await open(repositories, slug);
+    const res = await answer(repositories, slug, {
+      inviteId: opened.inviteId,
+      name: 'Giulia Rossi',
+      answer: reply,
+    });
+    return (await res.json()) as InviteOpenDTO;
+  }
+
+  it('is offered to a guest who confirms, with its app and button text', async () => {
+    const { repositories, party } = await aPublishedParty({
+      groupChat: WHATSAPP,
+    });
+
+    expect(
+      (await answered(repositories, party.slug, 'confirmed')).groupChat,
+    ).toEqual({
+      url: 'https://chat.whatsapp.com/AbC123',
+      app: 'whatsapp',
+      label: 'Join the WhatsApp group',
+    });
+  });
+
+  it('is withheld until then, and from a guest who declined', async () => {
+    const { repositories, party } = await aPublishedParty({
+      groupChat: WHATSAPP,
+    });
+
+    expect((await open(repositories, party.slug)).groupChat).toBeNull();
+    expect(
+      (await answered(repositories, party.slug, 'declined')).groupChat,
+    ).toBeNull();
+  });
+
+  it('never hands out a link that is not one', async () => {
+    const { repositories, party } = await aPublishedParty({
+      groupChat: { url: 'javascript:alert(1)', label: 'Click me' },
+    });
+
+    expect(
+      (await answered(repositories, party.slug, 'confirmed')).groupChat,
+    ).toBeNull();
   });
 });

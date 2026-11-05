@@ -69,6 +69,20 @@ export function setDescription(text: string): void {
   });
 }
 
+/** The group chat's link; '' takes the button off the invite page. */
+export function setGroupChatUrl(url: string): void {
+  update((p) => {
+    p.groupChat.url = url;
+  });
+}
+
+/** The button's text; '' falls back to naming the app. */
+export function setGroupChatLabel(label: string): void {
+  update((p) => {
+    p.groupChat.label = label;
+  });
+}
+
 /** One line of practical info; '' takes it off the invite page. */
 export function setInfo(kind: InfoKind, text: string): void {
   update((p) => {

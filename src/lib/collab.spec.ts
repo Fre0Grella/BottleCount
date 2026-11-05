@@ -4,6 +4,7 @@ import { applyDocument, documentOf } from './collab';
 import { emptyPaymentDetails } from '../../shared/payments';
 import { emptyPhotos } from '../../shared/coverPhotos';
 import { emptyDetails } from '../../shared/details';
+import { emptyGroupChat } from '../../shared/groupChat';
 import type { Party } from './types';
 
 function aParty(): Party {
@@ -33,6 +34,7 @@ function aParty(): Party {
     barManaged: true,
     payment: emptyPaymentDetails(),
     details: emptyDetails(),
+    groupChat: emptyGroupChat(),
     invites: [],
   };
 }
@@ -97,6 +99,16 @@ describe('applyDocument', () => {
     applyDocument(party, stale as never);
 
     expect(party.details).toEqual(emptyDetails());
+  });
+
+  it('gives an empty group chat when the server copy predates it', () => {
+    const party = aParty();
+    const stale = documentOf(party) as unknown as Record<string, unknown>;
+    delete stale['groupChat'];
+
+    applyDocument(party, stale as never);
+
+    expect(party.groupChat).toEqual(emptyGroupChat());
   });
 
   it('fills in a payment the server only has part of', () => {

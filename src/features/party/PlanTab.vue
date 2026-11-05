@@ -289,7 +289,11 @@ const pnl = computed(() =>
     </Card>
 
     <!-- ── 2b. For your guests ──────────────────────────────────────── -->
-    <PartyDetailsCard :details="p.details" :phone="isPhone" />
+    <PartyDetailsCard
+      :details="p.details"
+      :group-chat="p.groupChat"
+      :phone="isPhone"
+    />
 
     <!-- ── 3. Who's coming ───────────────────────────────────────────── -->
     <Card>

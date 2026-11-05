@@ -4,6 +4,7 @@ import type { PaymentDetails } from '../../shared/payments';
 import type { Venue } from '../../shared/collab';
 import type { PartyPhotos } from '../../shared/coverPhotos';
 import type { PartyDetails } from '../../shared/details';
+import type { GroupChat } from '../../shared/groupChat';
 import type {
   Catalog,
   Cocktail,
@@ -167,6 +168,8 @@ export interface Party {
   payment: PaymentDetails;
   /** What guests read on the invite page beyond the card; see shared/details.ts. */
   details: PartyDetails;
+  /** The group chat confirmed guests are offered; see shared/groupChat.ts. */
+  groupChat: GroupChat;
   invites: Invite[];
   /**
    * Set once the host turns the invite link on. Holds what the browser needs to

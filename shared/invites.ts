@@ -11,6 +11,7 @@ import type { PartyPhotos } from './coverPhotos';
 import { emptyPhotos } from './coverPhotos';
 import type { PartyDetails } from './details';
 import { emptyDetails } from './details';
+import type { GroupChatDTO } from './groupChat';
 import type { InvitePaymentDTO } from './payments';
 import { isPaidParty } from './payments';
 
@@ -126,6 +127,11 @@ export interface InviteOpenDTO {
    * guest confirms, so nobody pays for a party that turns out to be full.
    */
   payment: InvitePaymentDTO | null;
+  /**
+   * The group chat to join, or null when there is none. Withheld until the
+   * guest confirms, like `payment`: whoever has a group link can join.
+   */
+  groupChat: GroupChatDTO | null;
 }
 
 export interface InviteAnswerRequest {

@@ -1,6 +1,7 @@
 import { emptyCatalog } from '../../../shared/catalog';
 import { emptyPhotos, normalisePhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
+import { emptyGroupChat } from '../../../shared/groupChat';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import settingsData from '../../data/settings.json';
 import { localIsoDate } from '../../lib/dates';
@@ -43,6 +44,7 @@ export function newParty(now: Date = new Date()): Party {
     barManaged: true,
     payment: emptyPaymentDetails(),
     details: emptyDetails(),
+    groupChat: emptyGroupChat(),
     invites: [],
     publication: null,
   };

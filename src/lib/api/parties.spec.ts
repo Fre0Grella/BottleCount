@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyPaymentDetails } from '../../../shared/payments';
 import { emptyPhotos } from '../../../shared/coverPhotos';
 import { emptyDetails } from '../../../shared/details';
+import { emptyGroupChat } from '../../../shared/groupChat';
 import type { Party } from '../types';
 import {
   acceptCollaboratorInvite,
@@ -48,6 +49,7 @@ function aParty(): Party {
     barManaged: true,
     payment: emptyPaymentDetails(),
     details: emptyDetails(),
+    groupChat: emptyGroupChat(),
     invites: [
       {
         id: 1,
